@@ -1,13 +1,18 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { z } from 'zod';
 import { env } from '../../config/env.js';
-import { RegisterSchema, LoginSchema, type RegisterDto, type LoginDto } from '../../config/validation.js';
+import {
+  RegisterSchema,
+  LoginSchema,
+  type RegisterDto,
+  type LoginDto,
+} from '../../config/validation.js';
 import type { AsyncHandler } from '../../types/index.js';
 
 export const registerHandler: AsyncHandler = async (req, res) => {
   const data = RegisterSchema.parse(req.body) as RegisterDto;
-  res.status(201).json({ message: 'OK', username: data.username });
+  const passwordHash = await bcrypt.hash(data.password, 10);
+  res.status(201).json({ message: 'OK', username: data.username, passwordHash });
 };
 
 export const loginHandler: AsyncHandler = async (req, res) => {

@@ -1,8 +1,9 @@
 import { Client } from 'colyseus.js';
+import type { Room } from 'colyseus.js';
 
 class NetworkManager {
   private client: Client | null = null;
-  private currentRoom: any = null;
+  private currentRoom: Room | null = null;
 
   connect() {
     if (this.client) return this.client;

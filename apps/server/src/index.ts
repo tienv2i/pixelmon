@@ -1,4 +1,3 @@
-import express from 'express';
 import { Server } from 'colyseus';
 import { createServer } from 'http';
 import { WorldRoom } from './modules/world/world.room.js';

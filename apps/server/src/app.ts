@@ -1,12 +1,16 @@
 import express from 'express';
-import type { Express } from 'express';
 import cors from 'cors';
-import authRouter from './modules/auth/index.js';
-import playerRouter from './modules/player/index.js';
+import type { Express } from 'express';
+import type { DatabaseSync } from 'node:sqlite';
+import { createAuthRouter } from './modules/auth/index.js';
+import { createAdminRouter } from './modules/admin/index.js';
 
-export const app: Express = express();
-
-app.use(cors());
-app.use(express.json());
-app.use('/api/auth', authRouter);
-app.use('/api/player', playerRouter);
+export function createApp(db: DatabaseSync): Express {
+  const app = express();
+  app.use(cors());
+  app.use(express.json());
+  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  app.use('/api/auth', createAuthRouter(db));
+  app.use('/api/admin', createAdminRouter(db));
+  return app;
+}

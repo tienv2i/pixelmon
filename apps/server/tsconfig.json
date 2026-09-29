@@ -4,6 +4,8 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": ".",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
     "paths": {
       "@pixelmon/shared": ["../../packages/shared/src"]
     }

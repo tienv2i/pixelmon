@@ -1,12 +1,13 @@
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import type { AuthUser } from '../../types/index.js';
+import type { AuthUser } from '../../types/auth.js';
 import { env } from '../../config/env.js';
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Missing bearer token' });
+    res.status(401).json({ error: 'Missing bearer token' });
+    return;
   }
   const token = header.slice(7);
   try {
@@ -14,6 +15,6 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     req.user = payload;
     next();
   } catch {
-    return res.status(401).json({ message: 'Invalid token' });
+    res.status(401).json({ error: 'Invalid token' });
   }
 }

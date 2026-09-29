@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { Schema } from '@colyseus/schema';
+import type { AuthUser } from './auth.js';
 
 export interface WorldState extends Schema {
   [key: string]: unknown;
@@ -7,11 +8,6 @@ export interface WorldState extends Schema {
 
 export interface BattleState extends Schema {
   [key: string]: unknown;
-}
-
-export interface AuthUser {
-  sub: string;
-  username: string;
 }
 
 declare global {

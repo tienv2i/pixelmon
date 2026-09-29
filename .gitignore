@@ -12,6 +12,15 @@ build/
 .env.*
 !.env.example
 
+# Runtime databases (SQLite)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+data/
+
 # Logs
 *.log
 npm-debug.log*

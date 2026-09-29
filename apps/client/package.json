@@ -1,0 +1,26 @@
+{
+  "name": "@pixelmon/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pixelmon/shared": "workspace:*",
+    "colyseus.js": "^0.16.0",
+    "phaser": "^3.80.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.8",
+    "eslint": "^9.16.0",
+    "typescript-eslint": "^8.17.0"
+  }
+}

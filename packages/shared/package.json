@@ -1,0 +1,49 @@
+{
+  "name": "@pixelmon/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "description": "Shared types, constants, schemas and formulas between client and server",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./types/*": {
+      "types": "./src/types/*.ts",
+      "import": "./src/types/*.ts"
+    },
+    "./constants/*": {
+      "types": "./src/constants/*.ts",
+      "import": "./src/constants/*.ts"
+    },
+    "./schema/*": {
+      "types": "./src/schema/*.ts",
+      "import": "./src/schema/*.ts"
+    },
+    "./formulas/*": {
+      "types": "./src/formulas/*.ts",
+      "import": "./src/formulas/*.ts"
+    },
+    "./network/*": {
+      "types": "./src/network/*.ts",
+      "import": "./src/network/*.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8",
+    "eslint": "^9.16.0",
+    "typescript-eslint": "^8.17.0"
+  }
+}

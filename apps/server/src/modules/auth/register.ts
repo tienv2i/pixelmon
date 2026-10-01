@@ -38,7 +38,7 @@ export async function registerHandler(req: Request, res: Response): Promise<void
     // Create default player row
     await pool.query(
       `INSERT INTO players (id, x, y, map_id, direction, level, exp, money)
-       VALUES ($1, 0, 0, 'route_1', 'down', 1, 0, 5000)`,
+       VALUES ($1, 160, 368, 'pallet-town', 'down', 1, 0, 5000)`,
       [id],
     );
 

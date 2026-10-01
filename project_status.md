@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 32: Hệ thống PC Box, Đội hình Party & Bảng chi tiết Pokémon)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 33: Tái thiết kế Bản đồ Pallet Town chuẩn mực 32×32, Hệ thống Layer Tiled & Định vị Người chơi trong Database)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -61,6 +61,7 @@
 | Plan 30 — Đổi icon nút Dock theo chế độ, Liên kết Modal với Settings, ChatLog bên phải              | ✅           |
 | Plan 31 — Nạp dữ liệu Pokémon Essentials v21.1 & Giao diện Quản trị Game Data                        | ✅           |
 | Plan 32 — Hệ thống PC Box, Đội hình Party & Bảng chi tiết Pokémon (Storage & Summary)                | ✅           |
+| Plan 33 — Tái thiết kế Bản đồ Pallet Town chuẩn mực, Hệ thống Layer Tiled & Định vị Người chơi trong Database | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -1560,5 +1561,40 @@ Xây dựng trọn vẹn chu trình quản lý Pokémon cho người chơi trong
 - **Kiểm tra chất lượng:**
   - `pnpm run typecheck`: 4/4 packages pass trơn tru không lỗi.
   - Cả Server (:2567) và Client (:5173) đã restart và hoạt động ổn định.
+
+---
+
+### Plan 33 — Tái thiết kế Bản đồ Pallet Town chuẩn mực, Hệ thống Layer Tiled & Định vị Người chơi trong Database (2026-10-01)
+- **Khắc phục lỗi GID Offset & Chuẩn hoá Layer trong `TiledMapLoader.ts`:**
+  - Phát hiện và sửa lỗi nghiêm trọng: code cũ dùng `gid - 1` để tính chỉ số tile, trong khi `ts.firstgid = 384` khiến toàn bộ tile từ `Outdoor.png` bị lệch 383 hàng tile (trỏ vào vùng rỗng/sai lệch hoàn toàn). Đã chuẩn hoá thành `gid - ts.firstgid`.
+  - Phân tách độ sâu (Depth) rõ ràng cho 3 layer:
+    - **Ground Layer:** Depth = 10 (nền cỏ xanh, đường mòn cát sỏi, mặt nước bờ biển).
+    - **Decoration Layer:** Depth = 12 (thân cây, tường nhà, cửa sổ, cửa ra vào, hàng rào, bảng chỉ dẫn, hoa, bụi cỏ cao).
+    - **Player & Remote Players:** Depth = 20 (nhân vật di chuyển).
+    - **Overhead Layer:** Depth = 30 (mái nhà Red, Blue, Oak Lab và ngọn cây che phủ đầu nhân vật khi đi phía sau).
+- **Tái thiết kế Bản đồ Pallet Town chuẩn mực (FireRed / Essentials 20×18 ô, 320×288 px):**
+  - Cập nhật cả `pallet-town.tmj` (Phaser Tiled) và `server/pallet-town.json` (Colyseus World Room):
+    - **Bao quanh:** Hàng cây thông rậm rạp che chắn phía Tây, Đông và Bắc.
+    - **Phía Bắc (hàng 0-2):** Lối ra Route 1 tại cột 9..10 kèm các cụm bãi cỏ cao (Tall Grass) hai bên.
+    - **Góc Tây Bắc:** Nhà người chơi (Red's House, X: 3..7, Y: 3..6) mái đỏ đặc trưng, cửa ra vào (X: 5, Y: 6), biển báo "RED'S HOUSE", hàng rào trắng bao quanh sân.
+    - **Góc Đông Bắc:** Nhà đối thủ (Blue's House, X: 12..16, Y: 3..6) mái xanh, cửa ra vào (X: 14, Y: 6), biển báo "BLUE'S HOUSE", luống hoa đỏ vàng trước sân.
+    - **Góc Đông Nam:** Viện nghiên cứu Giáo sư Oak (Oak's Pokémon Research Lab, X: 11..16, Y: 9..13) kích thước 6×5 ô, mái ngói xám, cửa đôi (X: 13..14, Y: 13), biển báo phòng nghiên cứu.
+    - **Góc Tây Nam & Nam (hàng 14-17):** Hàng rào gỗ chắn ven biển, mặt nước biển Route 21 và cầu cảng nhỏ (X: 9, Y: 15).
+    - **Trung tâm:** Bảng thông báo thị trấn ("PALLET TOWN — Shades of your journey await!"), hệ thống đường mòn đất/cát kết nối hoàn chỉnh các công trình.
+    - **Vật thể & Vùng va chạm:** Cập nhật bảng cờ va chạm (`collision bitmask`) chuẩn 20×18, cấu hình đầy đủ Warps (cửa vào các nhà, lab và lối ra Route 1), Signposts, Item Ball (`Potion`).
+- **Xây dựng Lớp Định vị Người chơi trong Database (Location Tracking & Persistence):**
+  - **Cơ sở dữ liệu PostgreSQL:**
+    - Cập nhật mặc định bảng `players`: `map_id = 'pallet-town'`, toạ độ xuất phát mặc định `x = 160, y = 144` (tại ngã tư đường mòn trung tâm thị trấn).
+    - Viết và chạy script `apps/server/src/scripts/migrate-player-locations.ts`: Di chuyển và định vị thành công 100% người chơi hiện có trong DB sang bản đồ `pallet-town`.
+  - **Server Colyseus (`WorldRoom`):**
+    - Khi kết nối (`onJoin`): Tra cứu vị trí và hướng nhìn đã lưu trong database (`SELECT x, y, map_id, direction FROM players WHERE id = $1`) để nạp chính xác toạ độ người chơi thay vì random/hardcode.
+    - Khi di chuyển (`move`): Đánh dấu session thay đổi toạ độ và tự động đồng bộ (flush) xuống database định kỳ 5 giây/lần.
+    - Khi ngắt kết nối (`onLeave` & `onDispose`): Lưu ngay lập tức toạ độ cuối cùng (`x, y, map_id, direction`) vào database.
+  - **Client (`ColyseusManager` & `WorldScene`):**
+    - Đổi mặc định `joinWorld('pallet-town')`.
+    - `WorldScene` tự động khôi phục và đặt toạ độ nhân vật theo dữ liệu server truyền về ngay khi kết nối.
+- **Kiểm tra chất lượng:**
+  - `pnpm run typecheck`: 4/4 packages pass không có lỗi.
+  - Server và Client đã khởi động lại sạch sẽ, kết nối kiểm tra tài khoản `tienv2i` nạp đúng vị trí và bản đồ `pallet-town`.
 
 

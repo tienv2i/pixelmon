@@ -14,6 +14,16 @@ export interface MapData {
 }
 
 export const MAPS: Record<string, MapData> = {
+  'pallet-town': {
+    id: 'pallet-town',
+    name: 'Pallet Town',
+    width: 20,
+    height: 18,
+    spawn: { x: 160, y: 368 },
+    pvp: false,
+    encounterRate: 15,
+    encounterZones: [{ x1: 7, y1: 1, x2: 12, y2: 2 }],
+  },
   route_1: {
     id: 'route_1',
     name: 'Route 1',
@@ -27,9 +37,9 @@ export const MAPS: Record<string, MapData> = {
   oak_lab: {
     id: 'oak_lab',
     name: "Oak's Laboratory",
-    width: 10,
+    width: 12,
     height: 10,
-    spawn: { x: 5, y: 9 },
+    spawn: { x: 5, y: 8 },
     pvp: false,
     encounterRate: 0,
     encounterZones: [],
@@ -46,4 +56,4 @@ export const MAPS: Record<string, MapData> = {
   },
 } as const;
 
-export const DEFAULT_MAP = 'route_1' as const;
+export const DEFAULT_MAP = 'pallet-town' as const;

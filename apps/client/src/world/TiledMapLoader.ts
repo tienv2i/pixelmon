@@ -118,14 +118,29 @@ export async function loadTiledMap(
     // Copy data từ Tiled vào Phaser
     for (let i = 0; i < layer.data.length; i++) {
       const gid = layer.data[i] ?? 0;
-      if (gid === 0) continue; // 0 = empty tile
+      if (gid < ts.firstgid) continue; // 0 = empty hoặc autotile không thuộc sheet này
 
       const x = i % mapJson.width;
       const y = Math.floor(i / mapJson.width);
-      tilemapLayer.putTileAt(gid - 1, x, y, false); // GID → index (off-by-1 vì Phaser index 0-based)
+      // GID sang tile index trong tileset image (0-based)
+      tilemapLayer.putTileAt(gid - ts.firstgid, x, y, false);
     }
 
-    tilemapLayer.setDepth(depth++);
+    // Đặt depth chuẩn hoá:
+    // Ground (10) -> Decoration (12) -> Player (20) -> Overhead (30 - trên đầu người chơi)
+    const lowerName = layer.name.toLowerCase();
+    let layerDepth = depthBase;
+    if (lowerName.includes('ground')) {
+      layerDepth = 10;
+    } else if (lowerName.includes('deco')) {
+      layerDepth = 12;
+    } else if (lowerName.includes('overhead')) {
+      layerDepth = 30;
+    } else {
+      layerDepth = depthBase + layers.length * 2;
+    }
+
+    tilemapLayer.setDepth(layerDepth);
     layers.push(tilemapLayer);
   }
 

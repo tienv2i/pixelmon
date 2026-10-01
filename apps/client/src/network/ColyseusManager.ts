@@ -202,7 +202,7 @@ export class ColyseusManager {
     }
   }
 
-  async joinWorld(mapId: string = 'route_1'): Promise<void> {
+  async joinWorld(mapId: string = 'pallet-town'): Promise<void> {
     if (this.worldRoom) {
       this.worldRoom.leave();
     }
@@ -210,8 +210,6 @@ export class ColyseusManager {
       this.worldRoom = await this.client.joinOrCreate<WorldState>('world', {
         userId: this.userId,
         displayName: this.displayName,
-        x: 320,
-        y: 320,
         mapId,
       });
       console.log('[network] joined world room', this.worldRoom.roomId);

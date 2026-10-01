@@ -19,6 +19,7 @@ __pycache__/
 # Temporary & scratch files
 temp/
 typescript-tmp/
+scratch/
 
 # Backup and temp files
 *.png~

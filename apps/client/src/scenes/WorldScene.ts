@@ -80,6 +80,7 @@ export class WorldScene extends Phaser.Scene {
   private manualMiniMode?: boolean;
   private playerSheetKey: string = TEX.hero;
   private playerFrameCount = 16;
+  private localPlayerSynced = false;
 
   private debugText?: Phaser.GameObjects.Text;
 
@@ -997,8 +998,20 @@ export class WorldScene extends Phaser.Scene {
     const seen = new Set<string>();
     state.players.forEach((ps: any, sessionId: string) => {
       seen.add(sessionId);
-      if (ps.username === myUserId || ps.id === myUserId) return;
-      if (myUserId && ps.displayName === network.name && ps.username === myUserId) return;
+      const isMe =
+        sessionId === network.world?.sessionId ||
+        ps.username === myUserId ||
+        ps.id === myUserId ||
+        (myUserId && ps.displayName === network.name && ps.username === myUserId);
+      if (isMe) {
+        if (!this.localPlayerSynced && typeof ps.x === 'number' && typeof ps.y === 'number' && (ps.x > 0 || ps.y > 0)) {
+          this.localPlayerSynced = true;
+          this.player.setPosition(ps.x, ps.y);
+          if (ps.direction) this.player.setDirection(ps.direction);
+          console.log(`[world] restored player position from DB: (${ps.x}, ${ps.y}, ${ps.direction})`);
+        }
+        return;
+      }
 
       let rp = this.remotePlayers.get(sessionId);
       if (!rp) {

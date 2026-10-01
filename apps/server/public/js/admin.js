@@ -857,14 +857,13 @@
             'f</td><td class="dim">' +
             esc(fmtDate(s.createdAt)) +
             '</td><td>' +
-            '<button class="btn btn-ghost btn-sm" onclick="_spriteEdit(\'' +
-            esc(s.id) +
-            '\')">✏️</button> ' +
             '<button class="btn btn-ghost btn-sm" onclick="_spriteDelete(\'' +
             esc(s.id) +
             "','" +
             esc(s.name) +
-            '\')">🗑</button>' +
+            '\')" title="' +
+            esc(t('btn.delete')) +
+            '">🗑</button>' +
             '</td></tr>'
           );
         });
@@ -1387,9 +1386,6 @@
   };
   window._adminDelete = function (id, name) {
     deleteUser(id, name);
-  };
-  window._spriteEdit = function (id) {
-    openSpriteModal(id);
   };
   window._spriteDelete = function (id, name) {
     deleteSprite(id, name);

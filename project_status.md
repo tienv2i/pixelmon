@@ -787,3 +787,11 @@ eslint.config.js                                 (+ ignores .venv, temp)
   - Đồng bộ re-render lại toàn bộ bảng khi bấm nút chuyển đổi ngôn ngữ EN/VI.
 - **File sửa:** `apps/server/public/admin.html`, `apps/server/public/js/admin.js`, `apps/server/public/js/i18n.js`.
 
+### Lỗi 3d: Vẫn còn nút Edit trong Sprite Library
+
+- **Nguyên nhân:** Cột thao tác của bảng danh sách sprite trong `loadSprites()` (`admin.js`) vẫn render nút `✏️` gọi hàm `_spriteEdit(id)` mở editor để sửa.
+- **Khắc phục:**
+  - Bỏ hoàn toàn nút edit `_spriteEdit` trong bảng sprite, chỉ giữ nút xóa `🗑` (`_spriteDelete`).
+  - Gỡ bỏ `window._spriteEdit` khỏi phạm vi window.
+- **File sửa:** `apps/server/public/js/admin.js`.
+

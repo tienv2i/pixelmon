@@ -7,7 +7,7 @@ Dự án: **Pixelmon** — Pokemon MMORPG trên web (Phaser 3 Client + Colyseus 
 - **Thư mục gốc:** `/mnt/data/AI-Agent/pixelmon` — mọi đường dẫn, import, script đều tính từ đây.
 - **KHÔNG đọc code từ thư mục khác** ngoài thư mục gốc (không `../other-project`, không symlink ra ngoài).
 - **KHÔNG tự ý chạy test** — chỉ chạy khi user yêu cầu rõ ràng. Agent chỉ tạo/sửa file, không `pnpm test`, không `vitest`, không `jest`.
-- **KHÔNG dùng tool `read` để đọc file ảnh/binary** (`.png`, `.jpg`, `.jpeg`, `.gif`, `.zip`) — tránh tràn context với base64. Chỉ kiểm tra ảnh qua script metadata/image size nếu cần.
+- **Xử lý ảnh & Sprite:** Môi trường đã có sẵn Python với **Pillow 12.3.0** (`.venv/bin/python3`). Khi cần chỉnh sửa, cắt ghép, resize, kiểm tra kích thước frame hoặc tạo spritesheet, **hãy viết script Python sử dụng Pillow** để xử lý trực tiếp trên đĩa (chuẩn xác từng pixel và không tốn token ngữ cảnh). Tránh dùng tool `read` nạp raw binary ảnh lớn thành chuỗi base64 vào lịch sử chat nhiều lần.
 - **KHÔNG đọc trực tiếp toàn bộ file JSON lớn** (`data/species.json` 1.2MB, `moves.json`), chỉ grep dòng cần thiết hoặc truy xuất qua module `gameData`.
 - **KHÔNG quét các thư mục log/temp:** `.playwright-mcp/`, `temp/`, `.venv/`.
 - Cập nhật `project_status.md` (và `projects_status.md` nếu có) **sau khi hoàn thành mỗi plan/phase**.

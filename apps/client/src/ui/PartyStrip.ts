@@ -44,7 +44,7 @@ export class PartyStrip extends UiModal {
   /** Y neo — WorldScene gán bằng cách set trực tiếp. */
   public anchorY = 96;
 
-  constructor(scene: Phaser.Scene, members: Array<PartyMember | null>) {
+  constructor(scene: Phaser.Scene, members: Array<PartyMember | null>, onClose?: () => void) {
     super(scene, {
       title: '',
       width: PANEL_W,
@@ -61,6 +61,7 @@ export class PartyStrip extends UiModal {
       defaultOffsetY: 96,
       onClose: () => {
         this.setVisible(false);
+        onClose?.();
       },
     });
 

@@ -1341,6 +1341,41 @@ eslint.config.js                                 (+ ignores .venv, temp)
 ### 3. Kết quả kiểm tra
 - `pnpm typecheck`: 4/4 packages thành công (`@pixelmon/shared`, `client`, `server`), không có bất kỳ lỗi cú pháp hoặc type nào.
 
+---
+
+## Nhật ký 2026-10-01 (14) — Plan 30: Đổi icon nút Dock theo chế độ, Liên kết nút tắt Modal với Settings, Neo ChatLog bên phải & Sprite Preview 128px
+
+### 1. Nút Dock với Icon tương ứng theo từng chế độ (`UiModal`)
+- Khi modal ở chế độ **Neo (Docked - khoá vị trí cố định)**: nút hiển thị icon `⚓` màu cyan (`#00cec9`).
+- Khi modal ở chế độ **Tự do (Un-docked - mở khoá kéo thả)**: nút hiển thị icon `🔓` màu xám trung tính (`#9aa0c3`), đổi màu `#00cec9` khi hover.
+- Thêm hàm `updateDockButton()` đồng bộ tự động icon và màu sắc khi gọi `dock()`, `undock()`, `toggleDock()` hoặc `relayout()`.
+
+### 2. Liên kết các nút tắt Modal với Bảng Settings
+- Bổ sung phương thức `setHudCheckbox(key, checked)` trong `SettingsPanel` để cập nhật trạng thái toggle và đánh dấu checkmark tương ứng.
+- Khi người chơi tắt bất kỳ modal nào (qua nút `✕` hoặc phím tắt):
+  - Khung Chat (`ChatLog`) đóng → Checkbox `Khung trò chuyện (Chat Box)` trong Settings tự động bỏ chọn (`checked = false`).
+  - Khung Party (`PartyStrip`) đóng → Checkbox `Danh sách đội hình (Party Pokemon)` trong Settings tự động bỏ chọn và tắt highlight icon `Team` trên TopMenu.
+  - Khung Thông tin nhân vật (`PlayerHud`) đóng → Checkbox `Thông tin nhân vật (Profile Info)` bỏ chọn.
+  - Khung Thời tiết (`InfoPanel`) đóng → Checkbox `Đồng hồ & Thời tiết (Clock / Weather)` bỏ chọn.
+  - Bản đồ thu nhỏ (`Minimap`) đóng (qua `M` hoặc `GPS`) → Checkbox `Bản đồ thu nhỏ (Minimap / GPS)` bỏ chọn.
+- Ngược lại, khi tick bật/tắt trong bảng Settings hoặc bấm icon trên thanh `TopMenu`, các modal mở/đóng đồng bộ 100%.
+
+### 3. Bỏ nút Thu nhỏ (Minimize) trên khung Cài đặt
+- Cấu hình `showMinimize: false` cho `SettingsPanel`: thanh header của Cài đặt chỉ giữ nút Reset Settings (`↺`), nút Neo (`⚓`/`🔓`) và nút Đóng (`✕`), không còn nút `－` dư thừa.
+
+### 4. Đưa vị trí neo mặc định của Khung Chat về góc phải màn hình
+- Chuyển `defaultAlign` của `ChatLog` từ `'bottom-left'` sang `'bottom-right'`.
+- Tự động kiểm tra toạ độ đáy canvas: nếu khung chat nằm sát mép đáy màn hình, ô nhập tin nhắn HTML `<input>` sẽ tự động hiển thị ngay phía trên khung chat (`Y - inputH - 4`), tránh bị tràn ra ngoài màn hình.
+
+### 5. Khung Info: Bỏ khung bao quanh và hiển thị Sprite Preview 128px
+- Trong `PlayerHud`: Bỏ hoàn toàn hình chữ nhật viền kép bao quanh avatar (`avatarBox`), giúp không gian thoáng đãng và tự nhiên.
+- Mở rộng `UserSprite` trong `ColyseusManager` hỗ trợ trường `previewUrl128?: string;`.
+- Trong `WorldScene`: Tự động tải trước ảnh tĩnh `previewUrl128` (128×128px) từ backend sprite catalog vào texture `user_preview_128` (với fallback `hero-64-128.png`).
+- `PlayerHud` tự động phát hiện và dùng trực tiếp texture `user_preview_128` (thu về kích thước 50px sắc nét chuẩn pixel), nếu không có mới fallback về frame cắt từ spritesheet gốc.
+
+### 6. Kết quả kiểm tra
+- `pnpm typecheck`: 4/4 packages pass không có lỗi TypeScript nào.
+
 
 
 

@@ -29,7 +29,13 @@ export class PlayerHud extends UiModal {
   private _avatarFrameSize = 32;
   private _hudMode: HudMode = 'normal';
 
-  constructor(scene: Phaser.Scene, sheetKey: string, frame: string | number = 0, frameSize = 32) {
+  constructor(
+    scene: Phaser.Scene,
+    sheetKey: string,
+    frame: string | number = 0,
+    frameSize = 32,
+    onClose?: () => void,
+  ) {
     super(scene, {
       title: '👤 NHÂN VẬT',
       width: PANEL_W,
@@ -46,25 +52,27 @@ export class PlayerHud extends UiModal {
       defaultOffsetY: 8,
       onClose: () => {
         this.setVisible(false);
+        onClose?.();
       },
     });
 
     this._avatarFrameSize = frameSize;
 
-    // Khung nền phóng to chứa Avatar (50x50)
-    const avatarBox = scene.add.graphics();
-    avatarBox.fillStyle(0x0e1022, 0.95);
-    avatarBox.fillRoundedRect(8, 9, 50, 50, 6);
-    avatarBox.lineStyle(1.5, 0x2e3358, 1);
-    avatarBox.strokeRoundedRect(8, 9, 50, 50, 6);
-    this.contentContainer.add(avatarBox);
+    // 1. Avatar / Sprite Preview (không có khung bao quanh)
+    const hasPreview128 = scene.textures.exists('user_preview_128');
+    const avatarTexture = hasPreview128 ? 'user_preview_128' : sheetKey;
+    const avatarFrame = hasPreview128 ? undefined : frame;
 
-    // 1. Avatar (local space trong contentContainer, phóng to rõ nét)
     this.avatar = scene.add
-      .image(33, 34, sheetKey, frame)
+      .image(33, 34, avatarTexture, avatarFrame)
       .setOrigin(0.5, 0.5);
-    const targetSize = 46;
-    this.avatar.setScale(targetSize / Math.max(1, this._avatarFrameSize));
+
+    if (hasPreview128) {
+      this.avatar.setScale(50 / 128);
+    } else {
+      const targetSize = 46;
+      this.avatar.setScale(targetSize / Math.max(1, this._avatarFrameSize));
+    }
     this.contentContainer.add(this.avatar);
 
     // 2. Name Text
@@ -114,11 +122,24 @@ export class PlayerHud extends UiModal {
 
   /** Đổi avatar nhân vật hiển thị trên Player Info. */
   setAvatar(sheetKey: string, frame: string | number = 0, frameSize = 64): void {
+    if (this.scene.textures.exists('user_preview_128')) {
+      this.avatar.setTexture('user_preview_128');
+      this.avatar.setScale(50 / 128);
+      return;
+    }
     if (!this.scene.textures.exists(sheetKey)) return;
     this._avatarFrameSize = frameSize;
     this.avatar.setTexture(sheetKey, frame);
     const targetSize = 46;
     this.avatar.setScale(targetSize / Math.max(1, this._avatarFrameSize));
+  }
+
+  /** Dùng trực tiếp sprite preview 128px nếu có */
+  setPreview128(textureKey = 'user_preview_128'): void {
+    if (this.scene.textures.exists(textureKey)) {
+      this.avatar.setTexture(textureKey);
+      this.avatar.setScale(50 / 128);
+    }
   }
 
   update(d: Partial<PlayerHudData>): void {

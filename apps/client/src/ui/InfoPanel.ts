@@ -34,7 +34,7 @@ export class InfoPanel extends UiModal {
   private seed: number;
   private _hudMode: HudMode = 'normal';
 
-  constructor(scene: Phaser.Scene, seed = 0) {
+  constructor(scene: Phaser.Scene, seed = 0, onClose?: () => void) {
     super(scene, {
       title: '🌤 THỜI TIẾT',
       width: PANEL_W,
@@ -51,6 +51,7 @@ export class InfoPanel extends UiModal {
       defaultOffsetY: 8,
       onClose: () => {
         this.setVisible(false);
+        onClose?.();
       },
     });
 

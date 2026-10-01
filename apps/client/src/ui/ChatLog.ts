@@ -25,7 +25,7 @@ export class ChatLog extends UiModal {
   private onSend?: (msg: string) => void;
   private _hudMode: HudMode = 'normal';
 
-  constructor(scene: Phaser.Scene, onSend?: (msg: string) => void) {
+  constructor(scene: Phaser.Scene, onSend?: (msg: string) => void, onClose?: () => void) {
     super(scene, {
       title: '💬 TRÒ CHUYỆN',
       width: CHAT_W,
@@ -36,11 +36,12 @@ export class ChatLog extends UiModal {
       showClose: true,
       showMinimize: true,
       showDock: true,
-      defaultAlign: 'bottom-left',
+      defaultAlign: 'bottom-right',
       defaultOffsetX: 10,
       defaultOffsetY: 10,
       onClose: () => {
         this.setVisible(false);
+        onClose?.();
       },
       onMinimize: () => {
         this.renderTextVisibility();
@@ -144,10 +145,15 @@ export class ChatLog extends UiModal {
     const rect = this.scene.scale.canvas.getBoundingClientRect();
     const scaleX = rect.width / this.scene.scale.width;
     const scaleY = rect.height / this.scene.scale.height;
+    const inputH = 24;
+    let inputY = Y + actualH + 4;
+    if (inputY + inputH > this.scene.scale.height) {
+      inputY = Math.max(4, Y - inputH - 4);
+    }
     input.style.left = `${rect.left + X * scaleX}px`;
-    input.style.top = `${rect.top + (Y + actualH + 4) * scaleY}px`;
+    input.style.top = `${rect.top + inputY * scaleY}px`;
     input.style.width = `${actualW * scaleX}px`;
-    input.style.height = `${24 * scaleY}px`;
+    input.style.height = `${inputH * scaleY}px`;
 
     document.body.appendChild(input);
     input.focus();

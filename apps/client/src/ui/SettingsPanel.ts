@@ -116,7 +116,7 @@ export class SettingsPanel extends UiModal {
       lockUi: true,
       depth: 200,
       showClose: true,
-      showMinimize: true,
+      showMinimize: false,
       showDock: true,
       showSecondaryClose: false,
       customHeaderButtons: [
@@ -516,6 +516,12 @@ export class SettingsPanel extends UiModal {
     }
     this.checkboxSetters.get('scrollToZoom')?.(enabled);
     this.panelOpts.onToggleScrollToZoom?.(enabled);
+  }
+
+  /** Cập nhật trạng thái checkbox HUD từ bên ngoài (khi đóng/mở panel qua nút tắt hoặc phím tắt). */
+  public setHudCheckbox(key: 'profile' | 'clock' | 'party' | 'chat' | 'minimap' | 'miniMode', checked: boolean): void {
+    this.uiState[key] = checked;
+    this.checkboxSetters.get(key)?.(checked);
   }
 
   public resetAllSettings(): void {

@@ -16,6 +16,7 @@ export interface UserSprite {
   frameW: number;
   frameH: number;
   frameCount: number;
+  previewUrl128?: string;
 }
 
 export class ColyseusManager {

@@ -303,10 +303,15 @@ export class UiModal {
       btnRightOffset += 22;
     }
 
-    // 4. Nút ⚓ Dock (Neo / Mở khoá vị trí)
+    // 4. Nút ⚓ / 🔓 Dock (Neo / Mở khoá vị trí)
     if (this.opts.showDock) {
       this.btnDock = this.scene.add
-        .text(this.opts.width - btnRightOffset, headerCenterY, '⚓', ts(13, this.isDocked ? '#00cec9' : C.muted, FONT.ui))
+        .text(
+          this.opts.width - btnRightOffset,
+          headerCenterY,
+          this.isDocked ? '⚓' : '🔓',
+          ts(13, this.isDocked ? '#00cec9' : C.muted, FONT.ui),
+        )
         .setOrigin(0.5)
         .setSize(22, 22)
         .setInteractive({
@@ -316,7 +321,7 @@ export class UiModal {
         });
 
       this.btnDock.on('pointerover', () => this.btnDock?.setColor('#00cec9'));
-      this.btnDock.on('pointerout', () => this.btnDock?.setColor(this.isDocked ? '#00cec9' : C.muted));
+      this.btnDock.on('pointerout', () => this.updateDockButton());
       this.btnDock.on('pointerdown', (p: Phaser.Input.Pointer) => {
         p.event?.stopPropagation();
         this.toggleDock();
@@ -590,6 +595,15 @@ export class UiModal {
   }
 
   /**
+   * Cập nhật icon và màu sắc của nút Dock dựa trên trạng thái neo.
+   */
+  private updateDockButton(): void {
+    if (!this.btnDock) return;
+    this.btnDock.setText(this.isDocked ? '⚓' : '🔓');
+    this.btnDock.setColor(this.isDocked ? '#00cec9' : C.muted);
+  }
+
+  /**
    * Khoá neo vị trí mặc định (gắn cứng, không thể kéo đi).
    */
   dock(): void {
@@ -597,7 +611,7 @@ export class UiModal {
     this.customX = undefined;
     this.customY = undefined;
     this.updateHeaderCursor();
-    if (this.btnDock) this.btnDock.setColor('#00cec9');
+    this.updateDockButton();
     this.opts.onDock?.(true);
     this.relayout();
   }
@@ -610,7 +624,7 @@ export class UiModal {
     this.customX = this.modalContainer.x;
     this.customY = this.modalContainer.y;
     this.updateHeaderCursor();
-    if (this.btnDock) this.btnDock.setColor(C.muted);
+    this.updateDockButton();
     this.opts.onDock?.(false);
   }
 
@@ -732,7 +746,7 @@ export class UiModal {
       }
       if (this.btnDock) {
         this.btnDock.setPosition(W - btnRightOffset, headerCenterY);
-        this.btnDock.setColor(this.isDocked ? '#00cec9' : C.muted);
+        this.updateDockButton();
         btnRightOffset += 22;
       }
       for (const btn of this.customHeaderBtns) {

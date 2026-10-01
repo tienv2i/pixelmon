@@ -194,6 +194,20 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
+    // Nạp previewUrl128 (128px) cho avatar nhân vật nếu có
+    const preview128Path = userSprite?.previewUrl128
+      ? (userSprite.previewUrl128.startsWith('/') ? SERVER_ORIGIN + userSprite.previewUrl128 : userSprite.previewUrl128)
+      : SERVER_ORIGIN + '/sprites/previews/hero-64-128.png';
+
+    if (preview128Path && !this.textures.exists('user_preview_128')) {
+      await new Promise<void>((resolve) => {
+        this.load.image('user_preview_128', preview128Path);
+        this.load.once('complete', () => resolve());
+        this.load.once('loaderror', () => resolve());
+        this.load.start();
+      });
+    }
+
     // Register anim với frame count tương ứng
     registerPlayerAnims(this, sheetKey, frameCount);
     this.playerSheetKey = sheetKey;
@@ -419,6 +433,7 @@ export class WorldScene extends Phaser.Scene {
       this.input.keyboard.on('keydown-M', () => {
         this.minimap.toggle();
         this.topMenu?.setActive(this.minimap.isVisible() ? 'gps' : '');
+        this.settingsPanel?.setHudCheckbox('minimap', this.minimap.isVisible());
       });
       // H → ẩn/hiện bảng hướng dẫn
       this.input.keyboard.on('keydown-H', () => {
@@ -621,7 +636,13 @@ export class WorldScene extends Phaser.Scene {
     const is16 = this.playerFrameCount === 16;
     const hudFrame = is16 ? '0_0' : 0;
     const hudFrameSize = is16 ? 64 : 32;
-    this.hud = new PlayerHud(this, this.playerSheetKey, hudFrame, hudFrameSize);
+    this.hud = new PlayerHud(
+      this,
+      this.playerSheetKey,
+      hudFrame,
+      hudFrameSize,
+      () => this.settingsPanel?.setHudCheckbox('profile', false),
+    );
     this.hud.setUiZoomManager(this.uiZoom);
     this.hud.update({
       name,
@@ -638,15 +659,26 @@ export class WorldScene extends Phaser.Scene {
       null,
       null,
     ];
-    this.partyStrip = new PartyStrip(this, mockParty);
+    this.partyStrip = new PartyStrip(
+      this,
+      mockParty,
+      () => {
+        this.topMenu?.setActive('');
+        this.settingsPanel?.setHudCheckbox('party', false);
+      },
+    );
     this.partyStrip.setUiZoomManager(this.uiZoom);
     this.layoutLeftColumn();
     this.scale.on('ui-zoom-change', () => this.layoutLeftColumn());
 
     // ChatLog (phải-dưới)
-    this.chatLog = new ChatLog(this, (msg) => {
-      ColyseusManager.getInstance().sendChat(msg);
-    });
+    this.chatLog = new ChatLog(
+      this,
+      (msg) => {
+        ColyseusManager.getInstance().sendChat(msg);
+      },
+      () => this.settingsPanel?.setHudCheckbox('chat', false),
+    );
     this.chatLog.setUiZoomManager(this.uiZoom);
 
     // Minimap (popup dưới InfoPanel — mặc định ẩn, bật qua icon GPS)
@@ -655,7 +687,11 @@ export class WorldScene extends Phaser.Scene {
     this.minimap.update(this.player.x, this.player.y, this.cameras.main);
 
     // InfoPanel (góc trên phải) — giờ + thời tiết. Minimap neo dưới panel này.
-    this.infoPanel = new InfoPanel(this, (ColyseusManager.getInstance().id || '').length);
+    this.infoPanel = new InfoPanel(
+      this,
+      (ColyseusManager.getInstance().id || '').length,
+      () => this.settingsPanel?.setHudCheckbox('clock', false),
+    );
     this.infoPanel.setUiZoomManager(this.uiZoom);
     this.minimap.setAnchorYSource(() => this.infoPanel.getBottomY());
 
@@ -663,7 +699,10 @@ export class WorldScene extends Phaser.Scene {
     this.settingsPanel = new SettingsPanel(this, {
       onToggleProfile: (v) => this.hud.setVisible(v),
       onToggleClock: (v) => this.infoPanel.setVisible(v),
-      onToggleParty: (v) => this.partyStrip.setVisible(v),
+      onToggleParty: (v) => {
+        this.partyStrip.setVisible(v);
+        this.topMenu?.setActive(v ? 'team' : '');
+      },
       onToggleChat: (v) => this.chatLog.setVisible(v),
       onToggleMinimap: (v) => {
         this.minimap.setVisible(v);
@@ -774,6 +813,7 @@ export class WorldScene extends Phaser.Scene {
       case 'gps': {
         this.minimap.toggle();
         this.topMenu?.setActive(this.minimap.isVisible() ? 'gps' : '');
+        this.settingsPanel?.setHudCheckbox('minimap', this.minimap.isVisible());
         break;
       }
       case 'settings':
@@ -790,6 +830,7 @@ export class WorldScene extends Phaser.Scene {
       case 'team': {
         this.partyStrip.toggle();
         this.topMenu?.setActive(this.partyStrip.isOpen() ? 'team' : '');
+        this.settingsPanel?.setHudCheckbox('party', this.partyStrip.isOpen());
         break;
       }
       case 'pokedex':

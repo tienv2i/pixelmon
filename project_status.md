@@ -764,3 +764,11 @@ eslint.config.js                                 (+ ignores .venv, temp)
   - Hỗ trợ thêm cụm phím WASD song song với 4 phím mũi tên.
 - **File sửa:** `apps/client/src/scenes/WorldScene.ts`.
 
+### Lỗi 3b: Tên nhân vật quá thấp trùng với phần đầu của nhân vật
+
+- **Nguyên nhân:** Toạ độ của text tên nhân vật `nameText` được hardcode cố định ở `y - TILE_SIZE - 4` (`y - 36`). Khi nâng cấp từ sprite 32×32 lên sprite 64×64 (với origin Y = 1.0 đặt chân tại `y`, đầu nhân vật vươn tới `y - 56`), vị trí `y - 36` rơi đúng vào vùng đầu/cổ của nhân vật.
+- **Khắc phục:**
+  - Thêm phương thức `getNameOffsetY()` trong `PlayerSprite`: với sheet 64px `hero` (origin chân), offset Y nâng lên 68px (cao hơn đỉnh đầu 12px); với sheet 32px legacy giữ `TILE_SIZE + 4` (36px).
+  - Tự động cập nhật lại vị trí `nameText` trong constructor, `setPosition()`, và khi gọi `swapSheet()`.
+- **File sửa:** `apps/client/src/entities/PlayerSprite.ts`.
+

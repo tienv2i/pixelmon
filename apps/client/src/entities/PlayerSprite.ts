@@ -82,7 +82,7 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
       .setAlpha(0.6);
 
     this.nameText = scene.add
-      .text(x, y - TILE_SIZE - 4, 'Player', {
+      .text(x, y - this.getNameOffsetY(), 'Player', {
         fontSize: '11px',
         fontFamily: FONT.mono,
         color: C.text,
@@ -91,6 +91,10 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
       })
       .setOrigin(0.5, 1)
       .setDepth(11);
+  }
+
+  private getNameOffsetY(): number {
+    return this.sheet === 'hero' ? 68 : TILE_SIZE + 4;
   }
 
   setDisplayName(name: string): void {
@@ -128,6 +132,7 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
     this.setTexture(sheetKey, frameName(this.dir, this.walkFrame));
     // Sheet mới có thể khác frame size → canh chân lại cho đúng
     this.setOrigin(0.5, this.sheet === 'hero' ? 1.0 : 0.7);
+    this.nameText?.setPosition(this.x, this.y - this.getNameOffsetY());
   }
 
   /** Tint nhẹ để phân biệt người chơi (hash hueSeed). */
@@ -156,7 +161,7 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
     super.setPosition(x, y);
     // Phaser's Sprite constructor gọi setPosition() trong lúc super() —
     // lúc đó nameText/shadow chưa được gán → cần guard.
-    this.nameText?.setPosition(x, y - TILE_SIZE - 4);
+    this.nameText?.setPosition(x, y - this.getNameOffsetY());
     this.shadow?.setPosition(x, y + 2);
     return this;
   }

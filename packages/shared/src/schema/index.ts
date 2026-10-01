@@ -23,7 +23,7 @@ export class PlayerState extends Schema {
   @type('number') x: number = 0;
   @type('number') y: number = 0;
   @type('string') direction: string = 'down';
-  @type('string') mapId: string = 'route_1';
+  @type('string') mapId: string = 'lappet-town';
   @type('uint8') level: number = 1;
   @type('uint32') money: number = 0;
   @type('string') status: string = 'online';
@@ -58,6 +58,6 @@ export class BattleState extends Schema {
 
 // ===== World State =====
 export class WorldState extends Schema {
-  @type('string') mapId: string = 'route_1';
+  @type('string') mapId: string = 'lappet-town';
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
 }

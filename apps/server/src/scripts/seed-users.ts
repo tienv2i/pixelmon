@@ -44,7 +44,7 @@ async function seedUser(
     );
     await client.query(
       `INSERT INTO players (id, x, y, map_id, direction, level, exp, money)
-       VALUES ($1, 0, 0, 'route_1', 'down', $2, 0, $3)`,
+       VALUES ($1, 256, 256, 'lappet-town', 'down', $2, 0, $3)`,
       [id, START_LEVEL, START_MONEY],
     );
     await client.query('COMMIT');

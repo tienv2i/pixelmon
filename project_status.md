@@ -470,8 +470,14 @@ python3 scripts/tools/inspect_image.py packages/shared/assets/tilesets/Outdoor.p
 - **3e. `ColyseusManager`** — giữ `joinWorld(mapId)`; thêm `sendChangeMap(toMap, toX, toY)`.
 - **3f. Converter warp** — trích code 201 từ event pages → emit `type: "warp"` objects; set bit `WARP (0x80)` + clear `BLOCKED` tại door tile; `ESSENTIALS_DEFAULT` sửa sang `/mnt/data/Downloads/...`. 8 warp khép kín hoạt động (3 lappet-town, 3 players-house, 1 pokemon-lab, 1 daisys-house). `route-1` = 0 warp (Kurt door → map 6 chưa convert).
 
-#### Phase 4 — Đồng bộ & dọn dẹp (⏳ chưa làm)
-- `register.ts`: spawn `(256,256,'lappet-town')`. `MAPS` aliases chuẩn hoá `id` khớp key. Admin: sửa heuristic `!== 1` → dùng `CollisionFlag` bitmask. DB migration `'pallet-town'`/`'route_1'` → `'lappet-town'` (có sẵn `migrate-player-locations.ts`). Cập nhật `project_status.md`.
+#### Phase 4 — Đồng bộ & dọn dẹp (✅ hoàn thành)
+
+- **4a. Spawn chuẩn hoá:** `register.ts` insert `(256,256,'lappet-town')`; `seed-users.ts` + `user-admin.ts` + `admin/index.ts` insert `(256,256,'lappet-town')`; `database.ts` DEFAULT `map_id='lappet-town'`.
+- **4b. Schema defaults:** `PlayerState.mapId` + `WorldState.mapId` đổi `'route_1'` → `'lappet-town'`.
+- **4c. Admin collision heuristic:** `admin.js` sửa `flag !== 1` → dùng bitmask `BLOCKED (0x04) | WATER (0x02)`; HUD `isBlocked` cũng dùng bitmask.
+- **4d. DB migration:** `migrate-player-locations.ts` migrate `'route_1'`/`'pallet-town'` → `'lappet-town'`, spawn `(256,256)`.
+- **4e. Client cache:** clear `.vite` cache khi import thêm export mới từ `@pixelmon/shared` (lỗi `canJumpLedge` đã fix).
+- **4f. `MAPS` aliases:** giữ `'pallet-town'`/`'interior-*'`/`'route_1'`/`'oak_lab'` làm backward-compat (normalizeMapId map về id chính). Có thể xóa sau khi không còn reference.
 
 #### Phát hiện chuẩn bị Phase 2/3
 - **Warp đã được converter trích ra** (Phase 3f) — `ServerMap.objects` giờ có `type: "warp"` objects với `toMap/toX/toY/direction`. Warp object dùng **tile coords** (không phải pixel như Tiled TMJ).
@@ -504,7 +510,7 @@ python3 scripts/tools/inspect_image.py packages/shared/assets/tilesets/Outdoor.p
 
 - 3 trường hợp cần xử lý riêng (không map 1-1): `route-1` (11,6) Kurt door → **map 6** (đã update trong 3f: bỏ qua, giữ event generic); `players-house` "Stairs up/down" (10,2)/(28,2) → **chính map 3** (warp nội bộ, đã emit); `players-house` "Warp tile 1/2" (1,3)/(2,3) → **8/7 đích** chọn theo switch (đã update trong 3f: bỏ qua, giữ event generic).
 - **Bit `GRASS` hiện chưa map nào bật** (tag 2 của Lappet Town là ledge, không phải cỏ) — `isGrass` luôn `false` với dữ liệu hiện tại.
-- **Spawn không nhất quán** (cần chuẩn hoá ở Phase 4): `MAPS['lappet-town'].spawn=(256,256)` vs `register.ts` insert `(160,368,'pallet-town')` vs DB default `(160,144,'pallet-town')` vs `PlayerState.mapId` default `'route_1'`.
+- **Spawn đã chuẩn hoá** (Phase 4 ✅): tất cả đều dùng `lappet-town` + pixel `(256,256)` — `MAPS['lappet-town'].spawn`, `register.ts` insert, `seed-users.ts`, `user-admin.ts`, `admin/index.ts`, DB DEFAULT, `PlayerState.mapId`/`WorldState.mapId`. Aliases `'pallet-town'`/`'route_1'` vẫn còn trong `MAPS` (backward-compat).
 
 #### Rủi ro
 - Vite import JSON từ `packages/shared/data/maps/server/*.json` — ✅ đã verify build thành công (Phase 1c).

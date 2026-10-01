@@ -1,13 +1,13 @@
 import { pool } from '../config/index.js';
 
 async function main() {
-  console.log('[migrate] Updating existing player locations to Pallet Town...');
+  console.log('[migrate] Updating existing player locations to Lappet Town...');
   const res = await pool.query(`
     UPDATE players
-       SET map_id = 'pallet-town',
-           x = CASE WHEN x = 0 OR x > 600 THEN 160 ELSE x END,
-           y = CASE WHEN y = 0 OR y > 540 OR y = 144 THEN 368 ELSE y END
-     WHERE map_id = 'route_1' OR map_id IS NULL OR map_id = 'pallet-town';
+       SET map_id = 'lappet-town',
+           x = CASE WHEN x = 0 OR x > 600 THEN 256 ELSE x END,
+           y = CASE WHEN y = 0 OR y > 540 OR y = 144 THEN 256 ELSE y END
+     WHERE map_id IN ('route_1', 'route-1', 'pallet-town') OR map_id IS NULL;
   `);
   console.log(`[migrate] Updated ${res.rowCount} player records.`);
 

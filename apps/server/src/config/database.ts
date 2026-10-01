@@ -40,7 +40,7 @@ export async function initDatabase(): Promise<void> {
         id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         x REAL NOT NULL DEFAULT 160,
         y REAL NOT NULL DEFAULT 144,
-        map_id TEXT NOT NULL DEFAULT 'pallet-town',
+        map_id TEXT NOT NULL DEFAULT 'lappet-town',
         direction TEXT NOT NULL DEFAULT 'down',
         level INTEGER NOT NULL DEFAULT 1,
         exp BIGINT NOT NULL DEFAULT 0,

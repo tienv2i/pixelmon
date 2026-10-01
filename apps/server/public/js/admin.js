@@ -2522,7 +2522,9 @@
         for (var y = 0; y < h; y++) {
           for (var x = 0; x < w; x++) {
             var flag = m.collision.flags[y * w + x];
-            if (flag !== 1) {
+          // CollisionFlag bitmask: BLOCKED=0x04, WATER=0x02 (cần surf)
+          var isBlocked = (flag & 0x04) !== 0 || (flag & 0x02) !== 0;
+          if (isBlocked) {
               ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
               ctx.fillRect(x * 32, y * 32, 32, 32);
               ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
@@ -2673,7 +2675,8 @@
         var tileY = Math.floor(mouseY / 32);
         var m = mapState.currentDetail.map;
         if (tileX >= 0 && tileX < m.width && tileY >= 0 && tileY < m.height) {
-          var isBlocked = m.collision && m.collision.flags && m.collision.flags[tileY * m.width + tileX] !== 1;
+          var flag = m.collision && m.collision.flags ? m.collision.flags[tileY * m.width + tileX] : 0;
+          var isBlocked = (flag & 0x04) !== 0 || (flag & 0x02) !== 0; // BLOCKED|WATER
           $('map-hud').textContent = 'Tile: (' + tileX + ', ' + tileY + ') | Đi được: ' + (isBlocked ? 'KHÔNG (Cản trở)' : 'CÓ');
         } else {
           $('map-hud').textContent = 'Tile: --, -- | Đi được: --';

@@ -808,4 +808,17 @@ eslint.config.js                                 (+ ignores .venv, temp)
   - Chuẩn hóa flexbox `.sprite-picker select` với `flex: 1 1 0%`, `min-width: 0` và gỡ các inline style width thừa trong `admin.html`.
 - **File sửa:** `apps/server/public/admin.html`, `apps/server/public/css/admin.css`.
 
+### Lỗi 3f: Khung party Pokémon dư padding bên phải (thu gọn chỉ hiển thị avatar)
+
+- **Nguyên nhân:**
+  - Khung `PartyStrip` được khởi tạo với chiều rộng cố định `PANEL_W = 132`, trong khi kích thước mỗi ô avatar chỉ là `SLOT = 40` và toạ độ x của slot là `x + 14 * z`.
+  - Việc này khiến bên phải của khung party thừa một khoảng trống lớn (~78px padding trống không cần thiết).
+- **Khắc phục:**
+  - Định nghĩa lại `INNER_PAD = 6` và `PANEL_W = SLOT + INNER_PAD * 2` (52px ở chế độ normal, 36px ở chế độ mini).
+  - Căn giữa ô slot hoàn hảo theo trục ngang của panel: `sx = x + (w - slotSize) / 2`, đảm bảo lề trái và lề phải đối xứng tuyệt đối.
+  - Căn giữa tiêu đề `PARTY` ở đầu panel và tinh chỉnh kích thước chữ theo `uiZoom`.
+  - Giữ thiết kế slot vuông vắn hiển thị avatar Pokémon và thanh HP tích hợp gọn bên trong slot, chuẩn bị sẵn sàng để gắn avatar thật khi dựng chức năng tiếp theo.
+- **File sửa:** `apps/client/src/ui/PartyStrip.ts`.
+
+
 

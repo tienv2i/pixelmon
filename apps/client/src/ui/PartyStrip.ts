@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import { C, FONT } from './theme';
-import { drawPanel, panelTitle } from './PanelFrame';
+import { drawPanel } from './PanelFrame';
 import type { UiZoomManager } from './UiZoomManager';
 import type { HudMode } from './HudManager';
 
 const SLOT = 40;
 const SLOT_GAP = 6;
 const PARTY_COUNT = 6;
-const PANEL_W = 132;
+const INNER_PAD = 6;
+const PANEL_W = SLOT + INNER_PAD * 2; // 52px — ôm sát avatar pokemon, không còn dư padding phải
 const PAD = 8;
 
 export interface PartyMember {
@@ -30,20 +31,7 @@ const EMPTY_BG = 0x262a4d;
 /**
  * **PartyStrip** — khung party **dọc bên trái**, đặt ngay **dưới PlayerHud**.
  *
- * ```
- * ┌─────────┐
- * │ PARTY   │
- * │ ┌─────┐ │  ← 6 ô xếp chồng dọc
- * │ │  ●  │ │
- * │ ├─────┤ │
- * │ │  ●  │ │
- * │ ├─────┤ │
- * │ │  +  │ │  ← ô trống
- * │ └─────┘ │
- * └─────────┘
- * ```
- *
- * Mỗi ô: icon Pokémon (tròn placeholder) + HP bar. Không có level/EXP.
+ * Chỉ hiển thị avatar Pokémon xếp dọc (căn giữa vừa vặn, không dư khoảng trống).
  */
 export class PartyStrip {
   private readonly scene: Phaser.Scene;
@@ -63,12 +51,14 @@ export class PartyStrip {
   /** Kích thước panel hiện tại (đã nhân uiZoom, đã xét mini) — dùng để xếp HUD. */
   getSize(): { w: number; h: number } {
     const z = this._uiZoomManager?.uiZoom ?? 1;
-    const headerH = this._hudMode === 'mini' ? 0 : 24;
-    const slot = this._hudMode === 'mini' ? SLOT * 0.7 : SLOT;
-    const gap = this._hudMode === 'mini' ? SLOT_GAP * 0.7 : SLOT_GAP;
+    const isMini = this._hudMode === 'mini';
+    const headerH = isMini ? 0 : 20;
+    const slot = isMini ? Math.round(SLOT * 0.7) : SLOT;
+    const gap = isMini ? Math.round(SLOT_GAP * 0.7) : SLOT_GAP;
+    const pad = isMini ? 4 : INNER_PAD;
     return {
-      w: PANEL_W * z,
-      h: (headerH + PARTY_COUNT * slot + (PARTY_COUNT - 1) * gap + PAD) * z,
+      w: (slot + pad * 2) * z,
+      h: (headerH + pad * 2 + PARTY_COUNT * slot + (PARTY_COUNT - 1) * gap) * z,
     };
   }
 
@@ -88,9 +78,7 @@ export class PartyStrip {
 
   /** Chiều cao khung party theo zoom — WorldScene dùng để tính y. */
   getPanelHeight(): number {
-    const z = this._uiZoomManager?.uiZoom ?? 1;
-    const headerH = 24;
-    return (headerH + PARTY_COUNT * SLOT + (PARTY_COUNT - 1) * SLOT_GAP + PAD) * z;
+    return this.getSize().h;
   }
 
   /** Ép vẽ lại với `anchorY` hiện tại. */
@@ -104,19 +92,34 @@ export class PartyStrip {
 
     const z = this._uiZoomManager?.uiZoom ?? 1;
     const isMini = this._hudMode === 'mini';
-    const headerH = isMini ? 0 : 24;
-    const slotSize = (isMini ? SLOT * 0.7 : SLOT) * z;
-    const gap = (isMini ? SLOT_GAP * 0.7 : SLOT_GAP) * z;
+    const headerH = isMini ? 0 : 20;
+    const slotSize = (isMini ? Math.round(SLOT * 0.7) : SLOT) * z;
+    const gap = (isMini ? Math.round(SLOT_GAP * 0.7) : SLOT_GAP) * z;
+    const pad = (isMini ? 4 : INNER_PAD) * z;
     const { w, h } = this.getSize();
     const x = PAD * z;
     const y = this.anchorY;
 
     this.track(drawPanel(this.scene, x, y, w, h, 100));
-    if (!isMini) this.track(panelTitle(this.scene, x + 8 * z, y + 6 * z, 'PARTY', 101));
+    if (!isMini) {
+      this.track(
+        this.scene.add
+          .text(x + w / 2, y + 4 * z, 'PARTY', {
+            fontSize: `${Math.max(9, Math.round(10 * z))}px`,
+            fontFamily: FONT.mono,
+            color: C.muted,
+          })
+          .setOrigin(0.5, 0)
+          .setDepth(101)
+          .setScrollFactor(0),
+      );
+    }
+
+    const startY = y + (headerH ? (headerH + (isMini ? 4 : INNER_PAD)) * z : pad);
+    const sx = x + (w - slotSize) / 2;
 
     for (let i = 0; i < PARTY_COUNT; i++) {
-      const sx = x + 14 * z;
-      const sy = y + headerH * z + i * (slotSize + gap);
+      const sy = startY + i * (slotSize + gap);
       this.drawSlot(sx, sy, i, slotSize, z, gap);
     }
   }

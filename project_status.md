@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 33: Tái thiết kế Bản đồ Pallet Town chuẩn mực 32×32, Hệ thống Layer Tiled & Định vị Người chơi trong Database)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 34: Tối ưu hoá dự án, Dọn dẹp tệp tin thừa, Thiết lập bộ công cụ & Cấu hình OpenCode tăng tốc và giảm thiểu Token)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -62,6 +62,7 @@
 | Plan 31 — Nạp dữ liệu Pokémon Essentials v21.1 & Giao diện Quản trị Game Data                        | ✅           |
 | Plan 32 — Hệ thống PC Box, Đội hình Party & Bảng chi tiết Pokémon (Storage & Summary)                | ✅           |
 | Plan 33 — Tái thiết kế Bản đồ Pallet Town chuẩn mực, Hệ thống Layer Tiled & Định vị Người chơi trong Database | ✅           |
+| Plan 34 — Dọn dẹp tệp thừa, Bộ công cụ Tra cứu & Cấu hình OpenCode tối ưu Token                       | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -1596,5 +1597,38 @@ Xây dựng trọn vẹn chu trình quản lý Pokémon cho người chơi trong
 - **Kiểm tra chất lượng:**
   - `pnpm run typecheck`: 4/4 packages pass không có lỗi.
   - Server và Client đã khởi động lại sạch sẽ, kết nối kiểm tra tài khoản `tienv2i` nạp đúng vị trí và bản đồ `pallet-town`.
+
+---
+
+### Plan 34 — Dọn dẹp tệp thừa, Bộ công cụ Tra cứu & Cấu hình OpenCode tối ưu Token (2026-10-01)
+- **Dọn dẹp rác & Tệp tin thừa (Project Cleanup):**
+  - Xoá tệp sao lưu dung lượng lớn: `Gemini_Generated_Image_6l4lev6l4lev6l4l.png~` (5.1MB).
+  - Xoá toàn bộ tệp ảnh tạm thử nghiệm render bản đồ trong `scratch/` (49 files PNG).
+  - Dọn dẹp thư mục rỗng và nhật ký tạm: `temp/`, `typescript-tmp/`, `.playwright-mcp/` (55 tệp logs/screenshots cũ), `scripts/tools/__pycache__/`.
+  - Tắt triệt để 4 background processes node bị treo do kết nối Redis.
+- **Cấu hình OpenCode (`opencode.json` & Rules):**
+  - Tạo tệp cấu hình chuẩn [`opencode.json`](file:///home/huynhat/AI-Agent/pixelmon/opencode.json):
+    - `instructions`: Tự động nạp [`AGENTS.md`](file:///home/huynhat/AI-Agent/pixelmon/AGENTS.md) làm chỉ dẫn cốt lõi.
+    - `watcher.ignore`: Chặn OpenCode quét hoặc index các thư mục khổng lồ (`packages/shared/assets/**`, `packages/shared/data/pbs/**`, `packages/shared/data/*.json`, `node_modules/**`, `.pm/logs/**`, `.playwright-mcp/**`).
+    - `tool_output`: Giới hạn `max_lines: 300` và `max_bytes: 24576` để ngăn chặn output lệnh quá dài làm tràn bộ nhớ ngữ cảnh.
+    - Slash commands tích hợp: `/status`, `/dev-restart`, `/typecheck`, `/query`, `/inspect-img`.
+  - Cập nhật [`AGENTS.md`](file:///home/huynhat/AI-Agent/pixelmon/AGENTS.md):
+    - Đưa các quy tắc tối ưu token lên hàng đầu.
+    - Cập nhật thông số bộ dữ liệu Pokémon Essentials v21.1 (898 loài, 740 chiêu, 693 items, 267 abilities, 19 hệ) và quy chuẩn tileset 32×32 px (8 cột).
+  - Đồng bộ các tệp ignore: [`.opencodeignore`](file:///home/huynhat/AI-Agent/pixelmon/.opencodeignore), [`.ignore`](file:///home/huynhat/AI-Agent/pixelmon/.ignore), [`.cursorignore`](file:///home/huynhat/AI-Agent/pixelmon/.cursorignore) chặn toàn bộ các file JSON lớn (`species.json`, `moves.json`, `items.json`, `.tmj`) khỏi các công cụ tìm kiếm ripgrep/fzf.
+- **Bộ công cụ Hỗ trợ Tối ưu hoá Token (CLI Tools):**
+  - **[`scripts/tools/query_data.py`](file:///home/huynhat/AI-Agent/pixelmon/scripts/tools/query_data.py):**
+    - Tra cứu dữ liệu Pokémon, chiêu thức, vật phẩm, bản đồ trực tiếp từ tệp JSON trong 0.1s.
+    - Chỉ trích xuất đúng các trường thông tin cần thiết (~30-50 tokens) thay vì đọc file JSON 1.2MB (~350.000 tokens), tiết kiệm hàng triệu tokens khi làm việc.
+    - Cú pháp: `python3 scripts/tools/query_data.py species <name|dex>`, `move <name>`, `item <name>`, `map <map_id>`, `search <cat> <term>` (hoặc qua npm script: `pnpm query species pikachu`).
+  - **[`scripts/tools/inspect_image.py`](file:///home/huynhat/AI-Agent/pixelmon/scripts/tools/inspect_image.py):**
+    - Sử dụng Pillow 12.3.0 để kiểm tra chi tiết kích thước W×H, mode màu, bounding box điểm ảnh không trong suốt, phân tích lưới frame (16×16, 32×32, 48×48, 64×64) và gợi ý cấu trúc spritesheet.
+    - Tránh việc nạp raw binary base64 làm phình token lịch sử hội thoại.
+    - Cú pháp: `python3 scripts/tools/inspect_image.py <path> [tile_size]` (hoặc qua npm script: `pnpm inspect-img <path> [tile_size]`).
+- **Kiểm tra chất lượng:**
+  - `pnpm run typecheck`: 4/4 packages pass.
+  - Các script query và inspect chạy trơn tru, chuẩn xác.
+  - Server & Client tiếp tục chạy ổn định dưới `./scripts/pm.sh`.
+
 
 

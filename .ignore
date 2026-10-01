@@ -2,29 +2,32 @@
 # Used by ripgrep (rg), ag, OpenCode, Cursor, and other AI coding assistants
 
 # Large media assets (audio, battlers, battlebacks, characters, etc.)
-packages/shared/assets/audio/
-packages/shared/assets/battlers/
-packages/shared/assets/battlebacks/
-packages/shared/assets/characters/
-packages/shared/assets/autotiles/
-packages/shared/assets/weather/
-packages/shared/assets/fogs/
-packages/shared/assets/trainers/
-packages/shared/assets/animations/
-packages/shared/assets/maps/
-packages/shared/assets/ui/
-packages/shared/assets/icons/
+packages/shared/assets/
+apps/server/public/assets/
 
 # Raw PBS data archive
 packages/shared/data/pbs/
+
+# Giant JSON datasets (Use `python3 scripts/tools/query_data.py` instead of searching/reading directly!)
+packages/shared/data/species.json
+packages/shared/data/moves.json
+packages/shared/data/items.json
+packages/shared/data/abilities.json
+packages/shared/data/encounters.json
+packages/shared/data/trainers.json
+packages/shared/data/types.json
+packages/shared/data/maps/tiled/*.tmj
 
 # Media file extensions
 *.ogg
 *.mid
 *.wav
 *.mp3
+*.png~
+*.bak
+*.swp
 
-# Build & temp
+# Build, logs & temp
 node_modules/
 dist/
 .turbo/
@@ -32,3 +35,5 @@ dist/
 .playwright-mcp/
 .venv/
 temp/
+scratch/
+typescript-tmp/

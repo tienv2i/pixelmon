@@ -19,7 +19,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "turbo run typecheck",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "query": "python3 scripts/tools/query_data.py",
+    "inspect-img": ".venv/bin/python3 scripts/tools/inspect_image.py"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

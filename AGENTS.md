@@ -1,24 +1,30 @@
-# AGENTS.md — Hướng dẫn cho AI Agent / Developer
+# AGENTS.md — Hướng dẫn cho AI Agent / Developer (OpenCode & IDE)
 
 Dự án: **Pixelmon** — Pokemon MMORPG trên web (Phaser 3 Client + Colyseus Server), Monorepo pnpm + Turborepo.
 
-## 1. Quy tắc chung
+## 1. Quy tắc chung & Tối ưu Token cho OpenCode
 
 - **Thư mục gốc:** `/mnt/data/AI-Agent/pixelmon` — mọi đường dẫn, import, script đều tính từ đây.
-- **KHÔNG đọc code từ thư mục khác** ngoài thư mục gốc (không `../other-project`, không symlink ra ngoài).
+- **KHÔNG đọc code từ thư mục khác** ngoài thư mục gốc.
 - **KHÔNG tự ý chạy test** — chỉ chạy khi user yêu cầu rõ ràng. Agent chỉ tạo/sửa file, không `pnpm test`, không `vitest`, không `jest`.
-- **Xử lý ảnh & Sprite:** Môi trường đã có sẵn Python với **Pillow 12.3.0** (`.venv/bin/python3`). Khi cần chỉnh sửa, cắt ghép, resize, kiểm tra kích thước frame hoặc tạo spritesheet, **hãy viết script Python sử dụng Pillow** để xử lý trực tiếp trên đĩa (chuẩn xác từng pixel và không tốn token ngữ cảnh). Tránh dùng tool `read` nạp raw binary ảnh lớn thành chuỗi base64 vào lịch sử chat nhiều lần.
-- **KHÔNG đọc trực tiếp toàn bộ file JSON lớn** (`data/species.json` 1.2MB, `moves.json`), chỉ grep dòng cần thiết hoặc truy xuất qua module `gameData`.
-- **KHÔNG quét các thư mục log/temp:** `.playwright-mcp/`, `temp/`, `.venv/`.
-- **KHÔNG quét các thư mục media & archive lớn:** `packages/shared/assets/` (audio, battlers, battlebacks, characters, tilesets, animations...) và `packages/shared/data/pbs/`. Chỉ truy xuất qua đường dẫn tĩnh `/assets/...` hoặc file manifest `packages/shared/assets/assets_manifest.json`.
-- Cập nhật `project_status.md` (và `projects_status.md` nếu có) **sau khi hoàn thành mỗi plan/phase**.
-- Giữ nguyên cấu trúc thư mục đã định (xem mục 3). Thêm file mới phải đặt đúng chỗ.
+- **TUYỆT ĐỐI KHÔNG đọc toàn bộ file JSON lớn** (`data/species.json` 1.2MB, `moves.json`, `items.json`, file `.tmj`).
+  - Dùng CLI: `python3 scripts/tools/query_data.py species <name|dex>` hoặc `pnpm query species pikachu`.
+  - Cực nhanh (0.1s) và chỉ tốn vài chục token thay vì đốt 350.000 token vào context.
+- **Xử lý ảnh & Sprite/Tileset:** Môi trường có sẵn Python với **Pillow 12.3.0** (`.venv/bin/python3`).
+  - Dùng CLI: `python3 scripts/tools/inspect_image.py <path> [tile_size]` để kiểm tra kích thước W×H, kênh màu, bounding box, grid columns/rows.
+  - Không đọc raw binary ảnh thành chuỗi base64 vào lịch sử chat.
+  - Tileset `Outdoor.png` là chuẩn **32×32 pixels, 8 cột tiles** (chiều rộng 256px).
+- **KHÔNG quét các thư mục log/temp:** `.playwright-mcp/`, `temp/`, `.venv/`, `.turbo/`, `.pm/logs/`.
+- **KHÔNG quét các thư mục media & archive lớn:** `packages/shared/assets/` (audio, battlers, battlebacks, characters, tilesets, animations...) và `packages/shared/data/pbs/`. Đã cấu hình chặn quét trong `.opencodeignore` và `.ignore`.
+- Cập nhật `project_status.md` **sau khi hoàn thành mỗi plan/phase**.
+- Giữ nguyên cấu trúc thư mục đã định (xem mục 2).
 
 ## 2. Cấu trúc thư mục (bắt buộc)
 
 ```
 ├── packages/
 │   └── shared/                 # Dữ liệu dùng chung giữa Client & Server
+│       ├── data/               # species.json, moves.json, items.json, maps/
 │       ├── src/
 │       │   ├── types/          # Interfaces: Player, Stats, Item...
 │       │   ├── constants/      # Grid size, move speeds, map IDs...
@@ -30,20 +36,22 @@ Dự án: **Pixelmon** — Pokemon MMORPG trên web (Phaser 3 Client + Colyseus 
 │   │   ├── src/
 │   │   │   ├── scenes/         # Boot, Login, WorldScene, BattleScene
 │   │   │   ├── network/        # Colyseus Client Manager
+│   │   │   ├── world/          # TiledMapLoader (32x32 tileset)
 │   │   │   └── entities/       # PlayerSprite, PokemonSprite...
 │   │   └── package.json
 │   └── server/                 # Colyseus Game Server + Express API
 │       ├── src/
 │       │   ├── app.ts          # Setup Express + Colyseus WebSocket Server
 │       │   ├── config/         # Database (PostgreSQL + Redis)
-│       │   ├── modules/        # Modular Architecture
-│       │   │   ├── auth/       # JWT, Register, Login API
-│       │   │   ├── player/     # Load/Save stats, inventory
-│       │   │   ├── world/      # Colyseus WorldRoom (Map, Movement)
-│       │   │   ├── battle/     # Colyseus BattleRoom (Turn-based logic)
-│       │   │   └── pokemon/    # Pokemon database, IV/EV, skills
+│       │   ├── modules/        # Modular Architecture (auth, player, world, battle...)
 │       │   └── index.ts
 │       └── package.json
+├── scripts/
+│   ├── pm.sh                   # Quản lý tiến trình server & client
+│   └── tools/
+│       ├── query_data.py       # Tra cứu Pokémon/Move/Item/Map siêu tốc
+│       └── inspect_image.py    # Phân tích kích thước và grid ảnh bằng Pillow
+├── opencode.json               # Cấu hình OpenCode (watcher ignore, commands)
 ├── package.json
 ├── turbo.json
 └── pnpm-workspace.yaml
@@ -52,26 +60,31 @@ Dự án: **Pixelmon** — Pokemon MMORPG trên web (Phaser 3 Client + Colyseus 
 ## 3. Quy ước kỹ thuật
 
 - **Language:** TypeScript strict, ESM.
-- **Shared package:** tên package `@pixelmon/shared` — Client và Server đều import từ đây (types, constants, formulas, schema).
+- **Shared package:** `@pixelmon/shared` — Client và Server đều import từ đây (types, constants, formulas, schema).
 - **Server:** Express + Colyseus `@colyseus/server`; Room logic trong `modules/*`.
 - **Client:** Phaser 3 + Vite; kết nối qua `@colyseus/client` trong `network/`.
-- **Database:** PostgreSQL (persistent: users, pokemon, inventory) + Redis (session/cache/pubsub). Cấu hình trong `apps/server/src/config/`.
-- **State management:** Colyseus Schema classes dùng chung từ `packages/shared/src/schema/` (nếu shared được compile) — server broadcast, client `onStateChange`.
+- **Database:** PostgreSQL (persistent: users, pokemon, inventory, coordinates) + Redis. Cấu hình trong `apps/server/src/config/`.
 - **Naming:** file `.ts` thường (camelCase), class `PascalCase`, constant `UPPER_SNAKE_CASE`.
 
 ### 3.1 Game Data (`packages/shared/data/` + `assets/`)
 
-Đã import sẵn từ project `pixmon`. **Dùng data này, không tự tạo data Pokémon mới.**
+Dữ liệu Pokémon Essentials v21.1: **898 loài, 740 chiêu thức, 693 vật phẩm, 267 đặc tính, 19 hệ**.
 
-- `data/species.json` — 649 species, `data/moves.json` — 559 moves, `data/items.json` — 526 items
-- `data/types.json` — type chart 18 hệ (đọc qua `getTypeChart()` / `setTypeChart()`)
-- `data/encounters.json`, `data/trainers.json`, `data/quests/`
-- `data/maps/server/*.json` — collision bitmask + objects (server-side, nhẹ)
-- `assets/icons/pokemon/icon1..649.png` — icon Pokémon (`.png` hậu tố `_1.._3` = shiny, `f` = female)
-- `assets/tilesets/*.png` — tileset 16x16
+Tra cứu qua CLI (khuyên dùng cho AI Agent):
+```bash
+python3 scripts/tools/query_data.py species pikachu   # Tra cứu Pokémon
+python3 scripts/tools/query_data.py move thunderbolt  # Tra cứu chiêu thức
+python3 scripts/tools/query_data.py item potion       # Tra cứu vật phẩm
+python3 scripts/tools/query_data.py map pallet-town   # Tra cứu map, warps, signs
+python3 scripts/tools/query_data.py search species char # Tìm kiếm theo từ khoá
+```
 
-Cách dùng:
+Tra cứu ảnh/tileset:
+```bash
+python3 scripts/tools/inspect_image.py packages/shared/assets/tilesets/Outdoor.png 32
+```
 
+Dùng trong code:
 ```ts
 import {
   gameData,
@@ -81,17 +94,16 @@ import {
 } from '@pixelmon/shared';
 
 await gameData.load(); // 1 lần lúc server boot
-setTypeChart(gameData.getTypeChart()); // đưa chart vào formulas
+setTypeChart(gameData.getTypeChart());
 const species = gameData.getSpecies('bulbasaur');
 const pkm = generatePokemon(
   species,
   16,
   gameData.getMovesForLevel.bind(gameData),
 );
-const map = await mapLoader.load('pallet-town');
 ```
 
-### 3.2 Field name chuẩn của project (đã chuẩn hóa từ data gốc)
+### 3.2 Field name chuẩn của project
 
 | Không dùng (data gốc) | Dùng (project)     |
 | --------------------- | ------------------ |
@@ -101,24 +113,23 @@ const map = await mapLoader.load('pallet-town');
 | `medium_slow`         | `mediumSlow`       |
 | `base_exp`            | `baseExperience`   |
 
-Không import trực tiếp từ `data/*.json` trong code — luôn qua `gameData` / `mapLoader` (đã normalize + validate).
+## 4. Lệnh dev & Quản lý tiến trình
 
-## 4. Workflow plan
-
-1. Viết plan vào `project_status.md` (mục Plans) trước khi code.
-2. Code từng step theo plan.
-3. **Không chạy test.**
-4. Sau khi xong plan → cập nhật `project_status.md`: đánh dấu `[x]`, ghi ngày, ghi chú kết quả.
-5. Tiếp tục plan tiếp theo.
-
-## 5. Lệnh dev (chỉ khi user yêu cầu)
+Dự án dùng Process Manager [`./scripts/pm.sh`](file:///home/huynhat/AI-Agent/pixelmon/scripts/pm.sh) để chạy Server và Client ngầm:
 
 ```bash
-pnpm install          # cài deps
-pnpm dev              # chạy cả client + server (turbo)
-pnpm dev:server       # chỉ server :2567
-pnpm dev:client       # chỉ client :5173
+./scripts/pm.sh status        # Xem trạng thái port 2567 & 5173
+./scripts/pm.sh restart       # Khởi động lại cả client và server
+./scripts/pm.sh logs          # Xem log mới nhất
+pnpm run typecheck            # Kiểm tra TypeScript cả 4 packages
 ```
+
+Trong **OpenCode**, có thể dùng trực tiếp các lệnh slash command đã cấu hình sẵn trong `opencode.json`:
+- `/status` — Kiểm tra server & client
+- `/dev-restart` — Restart server & client
+- `/typecheck` — Typecheck toàn bộ dự án
+- `/query <loại> <tên>` — Tra cứu data
+- `/inspect-img <path>` — Kiểm tra kích thước ảnh/sprite
 
 <!-- BEGIN:turborepo-agent-rules -->
 

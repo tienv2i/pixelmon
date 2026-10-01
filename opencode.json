@@ -1,0 +1,53 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md"
+  ],
+  "watcher": {
+    "ignore": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.turbo/**",
+      "**/.pm/logs/**",
+      "**/.playwright-mcp/**",
+      "**/.venv/**",
+      "**/scratch/**",
+      "**/temp/**",
+      "packages/shared/assets/**",
+      "packages/shared/data/pbs/**",
+      "packages/shared/data/species.json",
+      "packages/shared/data/moves.json",
+      "packages/shared/data/items.json",
+      "packages/shared/data/abilities.json",
+      "packages/shared/data/encounters.json",
+      "packages/shared/data/trainers.json",
+      "packages/shared/data/maps/tiled/*.tmj"
+    ]
+  },
+  "tool_output": {
+    "max_lines": 300,
+    "max_bytes": 24576
+  },
+  "command": {
+    "status": {
+      "description": "Kiểm tra trạng thái server Colyseus và client Phaser",
+      "template": "./scripts/pm.sh status"
+    },
+    "dev-restart": {
+      "description": "Khởi động lại toàn bộ client và server",
+      "template": "./scripts/pm.sh restart"
+    },
+    "typecheck": {
+      "description": "Kiểm tra TypeScript strict trong toàn bộ monorepo (4 packages)",
+      "template": "pnpm run typecheck"
+    },
+    "query": {
+      "description": "Truy xuất nhanh thông tin loài Pokémon, chiêu thức, item, map mà không nạp file JSON lớn",
+      "template": "python3 scripts/tools/query_data.py $ARGUMENTS"
+    },
+    "inspect-img": {
+      "description": "Kiểm tra kích thước, frame grid, độ trong suốt của sprite/tileset bằng Pillow",
+      "template": "python3 scripts/tools/inspect_image.py $ARGUMENTS"
+    }
+  }
+}

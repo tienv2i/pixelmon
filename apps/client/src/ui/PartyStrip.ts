@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { C, FONT } from './theme';
 import { drawPanel, panelTitle } from './PanelFrame';
 import type { UiZoomManager } from './UiZoomManager';
+import type { HudMode } from './HudManager';
 
 const SLOT = 40;
 const SLOT_GAP = 6;

@@ -14,3 +14,8 @@ declare module '@pixelmon/shared/assets/*' {
   const src: string;
   export default src;
 }
+
+declare module '*.tmj' {
+  const content: any;
+  export default content;
+}

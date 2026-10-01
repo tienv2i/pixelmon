@@ -4,12 +4,13 @@ import { UiModal } from './UiModal';
 import type { UiZoomManager } from './UiZoomManager';
 import type { HudMode } from './HudManager';
 
-const SLOT = 36;
-const SLOT_GAP = 5;
+const SLOT = 34;
+const SLOT_GAP = 4;
 const PARTY_COUNT = 6;
-const PANEL_W = 82;
-const PANEL_H = PARTY_COUNT * SLOT + (PARTY_COUNT - 1) * SLOT_GAP + 14;
+const PANEL_W = 88;
 const HEADER_H = 26;
+const CONTENT_H = PARTY_COUNT * SLOT + (PARTY_COUNT - 1) * SLOT_GAP + 12;
+const PANEL_H = HEADER_H + CONTENT_H;
 
 export interface PartyMember {
   name: string;
@@ -47,7 +48,7 @@ export class PartyStrip extends UiModal {
 
   constructor(scene: Phaser.Scene, members: Array<PartyMember | null>) {
     super(scene, {
-      title: '🐾 ĐỘI HÌNH',
+      title: '🐾 0/6',
       width: PANEL_W,
       height: PANEL_H,
       headerHeight: HEADER_H,
@@ -161,8 +162,8 @@ export class PartyStrip extends UiModal {
       }
     }
 
-    // Cập nhật tiêu đề hiển thị số lượng Pokémon
-    this.setTitle(`🐾 ĐỘI HÌNH (${activeCount}/${PARTY_COUNT})`);
+    // Cập nhật tiêu đề hiển thị số lượng Pokémon (gọn gàng, không bị tràn header)
+    this.setTitle(`🐾 ${activeCount}/${PARTY_COUNT}`);
   }
 
   setVisible(v: boolean): void {

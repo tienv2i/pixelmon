@@ -1301,12 +1301,15 @@ eslint.config.js                                 (+ ignores .venv, temp)
 - **`PlayerHud` & `InfoPanel`:**
   - Cấu hình `showTitleBar: false`, `docked: true`, gắn cứng tại góc trên-trái (`top-left`) và góc trên-phải (`top-right`), không có thanh title bar cồng kềnh.
   - Kích thước tinh gọn: `PlayerHud` 168×56px, `InfoPanel` 154×40px.
-- **Khắc phục lỗi thanh Party Box biến mất:**
-  - **Nguyên nhân:** Khung `PartyStrip` trước đây có chiều rộng nhỏ (76px) nhưng chứa cả 3 nút (✕, －, ⚓), dẫn tới người chơi click nhầm vào nút ✕ làm modal đóng lại; đồng thời icon `team` trên Toolbar rơi vào `default: [team] chưa implement` nên không có cách nào mở lại.
+- **Khắc phục lỗi thanh Party Box biến mất, tràn title & tràn ô slot:**
+  - **Nguyên nhân:** Khung `PartyStrip` trước đây có chiều rộng nhỏ nhưng chứa title quá dài `'🐾 ĐỘI HÌNH (0/6)'` đè lên các nút; `PANEL_H` trước đây tính theo nội dung mà chưa cộng thêm `HEADER_H = 26px` dẫn tới 6 ô slot bị đẩy tụt xuống đáy và tràn ra ngoài modal; nút toggle dock thiếu `setInteractive` trên `headerZone` khiến không thể kéo được khi mở neo.
   - **Khắc phục:**
-    - Đặt `showClose: false` trên `PartyStrip`, tăng nhẹ chiều rộng lên 82px.
-    - Trong `WorldScene.ts`: Xử lý sự kiện icon `team` trên Toolbar để gọi `this.partyStrip.toggle()` và đồng bộ trạng thái active của icon.
-    - Trong `WorldScene.layoutLeftColumn()`: Tôn trọng trạng thái của `partyStrip`, không ép bật lại khi người chơi chủ động đóng.
+    - Đặt `showClose: false` trên `PartyStrip`, tăng chiều rộng lên 88px.
+    - Title đổi thành dạng compact: `🐾 0/6` (hoặc `🐾 3/6`), không bao giờ bị đè lên các nút header.
+    - Tính đúng chiều cao: `PANEL_H = HEADER_H + CONTENT_H = 26 + (6 * 34 + 5 * 4 + 12) = 264px`, các ô slot nằm trọn vẹn bên trong khung modal.
+    - Trong `UiModal.ts`: Gọi `setInteractive()` ngay khi khởi tạo `headerZone`, mở rộng hitArea của `btnDock` (22×22px) và đồng bộ resize hitArea của `headerZone` trong `relayout()` để kéo thả mượt mà 100%.
+- **Khắc phục tràn Sprite Preview trên PlayerHud:**
+  - Scale avatar tự động theo tỷ lệ khung 34px (`targetSize / Math.max(1, frameSize)`), vẽ thêm khung nền avatar 38×38px viền pixel sắc nét, dịch chuyển text sang x=52px. Nhân vật 64×64 hoặc 32×32 đều hiển thị vừa khít trong khung 168×56px.
 
 ### 4. Kết quả kiểm tra
 - `pnpm typecheck`: 4/4 packages pass không có lỗi TypeScript nào (`@pixelmon/shared`, `client`, `server`).

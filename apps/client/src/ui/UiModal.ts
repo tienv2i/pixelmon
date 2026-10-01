@@ -211,7 +211,8 @@ export class UiModal {
 
       this.headerZone = scene.add
         .zone(0, 0, this.opts.width, this.opts.headerHeight!)
-        .setOrigin(0, 0);
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: !this.isDocked && !!this.opts.draggable });
 
       if (this.opts.draggable) {
         this.updateHeaderCursor();
@@ -307,7 +308,12 @@ export class UiModal {
       this.btnDock = this.scene.add
         .text(this.opts.width - btnRightOffset, headerCenterY, '⚓', ts(13, this.isDocked ? '#00cec9' : C.muted, FONT.ui))
         .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true });
+        .setSize(22, 22)
+        .setInteractive({
+          hitArea: new Phaser.Geom.Rectangle(-4, -4, 22, 22),
+          hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+          useHandCursor: true,
+        });
 
       this.btnDock.on('pointerover', () => this.btnDock?.setColor('#00cec9'));
       this.btnDock.on('pointerout', () => this.btnDock?.setColor(this.isDocked ? '#00cec9' : C.muted));
@@ -601,6 +607,8 @@ export class UiModal {
    */
   undock(): void {
     this.isDocked = false;
+    this.customX = this.modalContainer.x;
+    this.customY = this.modalContainer.y;
     this.updateHeaderCursor();
     if (this.btnDock) this.btnDock.setColor(C.muted);
     this.opts.onDock?.(false);
@@ -731,7 +739,13 @@ export class UiModal {
         btn.txt.setPosition(W - btnRightOffset, headerCenterY);
         btnRightOffset += 22;
       }
-      this.headerZone.setSize(Math.max(40, W - btnRightOffset), headerH);
+      const dragW = Math.max(40, W - btnRightOffset);
+      this.headerZone.setSize(dragW, headerH);
+      if (this.headerZone.input && this.headerZone.input.hitArea) {
+        (this.headerZone.input.hitArea as Phaser.Geom.Rectangle).setSize(dragW, headerH);
+      }
+      const maxTitleW = Math.max(30, W - btnRightOffset - 16);
+      this.titleText.setWordWrapWidth(maxTitleW, false);
     }
 
     // 5. Vẽ Footer Bar nếu bật showFooter

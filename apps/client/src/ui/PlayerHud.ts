@@ -51,15 +51,25 @@ export class PlayerHud extends UiModal {
 
     this._avatarFrameSize = frameSize;
 
-    // 1. Avatar (local space trong contentContainer)
+    // Khung nền chứa Avatar (38x38)
+    const avatarBox = scene.add.graphics();
+    avatarBox.fillStyle(0x0e1022, 0.9);
+    avatarBox.fillRoundedRect(6, 9, 38, 38, 4);
+    avatarBox.lineStyle(1, 0x2e3358, 1);
+    avatarBox.strokeRoundedRect(6, 9, 38, 38, 4);
+    this.contentContainer.add(avatarBox);
+
+    // 1. Avatar (local space trong contentContainer, scale chuẩn vừa khung)
     this.avatar = scene.add
-      .image(22, 28, sheetKey, frame)
+      .image(25, 28, sheetKey, frame)
       .setOrigin(0.5, 0.5);
+    const targetSize = 34;
+    this.avatar.setScale(targetSize / Math.max(1, this._avatarFrameSize));
     this.contentContainer.add(this.avatar);
 
     // 2. Name Text
     this.nameText = scene.add
-      .text(48, 6, 'Trainer', {
+      .text(52, 6, 'Trainer', {
         fontSize: '11px',
         fontFamily: FONT.ui,
         color: C.text,
@@ -69,7 +79,7 @@ export class PlayerHud extends UiModal {
 
     // 3. Money Text
     this.moneyText = scene.add
-      .text(48, 22, '$ 0', {
+      .text(52, 22, '$ 0', {
         fontSize: '10px',
         fontFamily: FONT.mono,
         color: '#00cec9',
@@ -79,7 +89,7 @@ export class PlayerHud extends UiModal {
 
     // 4. Real Money Text
     this.realMoneyText = scene.add
-      .text(48, 38, '₿ 0', {
+      .text(52, 38, '₿ 0', {
         fontSize: '10px',
         fontFamily: FONT.mono,
         color: '#fdcb6e',
@@ -100,11 +110,6 @@ export class PlayerHud extends UiModal {
   setHudMode(mode: HudMode): void {
     if (this._hudMode === mode) return;
     this._hudMode = mode;
-    if (mode === 'mini') {
-      this.minimize();
-    } else if (mode === 'normal') {
-      this.expand();
-    }
   }
 
   /** Đổi avatar nhân vật hiển thị trên Player Info. */
@@ -112,6 +117,8 @@ export class PlayerHud extends UiModal {
     if (!this.scene.textures.exists(sheetKey)) return;
     this._avatarFrameSize = frameSize;
     this.avatar.setTexture(sheetKey, frame);
+    const targetSize = 34;
+    this.avatar.setScale(targetSize / Math.max(1, this._avatarFrameSize));
   }
 
   update(d: Partial<PlayerHudData>): void {

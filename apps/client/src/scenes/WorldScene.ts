@@ -218,12 +218,37 @@ export class WorldScene extends Phaser.Scene {
   private mapWidth = 60 * 32;
   private mapHeight = 45 * 32;
 
+  /**
+   * Cập nhật camera bounds để căn giữa map khi viewport lớn hơn map,
+   * hoặc kẹp camera trong phạm vi map khi map lớn hơn viewport.
+   */
+  updateCameraBounds(): void {
+    const cam = this.cameras.main;
+    if (!cam) return;
+
+    const zoomX = cam.zoomX || cam.zoom || 1;
+    const zoomY = cam.zoomY || cam.zoom || 1;
+    const dw = cam.width / zoomX;
+    const dh = cam.height / zoomY;
+
+    const diffX = dw - this.mapWidth;
+    const diffY = dh - this.mapHeight;
+
+    // Nếu viewport lớn hơn map, offset sang âm để tâm camera trùng tâm map
+    const boundX = diffX > 0 ? -diffX / 2 : 0;
+    const boundY = diffY > 0 ? -diffY / 2 : 0;
+    const boundW = diffX > 0 ? dw : this.mapWidth;
+    const boundH = diffY > 0 ? dh : this.mapHeight;
+
+    cam.setBounds(boundX, boundY, boundW, boundH);
+  }
+
   private setupCameraFollow(): void {
     const cam = this.cameras.main;
-    cam.setBounds(0, 0, this.mapWidth, this.mapHeight);
-    cam.startFollow(this.player, true, 0.12, 0.12);
     cam.setRoundPixels(true);
     cam.setZoom(1);
+    this.updateCameraBounds();
+    cam.startFollow(this.player, true, 0.12, 0.12);
   }
 
   /**
@@ -244,9 +269,12 @@ export class WorldScene extends Phaser.Scene {
     const cy = screenY ?? this.scale.height / 2;
     const before = cam.getWorldPoint(cx, cy);
     cam.setZoom(next);
+    this.updateCameraBounds();
     const after = cam.getWorldPoint(cx, cy);
-    cam.scrollX -= after.x - before.x;
-    cam.scrollY -= after.y - before.y;
+    const targetX = cam.scrollX - (after.x - before.x);
+    const targetY = cam.scrollY - (after.y - before.y);
+    cam.scrollX = cam.useBounds ? cam.clampX(targetX) : targetX;
+    cam.scrollY = cam.useBounds ? cam.clampY(targetY) : targetY;
     this.minimap?.update(this.player.x, this.player.y, cam);
   }
 
@@ -282,6 +310,7 @@ export class WorldScene extends Phaser.Scene {
     // phải đăng ký lại camera để tránh render đôi.
     this.scale.on('resize', (size: Phaser.Structs.Size) => {
       ui.setSize(size.width, size.height);
+      this.updateCameraBounds();
       this.scheduleCameraRefresh();
     });
   }
@@ -453,8 +482,10 @@ export class WorldScene extends Phaser.Scene {
         const zoom = cam.zoom;
         const dx = (p.x - this.camDrag.startPointerX) / zoom;
         const dy = (p.y - this.camDrag.startPointerY) / zoom;
-        cam.scrollX = this.camDrag.startWorldX - dx;
-        cam.scrollY = this.camDrag.startWorldY - dy;
+        const nextX = this.camDrag.startWorldX - dx;
+        const nextY = this.camDrag.startWorldY - dy;
+        cam.scrollX = cam.useBounds ? cam.clampX(nextX) : nextX;
+        cam.scrollY = cam.useBounds ? cam.clampY(nextY) : nextY;
         return;
       }
       // Highlight ô dưới con trỏ
@@ -482,6 +513,16 @@ export class WorldScene extends Phaser.Scene {
     const cx = col * TILE_SIZE;
     const cy = row * TILE_SIZE;
 
+    // Ngoài phạm vi map (vùng trống khi map căn giữa) → xoá highlight
+    const maxCols = Math.floor(this.mapWidth / TILE_SIZE);
+    const maxRows = Math.floor(this.mapHeight / TILE_SIZE);
+    if (col < 0 || row < 0 || col >= maxCols || row >= maxRows) {
+      if (this.hoverGfx) this.hoverGfx.clear();
+      this.hoverTileX = -1;
+      this.hoverTileY = -1;
+      return;
+    }
+
     if (this.hoverTileX === cx && this.hoverTileY === cy) return;
     this.hoverTileX = cx;
     this.hoverTileY = cy;
@@ -499,6 +540,14 @@ export class WorldScene extends Phaser.Scene {
 
   /** Bật click-to-move: tính path bằng A* rồi tự di chuyển. */
   private issueMoveTo(x: number, y: number): void {
+    const maxCols = Math.floor(this.mapWidth / TILE_SIZE);
+    const maxRows = Math.floor(this.mapHeight / TILE_SIZE);
+    const col = Math.floor(x / TILE_SIZE);
+    const row = Math.floor(y / TILE_SIZE);
+    if (col < 0 || row < 0 || col >= maxCols || row >= maxRows) {
+      return;
+    }
+
     const path = findPath(this.player.x, this.player.y, x, y);
     if (path.length === 0) return;
     this.movePath = pathToPixels(path);

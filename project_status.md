@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 20: Import sprite jin-yuichi và thêm sprites vào admin)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành điều chỉnh cơ chế hiển thị map căn giữa trung tâm)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -49,6 +49,7 @@
 | Plan 18 — HUD Layout: tách zoom (Game/UI) + Neo/Tự do + Mini/Normal/Hidden + Ẩn tất cả               | 🔄 Đang làm  |
 | Plan 20 — Sprite #2 (jin-yuichi) + `users.sprite_id` + editor 16-frame + gán sprite trong admin      | ✅           |
 | Plan 21 — Import toàn bộ sprite (16-frame chuẩn), preview 128/256, nâng cấp Sprite Library, Register & Player Info | ✅           |
+| Căn giữa map ở trung tâm hiển thị thay vì neo ở góc trên bên trái                                    | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -878,6 +879,36 @@ eslint.config.js                                 (+ ignores .venv, temp)
 
 - Cập nhật `PlayerHud.ts`: hỗ trợ phương thức `setAvatar(sheetKey, frame, frameSize)` và tính toán `scale` theo kích thước `frameSize` thực tế (64px / 32px) thay vì hardcode.
 - Trong `WorldScene.ts`: Khi người chơi vào game, truyền đúng `sheetKey` của nhân vật người chơi (kèm frame `0_0` và frameSize 64) vào `PlayerHud`, giúp avatar hiển thị chính xác nhân vật người chơi đang sử dụng.
+
+---
+
+## Nhật ký 2026-10-01 (5) — Căn giữa map ở trung tâm hiển thị thay vì neo góc trên bên trái
+
+### 1. Phân tích nguyên nhân
+- Trước đây `WorldScene.setupCameraFollow()` thiết lập cố định `cam.setBounds(0, 0, this.mapWidth, this.mapHeight)`.
+- Khi kích thước viewport hiển thị (`cam.width / zoom`, `cam.height / zoom`) lớn hơn kích thước map (`mapWidth`, `mapHeight`) — xảy ra khi mở trình duyệt toàn màn hình, màn hình độ phân giải cao hoặc zoom out:
+  - Hàm `clampX` và `clampY` của Phaser kẹp giá trị scroll tại biên nhỏ nhất `0, 0`.
+  - Hậu quả: Toàn bộ bản đồ bị dính chặt vào góc trên bên trái (`0, 0`), để lại khoảng trống màu đen lớn ở bên phải và phía dưới màn hình, gây mất cân đối thị giác.
+
+### 2. Giải pháp kỹ thuật
+- **Tính toán Bounds linh hoạt (`updateCameraBounds`):**
+  - Kích thước hiển thị trong world space: `dw = cam.width / zoomX`, `dh = cam.height / zoomY`.
+  - Độ lệch so với kích thước map: `diffX = dw - mapWidth`, `diffY = dh - mapHeight`.
+  - Khi `diffX > 0` (viewport rộng hơn map):
+    - Đặt `boundX = -diffX / 2` và `boundW = dw`.
+    - Phaser's `clampX` tự động kẹp `scrollX` về đúng `(mapWidth - width) / 2`, đưa tâm camera trùng khít với tâm ngang của map (`midPoint.x = mapWidth / 2`). Khoảng trống 2 bên trái/phải đối xứng hoàn hảo.
+  - Khi `diffY > 0` (viewport cao hơn map):
+    - Đặt `boundY = -diffY / 2` và `boundH = dh`.
+    - Phaser's `clampY` tự động kẹp `scrollY` về đúng `(mapHeight - height) / 2`, đưa tâm camera trùng khít với tâm dọc của map (`midPoint.y = mapHeight / 2`). Khoảng trống trên/dưới đối xứng hoàn hảo.
+  - Khi viewport nhỏ hơn map (`diff <= 0`): Giữ nguyên `bound = 0` và `bound = mapSize`, camera bám theo player và kẹp tại 4 mép map như bình thường.
+
+### 3. Đồng bộ tương tác chuột & Camera Controls
+- **Zoom (`setGameZoom`):** Tự động gọi `updateCameraBounds()` ngay sau khi set zoom mới, tính toán lại vị trí zoom mượt mà và kẹp scroll trong bounds.
+- **Resize cửa sổ (`scale.on('resize')`):** Cập nhật lại bounds ngay khi kích thước canvas thay đổi.
+- **Pan camera (`camDrag`):** Kẹp toạ độ kéo `cam.scrollX` / `cam.scrollY` qua `clampX` / `clampY`, ngăn không cho kéo trôi map ra ngoài màn hình.
+- **Hover tile & Click-to-move:** Thêm kiểm tra ranh giới bản đồ (`col < 0 || row < 0 || col >= maxCols || row >= maxRows`). Khi con trỏ chuột trỏ ra ngoài khoảng trống bao quanh map (pillarbox / letterbox), tự động ẩn khung highlight và bỏ qua lệnh di chuyển tự động.
+- **Files sửa:** `apps/client/src/scenes/WorldScene.ts`.
+
 
 
 

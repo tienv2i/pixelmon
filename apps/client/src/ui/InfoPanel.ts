@@ -1,16 +1,15 @@
 import Phaser from 'phaser';
 import { C, FONT } from './theme';
+import { UiModal } from './UiModal';
 import type { UiZoomManager } from './UiZoomManager';
 import type { HudMode } from './HudManager';
 
 interface WeatherDef {
   glyph: string;
   name: string;
-  /** Tint nhẹ cho icon */
   tint: number;
 }
 
-/** Thời tiết mô phỏng — chọn theo giờ trong ngày + hạt giống để ổn định. */
 const WEATHERS: WeatherDef[] = [
   { glyph: '☀', name: 'Nắng', tint: 0xfdcb6e },
   { glyph: '⛅', name: 'Nhiều mây', tint: 0xc9d1e0 },
@@ -18,184 +17,133 @@ const WEATHERS: WeatherDef[] = [
   { glyph: '🌧', name: 'Mưa', tint: 0x6c9fd8 },
 ];
 
-const PANEL_W = 144;
-const PANEL_H = 46;
-const MINI_W = 80;
-const MINI_H = 32;
-const PAD = 6;
+const PANEL_W = 154;
+const PANEL_H = 68;
+const HEADER_H = 26;
 
 /**
- * **InfoPanel** — khối thông tin góc trên phải: giờ + thời tiết.
- *
- * Neo cố định góc trên phải. Minimap sẽ hiển thị ngay bên dưới panel này.
- * Hỗ trợ chế độ mini tự động khi màn hình nhỏ để tránh va chạm với TopMenu.
+ * **InfoPanel** — Bảng thông tin góc trên-phải: Đồng hồ & Thời tiết:
+ * - Kế thừa từ `UiModal`: đồng bộ thanh tiêu đề với toàn bộ hệ thống popup.
+ * - Draggable: kéo thả di chuyển tự do bằng thanh tiêu đề.
+ * - Nút Thu nhỏ (－): thu gọn panel chỉ còn lại giờ trên thanh tiêu đề khi cần thoáng màn hình.
+ * - Nút Neo (⚓): đưa panel về vị trí mặc định ở góc trên-phải màn hình.
+ * - Nút Tắt (✕): ẩn bảng thời tiết.
  */
-export class InfoPanel {
-  private readonly scene: Phaser.Scene;
-  private panel: Phaser.GameObjects.Graphics;
+export class InfoPanel extends UiModal {
   private clockText: Phaser.GameObjects.Text;
   private dateText: Phaser.GameObjects.Text;
   private weatherGlyph: Phaser.GameObjects.Text;
   private weatherText: Phaser.GameObjects.Text;
-  private objects: Phaser.GameObjects.GameObject[] = [];
   private seed: number;
-  private baseY = PAD;
-  private currentH = PANEL_H;
-  private _uiZoomManager?: UiZoomManager;
   private _hudMode: HudMode = 'normal';
 
   constructor(scene: Phaser.Scene, seed = 0) {
-    this.scene = scene;
+    super(scene, {
+      title: '🌤 THỜI TIẾT',
+      width: PANEL_W,
+      height: PANEL_H,
+      headerHeight: HEADER_H,
+      lockUi: false,
+      depth: 100,
+      showClose: true,
+      showMinimize: true,
+      showDock: true,
+      defaultAlign: 'top-right',
+      defaultOffsetX: 8,
+      defaultOffsetY: 8,
+      onClose: () => {
+        this.setVisible(false);
+      },
+    });
+
     this.seed = seed;
 
-    this.panel = scene.add.graphics().setScrollFactor(0).setDepth(100);
-    this.objects.push(this.panel);
-
+    // 1. Clock Text (Local trong contentContainer)
     this.clockText = scene.add
-      .text(0, 0, '00:00', {
-        fontSize: '16px',
+      .text(10, 4, '00:00', {
+        fontSize: '15px',
         fontFamily: FONT.ui,
         color: C.text,
-      })
-      .setScrollFactor(0)
-      .setDepth(101);
-    this.objects.push(this.clockText);
+      });
+    this.contentContainer.add(this.clockText);
 
+    // 2. Date Text
     this.dateText = scene.add
-      .text(0, 0, '', {
+      .text(10, 22, '', {
         fontSize: '9px',
         fontFamily: FONT.ui,
         color: C.muted,
-      })
-      .setScrollFactor(0)
-      .setDepth(101);
-    this.objects.push(this.dateText);
+      });
+    this.contentContainer.add(this.dateText);
 
+    // 3. Weather Glyph
     this.weatherGlyph = scene.add
-      .text(0, 0, '☀', { fontSize: '16px', fontFamily: FONT.ui, color: '#fdcb6e' })
-      .setScrollFactor(0)
-      .setDepth(101);
-    this.objects.push(this.weatherGlyph);
+      .text(96, 6, '☀', {
+        fontSize: '15px',
+        fontFamily: FONT.ui,
+        color: '#fdcb6e',
+      });
+    this.contentContainer.add(this.weatherGlyph);
 
+    // 4. Weather Text
     this.weatherText = scene.add
-      .text(0, 0, '', {
+      .text(114, 10, '', {
         fontSize: '9px',
         fontFamily: FONT.ui,
         color: C.muted,
-      })
-      .setScrollFactor(0)
-      .setDepth(101);
-    this.objects.push(this.weatherText);
+      });
+    this.contentContainer.add(this.weatherText);
 
-    this.relayout();
     this.updateClock();
 
     // Cập nhật đồng hồ mỗi giây
     scene.time.addEvent({ delay: 1000, loop: true, callback: () => this.updateClock() });
-    scene.scale.on('resize', () => this.relayout());
-  }
 
-  setUiZoomManager(m: UiZoomManager): void {
-    this._uiZoomManager = m;
-    this.scene.scale.on('ui-zoom-change', () => this.relayout());
+    this.show();
   }
 
   setHudMode(mode: HudMode): void {
     if (this._hudMode === mode) return;
     this._hudMode = mode;
-    this.relayout();
+    if (mode === 'mini') {
+      this.minimize();
+    } else if (mode === 'normal') {
+      this.expand();
+    }
   }
 
   /** Kích thước hiện tại của panel. */
   getSize(): { w: number; h: number } {
-    const z = this._uiZoomManager?.uiZoom ?? 1;
-    const isMini = this.isMiniMode();
-    return {
-      w: (isMini ? MINI_W : PANEL_W) * z,
-      h: (isMini ? MINI_H : PANEL_H) * z,
-    };
+    return this.getActualSize();
   }
 
-  private isMiniMode(): boolean {
-    return this._hudMode === 'mini' || this.scene.scale.width < 640 || this.scene.scale.height < 500;
-  }
-
-  /**
-   * Vị trí đáy của panel — Minimap dùng để neo ngay bên dưới.
-   */
+  /** Vị trí đáy của panel — Minimap dùng để neo ngay bên dưới. */
   getBottomY(): number {
-    return this.baseY + this.currentH;
-  }
-
-  relayout(): void {
-    const z = this._uiZoomManager?.uiZoom ?? 1;
-    const isMini = this.isMiniMode();
-    const w = (isMini ? MINI_W : PANEL_W) * z;
-    const h = (isMini ? MINI_H : PANEL_H) * z;
-    const pad = (isMini ? 4 : PAD) * z;
-
-    const W = this.scene.scale.width;
-    const x = W - w - pad;
-    const y = pad;
-    this.baseY = y;
-    this.currentH = h;
-
-    this.panel.clear();
-    this.panel.fillStyle(0x000000, 0.28);
-    this.panel.fillRoundedRect(x + 2, y + 2, w, h, 4);
-    this.panel.fillStyle(C.panel, 0.94);
-    this.panel.fillRoundedRect(x, y, w, h, 4);
-    this.panel.lineStyle(1, C.border, 0.95);
-    this.panel.strokeRoundedRect(x, y, w, h, 4);
-
-    if (isMini) {
-      // Chế độ mini: chỉ hiển thị giờ và glyph thời tiết cạnh nhau
-      this.clockText.setPosition(x + 7 * z, y + 8 * z).setFontSize(13 * z);
-      this.dateText.setVisible(false);
-
-      this.weatherGlyph.setPosition(x + w - 22 * z, y + 8 * z).setFontSize(13 * z);
-      this.weatherText.setVisible(false);
-    } else {
-      // Chế độ normal: hiển thị đầy đủ
-      this.clockText.setPosition(x + 10 * z, y + 6 * z).setFontSize(16 * z);
-      this.dateText.setPosition(x + 11 * z, y + 27 * z).setFontSize(9 * z).setVisible(true);
-
-      this.weatherGlyph.setPosition(x + w - 42 * z, y + 8 * z).setFontSize(16 * z);
-      this.weatherText.setPosition(x + w - 28 * z, y + 14 * z).setFontSize(9 * z).setVisible(true);
-    }
+    return this.currentY + this.getActualSize().h + 4;
   }
 
   private updateClock(): void {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
     const mm = String(now.getMinutes()).padStart(2, '0');
-    this.clockText.setText(`${hh}:${mm}`);
+    const timeStr = `${hh}:${mm}`;
+    this.clockText.setText(timeStr);
 
     const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
     this.dateText.setText(`${days[now.getDay()]} • ${now.getDate()}/${now.getMonth() + 1}`);
 
-    // Thời tiết mô phỏng: đổi theo khung giờ 3 giờ, xoay qua danh sách
     const slot = Math.floor(now.getHours() / 3 + this.seed) % WEATHERS.length;
     const w = WEATHERS[slot];
     this.weatherGlyph.setText(w.glyph);
     this.weatherGlyph.setColor(`#${w.tint.toString(16).padStart(6, '0')}`);
     this.weatherText.setText(w.name);
+
+    // Cập nhật title của Header bar để khi thu nhỏ vẫn thấy giờ và thời tiết!
+    this.setTitle(`${w.glyph} ${timeStr}`);
   }
 
   setVisible(v: boolean): void {
-    this.panel.setVisible(v);
-    this.clockText.setVisible(v);
-    this.dateText.setVisible(v);
-    this.weatherGlyph.setVisible(v);
-    this.weatherText.setVisible(v);
-  }
-
-  getGameObjects(): Phaser.GameObjects.GameObject[] {
-    return this.objects as unknown as Phaser.GameObjects.GameObject[];
-  }
-
-  destroy(): void {
-    this.objects.forEach((o) => o.destroy());
-    this.objects = [];
+    if (v) this.show();
+    else this.close();
   }
 }

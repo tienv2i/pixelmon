@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 26: Tăng baseline scale 1.25x, Toolbar Pixel Art, Cắt padding thừa Info, Modal Xác nhận Logout, Sửa Settings & Di chuyển Chuột trái)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 27: Xây dựng thư viện UiModal dùng chung & Chuẩn hoá toàn bộ Pop-up/Panel: Settings, Chat, Party, Weather, Confirm, UserInfo)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -55,6 +55,7 @@
 | Plan 24 — Nâng cấp Tabbed Settings Panel & Khung Chat Draggable                                      | ✅           |
 | Plan 25 — Chuẩn hoá Tỷ lệ HUD, Draggable Settings, Overlay Khóa UI, Ngôn ngữ & Logout trên Toolbar    | ✅           |
 | Plan 26 — Baseline scale 1.25x, Toolbar Pixel Art, Cắt padding Info, Confirm Modal, Fix Settings & Move LMB | ✅           |
+| Plan 27 — Thư viện UiModal dùng chung & Chuẩn hoá 6 Pop-up/Panel (Settings, Chat, Party, Weather, Confirm, UserInfo) | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -639,6 +640,57 @@ quay hướng âm thầm. Chi tiết: `docs/sprite-import-guide.md` mục 3b.
 8. **Bước 8 — Kiểm tra typecheck và cập nhật status:**
    - [x] Chạy `pnpm --filter client typecheck` pass 100%.
    - [x] Cập nhật kết quả vào `project_status.md` và git commit.
+
+---
+
+## Kế hoạch hiện tại: Plan 27 — Xây dựng thư viện UiModal dùng chung & Chuẩn hoá toàn bộ Pop-up/Panel (Settings, Chat, Party, Weather, Confirm, UserInfo)
+
+> Bắt đầu 2026-10-01. Hoàn thành 2026-10-01. Mục tiêu:
+> 1. Xây dựng thư viện khung cửa sổ modal dùng chung `UiModal` (`apps/client/src/ui/UiModal.ts`).
+> 2. Đầy đủ tính năng: Header bar, kéo thả di chuyển, nút tắt (✕), nút thu nhỏ (－/▲), nút neo (⚓), chế độ khóa UI (`lockUi`), co giãn theo UI Zoom và giới hạn an toàn trong màn hình.
+> 3. Cấu hình linh hoạt: Cho phép ẩn/hiện từng nút điều khiển theo yêu cầu của từng popup.
+> 4. Chuẩn hoá đồng bộ toàn bộ các thành phần: Settings, Khung chat, Party, Weather, Logout confirm, UserInfo.
+
+1. **Bước 1 — Xây dựng component `UiModal` (`apps/client/src/ui/UiModal.ts`):**
+   - [x] Tạo class `UiModal` với thanh tiêu đề đồng nhất, các nút điều khiển (Close, Minimize, Dock), container nội dung, kéo thả di chuyển, co giãn theo UI zoom và kẹp an toàn không vượt quá màn hình.
+2. **Bước 2 — Chuẩn hoá `SettingsPanel` & `ConfirmModal` qua `UiModal`:**
+   - [x] Áp dụng `UiModal` cho bảng Settings và modal xác nhận Logout với chế độ khóa UI (`lockUi: true`).
+3. **Bước 3 — Chuẩn hoá `ChatLog` qua `UiModal`:**
+   - [x] Áp dụng `UiModal` cho Khung chat với chế độ nổi (`lockUi: false`), hỗ trợ kéo thả, thu nhỏ và neo góc dưới-trái.
+4. **Bước 4 — Chuẩn hoá `PlayerHud` (UserInfo) qua `UiModal`:**
+   - [x] Áp dụng `UiModal` cho bảng UserInfo với thanh tiêu đề, hỗ trợ thu nhỏ thành dạng pill/compact và neo góc trên-trái.
+5. **Bước 5 — Chuẩn hoá `InfoPanel` (Weather / Clock) qua `UiModal`:**
+   - [x] Áp dụng `UiModal` cho bảng Đồng hồ / Thời tiết, hỗ trợ kéo thả và neo góc trên-phải.
+6. **Bước 6 — Chuẩn hoá `PartyStrip` qua `UiModal`:**
+   - [x] Áp dụng `UiModal` cho dải Pokémon Party, hỗ trợ thu nhỏ và neo dọc bên trái.
+7. **Bước 7 — Đồng bộ điều phối trong `WorldScene.ts`, Typecheck & Commit:**
+   - [x] Kiểm tra camera ignore và điều phối relayout.
+   - [x] Chạy typecheck `pnpm run typecheck` đảm bảo 4/4 pass 100%.
+   - [x] Cập nhật kết quả vào `project_status.md` và tạo git commit.
+
+---
+
+### Nhật ký 2026-10-01 (11) — Plan 27: Thư viện UiModal dùng chung & Chuẩn hoá toàn bộ Pop-up/Panel
+
+- **Xây dựng thư viện nền tảng `UiModal` (`apps/client/src/ui/UiModal.ts`):**
+  - Cung cấp kiến trúc cửa sổ / modal thống nhất chuẩn MMORPG cho toàn bộ client.
+  - Tích hợp Header bar bo góc, viền neon, thanh kéo thả di chuyển mượt mà (Draggable Zone).
+  - Tích hợp sẵn hệ thống nút điều khiển trên thanh tiêu đề:
+    - Nút ✕ chính (Close / Ẩn).
+    - Nút ⮌ phụ (Secondary Close / Huỷ).
+    - Nút － / ＋ (Thu nhỏ / Mở rộng): thu gọn panel chỉ còn thanh Header để tối đa tầm nhìn gameplay.
+    - Nút ⚓ (Dock): khôi phục tức thì về vị trí neo chuẩn mặc định (`center`, `top-left`, `top-right`, `bottom-left`, v.v.).
+    - Từng nút có thể bật/tắt (ẩn/hiện) tuỳ biến linh hoạt qua options.
+  - **Chế độ khóa UI (`lockUi`):** Hỗ trợ overlay đen mờ khóa toàn bộ thao tác bên dưới cho modal chặn (Settings, Confirm Dialog) hoặc chế độ nổi tự do không chặn click cho các panel HUD.
+  - **Co giãn thích ứng theo UI Zoom & kẹp an toàn màn hình:** Tự động nhân theo `UiZoomManager.uiZoom` và kẹp `maxScale`, chống tràn màn hình trên mọi độ phân giải.
+  - **Cung cấp `contentContainer`:** Tách biệt layout phần cứng của modal và phần nội dung của các component con trong không gian toạ độ local `(0, 0)`.
+- **Chuẩn hoá đồng loạt 6 thành phần giao diện qua `UiModal`:**
+  - `SettingsPanel`: Chuyển sang kế thừa `UiModal` (`lockUi: true`), có 2 nút tắt (✕ + ⮌), nút thu nhỏ và nút neo giữa màn hình.
+  - `ConfirmModal`: Kế thừa `UiModal` (`lockUi: true`, depth 250), giao diện xác nhận đồng bộ với header và các nút thao tác.
+  - `ChatLog`: Kế thừa `UiModal` (`lockUi: false`), neo góc dưới-trái, kéo thả tự do, có nút thu nhỏ chỉ còn 1 dòng tiêu đề và nút neo.
+  - `PlayerHud` (UserInfo): Kế thừa `UiModal` (`lockUi: false`), neo góc trên-trái, có nút thu nhỏ thành dạng compact/mini.
+  - `InfoPanel` (Weather / Clock): Kế thừa `UiModal` (`lockUi: false`), neo góc trên-phải, tiêu đề tự động cập nhật thời gian thực, có nút thu nhỏ.
+  - `PartyStrip`: Kế thừa `UiModal` (`lockUi: false`), neo dọc bên trái dưới PlayerHud, hiển thị số lượng Pokémon trên header, có nút thu nhỏ.
 
 ---
 

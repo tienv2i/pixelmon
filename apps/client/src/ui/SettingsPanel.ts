@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { C, FONT, ts } from './theme';
+import { UiModal } from './UiModal';
 import type { UiZoomManager } from './UiZoomManager';
 
 export type SettingsTab = 'interface' | 'gameplay' | 'audio' | 'system';
@@ -40,35 +41,18 @@ export interface SettingsPanelOptions {
 }
 
 const MODAL_W = 540;
-const MODAL_H = 420;
+const MODAL_H = 430;
 
 /**
  * SettingsPanel — Modal Cài đặt đa tab lớn, phân vùng rõ ràng:
- * 1. 🖥 Giao diện (Interface): Bật/tắt 5 thành phần UI độc lập, Chế độ Mini, UI Zoom, Game Zoom.
- * 2. 🎮 Lối chơi (Gameplay): Tên người chơi, Marker đích đến, Lưới toạ độ, Tự động chạy.
- * 3. 🔊 Âm thanh (Audio): Nhạc nền BGM, Âm thanh hiệu ứng SFX.
- * 4. ⚙ Hệ thống (System): Ngôn ngữ trực quan (VI/EN), Đăng xuất, Đóng.
- *
- * Tính năng nâng cao:
- * - Khung modal Draggable: Kéo thả di chuyển bằng thanh tiêu đề (Header Bar).
- * - Nút Căn giữa (Center / Dock ⚓) khôi phục vị trí giữa màn hình.
- * - Overlay khóa toàn bộ UI và gameplay bên dưới khi modal đang mở.
+ * - Kế thừa từ `UiModal`, chuẩn hoá phong cách và hành vi với toàn hệ thống pop-up.
+ * - Khóa hoàn toàn UI và gameplay bên dưới (`lockUi: true`, depth 200).
+ * - Hỗ trợ đầy đủ: 2 nút tắt (✕ chính + ⮌ phụ), nút thu nhỏ (－), nút neo (⚓), kéo thả Header.
+ * - Tự động hưởng theo UI Zoom và giới hạn an toàn trong màn hình.
  */
-export class SettingsPanel {
-  private readonly scene: Phaser.Scene;
-  private opts: SettingsPanelOptions;
-  private _uiZoomManager?: UiZoomManager;
-
-  private open = false;
+export class SettingsPanel extends UiModal {
+  private panelOpts: SettingsPanelOptions;
   private activeTab: SettingsTab = 'interface';
-
-  // Trạng thái kéo thả
-  private customX?: number;
-  private customY?: number;
-  private currentX = 0;
-  private currentY = 0;
-  private isDragging = false;
-  private dragOffset = { x: 0, y: 0 };
 
   // Trạng thái các toggle UI
   private uiState = {
@@ -99,16 +83,6 @@ export class SettingsPanel {
     lang: 'vi' as 'vi' | 'en',
   };
 
-  // Containers & visual objects
-  private overlay: Phaser.GameObjects.Graphics;
-  private overlayBlocker: Phaser.GameObjects.Zone;
-  private modalContainer: Phaser.GameObjects.Container;
-  private panel: Phaser.GameObjects.Graphics;
-  private titleText: Phaser.GameObjects.Text;
-  private headerZone: Phaser.GameObjects.Zone;
-  private btnCenter: Phaser.GameObjects.Text;
-  private btnCloseX: Phaser.GameObjects.Text;
-
   // Tabs
   private tabButtons: Map<
     SettingsTab,
@@ -129,11 +103,25 @@ export class SettingsPanel {
   private moveBtnLeft?: { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone };
   private moveBtnRight?: { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone };
 
-  private allObjects: Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> = [];
-
   constructor(scene: Phaser.Scene, opts: SettingsPanelOptions) {
-    this.scene = scene;
-    this.opts = opts;
+    super(scene, {
+      title: '⚙ BẢNG CÀI ĐẶT HỆ THỐNG',
+      width: MODAL_W,
+      height: MODAL_H,
+      headerHeight: 36,
+      lockUi: true,
+      depth: 200,
+      showClose: true,
+      showMinimize: true,
+      showDock: true,
+      showSecondaryClose: true,
+      defaultAlign: 'center',
+      onClose: () => {
+        opts.onClose?.();
+      },
+    });
+
+    this.panelOpts = opts;
 
     // Load ngôn ngữ và cơ chế di chuyển đã lưu
     try {
@@ -154,177 +142,24 @@ export class SettingsPanel {
     this.tabObjects.set('audio', []);
     this.tabObjects.set('system', []);
 
-    // 1. Overlay tối phủ toàn màn hình khóa UI
-    this.overlay = scene.add
-      .graphics()
-      .setDepth(200)
-      .setScrollFactor(0)
-      .setVisible(false);
-    this.allObjects.push(this.overlay);
+    // Ban đầu ẩn modal
+    this.modalContainer.setVisible(false);
+    if (this.overlay) this.overlay.setVisible(false);
+    if (this.overlayBlocker) this.overlayBlocker.setVisible(false);
+    this.open = false;
 
-    // Blocker zone nuốt toàn bộ pointer events
-    this.overlayBlocker = scene.add
-      .zone(0, 0, 10, 10)
-      .setOrigin(0, 0)
-      .setDepth(200)
-      .setScrollFactor(0)
-      .setVisible(false)
-      .setInteractive({ cursor: 'default' });
-
-    this.overlayBlocker.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      p.event?.stopPropagation();
-      // Bảng cài đặt chỉ đóng khi bấm nút ✕ theo yêu cầu
-    });
-    this.allObjects.push(this.overlayBlocker);
-
-    // 2. Container chính chứa toàn bộ phần tử modal (để scale theo UI Zoom và giới hạn theo màn hình)
-    this.modalContainer = scene.add
-      .container(0, 0)
-      .setDepth(201)
-      .setScrollFactor(0)
-      .setVisible(false);
-    this.allObjects.push(this.modalContainer);
-
-    // 3. Khung modal chính
-    this.panel = scene.add.graphics();
-    this.allObjects.push(this.panel);
-    this.modalContainer.add(this.panel);
-
-    // 4. Header title (toạ độ local trong container)
-    this.titleText = scene.add
-      .text(16, 12, '⚙ BẢNG CÀI ĐẶT HỆ THỐNG', ts(15, '#00cec9', FONT.ui));
-    this.allObjects.push(this.titleText);
-    this.modalContainer.add(this.titleText);
-
-    // 5. Vùng kéo thả Header (Draggable Zone)
-    this.headerZone = scene.add
-      .zone(0, 0, MODAL_W - 64, 40)
-      .setOrigin(0, 0)
-      .setInteractive({ cursor: 'grab' });
-    this.allObjects.push(this.headerZone);
-    this.modalContainer.add(this.headerZone);
-    this.setupDragEvents();
-
-    // 6. Nút Căn giữa (Center / Dock ⚓)
-    this.btnCenter = scene.add
-      .text(MODAL_W - 40, 20, '⚓', ts(13, C.muted, FONT.ui))
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-
-    this.btnCenter.on('pointerover', () => this.btnCenter.setColor('#00cec9'));
-    this.btnCenter.on('pointerout', () => this.btnCenter.setColor(C.muted));
-    this.btnCenter.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      p.event?.stopPropagation();
-      this.customX = undefined;
-      this.customY = undefined;
-      this.relayout();
-    });
-    this.allObjects.push(this.btnCenter);
-    this.modalContainer.add(this.btnCenter);
-
-    // 7. Nút ✕ đóng
-    this.btnCloseX = scene.add
-      .text(MODAL_W - 18, 20, '✕', ts(15, C.muted, FONT.ui))
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-
-    this.btnCloseX.on('pointerover', () => this.btnCloseX.setColor('#ff7675'));
-    this.btnCloseX.on('pointerout', () => this.btnCloseX.setColor(C.muted));
-    this.btnCloseX.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      p.event?.stopPropagation();
-      this.close();
-    });
-    this.allObjects.push(this.btnCloseX);
-    this.modalContainer.add(this.btnCloseX);
-
-    // 8. Xây dựng Tab buttons
+    // 1. Xây dựng Tab buttons
     this.buildTabs();
 
-    // 9. Xây dựng nội dung từng Tab
+    // 2. Xây dựng nội dung từng Tab
     this.buildInterfaceTab();
     this.buildGameplayTab();
     this.buildAudioTab();
     this.buildSystemTab();
 
-    // Đưa tất cả nội dung tab vào modalContainer
+    // Đưa tất cả nội dung tab vào contentContainer
     this.tabObjects.forEach((objs) => {
-      this.modalContainer.add(objs);
-    });
-
-    // Resize listener
-    scene.scale.on('resize', () => {
-      if (this.open) this.relayout();
-    });
-  }
-
-  private setupDragEvents(): void {
-    this.headerZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.button !== 0) return;
-      pointer.event?.stopPropagation();
-      this.isDragging = true;
-      this.dragOffset = {
-        x: pointer.x - this.modalContainer.x,
-        y: pointer.y - this.modalContainer.y,
-      };
-    });
-
-    this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isDragging) return;
-      const { actualW, actualH } = this.getScaleAndBounds();
-      const maxX = Math.max(0, this.scene.scale.width - actualW);
-      const maxY = Math.max(0, this.scene.scale.height - actualH);
-      this.customX = Phaser.Math.Clamp(pointer.x - this.dragOffset.x, 0, maxX);
-      this.customY = Phaser.Math.Clamp(pointer.y - this.dragOffset.y, 0, maxY);
-      this.currentX = this.customX;
-      this.currentY = this.customY;
-      this.modalContainer.setPosition(this.customX, this.customY);
-    });
-
-    const endDrag = () => {
-      if (this.isDragging) {
-        this.isDragging = false;
-      }
-    };
-    this.scene.input.on('pointerup', endDrag);
-    this.scene.input.on('pointerupoutside', endDrag);
-  }
-
-  /**
-   * Tính toán tỷ lệ scale của bảng Settings:
-   * - Nhận theo UI zoom (`uiZoomManager.uiZoom`).
-   * - Tối đa không vượt quá chiều rộng và chiều cao màn hình (kèm khoảng đệm an toàn).
-   */
-  private getScaleAndBounds(): { scale: number; actualW: number; actualH: number } {
-    const uiZoom = this._uiZoomManager?.uiZoom ?? 1.25;
-    const screenW = this.scene.scale.width;
-    const screenH = this.scene.scale.height;
-    const MARGIN = 12;
-
-    const maxScaleW = Math.max(0.2, (screenW - MARGIN * 2) / MODAL_W);
-    const maxScaleH = Math.max(0.2, (screenH - MARGIN * 2) / MODAL_H);
-    const maxScale = Math.min(maxScaleW, maxScaleH);
-
-    // Kẹp scale: nhận theo UI Zoom nhưng tối đa không tràn màn hình
-    const effectiveScale = Math.max(0.35, Math.min(uiZoom, maxScale));
-    const actualW = Math.round(MODAL_W * effectiveScale);
-    const actualH = Math.round(MODAL_H * effectiveScale);
-
-    return { scale: effectiveScale, actualW, actualH };
-  }
-
-  getModalW(): number {
-    return this.getScaleAndBounds().actualW;
-  }
-
-  getModalH(): number {
-    return this.getScaleAndBounds().actualH;
-  }
-
-  setUiZoomManager(m: UiZoomManager): void {
-    this._uiZoomManager = m;
-    this.scene.scale.on('ui-zoom-change', () => {
-      this.updateZoomLabels();
-      if (this.open) this.relayout();
+      this.contentContainer.add(objs);
     });
   }
 
@@ -354,8 +189,7 @@ export class SettingsPanel {
       });
 
       this.tabButtons.set(t.id, { bg, text, zone });
-      this.allObjects.push(bg, text, zone);
-      this.modalContainer.add([bg, text, zone]);
+      this.contentContainer.add([bg, text, zone]);
     }
   }
 
@@ -377,39 +211,39 @@ export class SettingsPanel {
     // Profile & Clock
     const chkProfile = this.createCheckbox('Thông tin nhân vật (Profile Info)', this.uiState.profile, (v) => {
       this.uiState.profile = v;
-      this.opts.onToggleProfile?.(v);
+      this.panelOpts.onToggleProfile?.(v);
     });
     list.push(...chkProfile);
 
     const chkClock = this.createCheckbox('Đồng hồ & Thời tiết (Clock / Weather)', this.uiState.clock, (v) => {
       this.uiState.clock = v;
-      this.opts.onToggleClock?.(v);
+      this.panelOpts.onToggleClock?.(v);
     });
     list.push(...chkClock);
 
     // Party & Chat
     const chkParty = this.createCheckbox('Danh sách đội hình (Party Pokemon)', this.uiState.party, (v) => {
       this.uiState.party = v;
-      this.opts.onToggleParty?.(v);
+      this.panelOpts.onToggleParty?.(v);
     });
     list.push(...chkParty);
 
     const chkChat = this.createCheckbox('Khung trò chuyện (Chat Box)', this.uiState.chat, (v) => {
       this.uiState.chat = v;
-      this.opts.onToggleChat?.(v);
+      this.panelOpts.onToggleChat?.(v);
     });
     list.push(...chkChat);
 
     // Minimap & Mini
     const chkMinimap = this.createCheckbox('Bản đồ thu nhỏ (Minimap / GPS)', this.uiState.minimap, (v) => {
       this.uiState.minimap = v;
-      this.opts.onToggleMinimap?.(v);
+      this.panelOpts.onToggleMinimap?.(v);
     });
     list.push(...chkMinimap);
 
     const chkMini = this.createCheckbox('Giao diện tối giản (Chế độ Mini HUD)', this.uiState.miniMode, (v) => {
       this.uiState.miniMode = v;
-      this.opts.onToggleMiniMode?.(v);
+      this.panelOpts.onToggleMiniMode?.(v);
     });
     list.push(...chkMini);
 
@@ -426,216 +260,181 @@ export class SettingsPanel {
     list.push(lblUiZoom);
 
     this.uiZoomValText = this.scene.add
-      .text(0, 0, '100%', ts(12, '#00cec9', FONT.mono))
+      .text(0, 0, '100%', ts(12, '#00cec9', FONT.ui))
       .setOrigin(0.5)
       .setDepth(203).setScrollFactor(0).setVisible(false);
     list.push(this.uiZoomValText);
 
-    const btnUiZoomOut = this.createSmallButton('－', () => {
-      this.opts.onUiZoomOut?.();
+    const btnUiZOut = this.createSmallButton('－', () => {
+      this.panelOpts.onUiZoomOut?.();
       this.updateZoomLabels();
     });
-    list.push(...btnUiZoomOut);
-
-    const btnUiZoomIn = this.createSmallButton('＋', () => {
-      this.opts.onUiZoomIn?.();
+    const btnUiZIn = this.createSmallButton('＋', () => {
+      this.panelOpts.onUiZoomIn?.();
       this.updateZoomLabels();
     });
-    list.push(...btnUiZoomIn);
-
-    const btnUiZoomReset = this.createSmallButton('100%', () => {
-      this.opts.onUiZoomReset?.();
+    const btnUiZReset = this.createSmallButton('100%', () => {
+      this.panelOpts.onUiZoomReset?.();
       this.updateZoomLabels();
     });
-    list.push(...btnUiZoomReset);
+    list.push(...btnUiZOut, ...btnUiZIn, ...btnUiZReset);
 
     // Game Zoom
     const lblGameZoom = this.scene.add
-      .text(0, 0, 'Thu phóng Thế giới (Game Zoom):', ts(12, C.text, FONT.ui))
+      .text(0, 0, 'Thu phóng Thế giới game:', ts(12, C.text, FONT.ui))
       .setDepth(203).setScrollFactor(0).setVisible(false);
     list.push(lblGameZoom);
 
     this.gameZoomValText = this.scene.add
-      .text(0, 0, '1.0x', ts(12, '#fdcb6e', FONT.mono))
+      .text(0, 0, '1.0x', ts(12, '#00cec9', FONT.ui))
       .setOrigin(0.5)
       .setDepth(203).setScrollFactor(0).setVisible(false);
     list.push(this.gameZoomValText);
 
-    const btnGameZoomOut = this.createSmallButton('－', () => {
-      this.opts.onGameZoomOut?.();
+    const btnGameZOut = this.createSmallButton('－', () => {
+      this.panelOpts.onGameZoomOut?.();
       this.updateZoomLabels();
     });
-    list.push(...btnGameZoomOut);
-
-    const btnGameZoomIn = this.createSmallButton('＋', () => {
-      this.opts.onGameZoomIn?.();
+    const btnGameZIn = this.createSmallButton('＋', () => {
+      this.panelOpts.onGameZoomIn?.();
       this.updateZoomLabels();
     });
-    list.push(...btnGameZoomIn);
-
-    const btnGameZoomReset = this.createSmallButton('1.0x', () => {
-      this.opts.onGameZoomReset?.();
+    const btnGameZReset = this.createSmallButton('1.0x', () => {
+      this.panelOpts.onGameZoomReset?.();
       this.updateZoomLabels();
     });
-    list.push(...btnGameZoomReset);
-
-    this.allObjects.push(...list);
+    list.push(...btnGameZOut, ...btnGameZIn, ...btnGameZReset);
   }
 
-  // ── Tab 2: Lối chơi (Gameplay) ──────────────────────────────────────────────
+  // ── Tab 2: Lối chơi ────────────────────────────────────────────────────────
   private buildGameplayTab(): void {
     const list = this.tabObjects.get('gameplay')!;
 
-    const lbl = this.scene.add
-      .text(0, 0, 'TUỲ CHỌN TƯƠNG TÁC & HIỂN THỊ THẾ GIỚI:', ts(11, '#6c5ce7', FONT.ui))
+    const lblSec = this.scene.add
+      .text(0, 0, 'THIẾT LẬP HIỂN THỊ THẾ GIỚI & ĐIỀU KHIỂN:', ts(11, '#6c5ce7', FONT.ui))
       .setDepth(203).setScrollFactor(0).setVisible(false);
-    list.push(lbl);
+    list.push(lblSec);
 
-    const chkNames = this.createCheckbox('Hiển thị tên người chơi khác', this.gameplayState.showPlayerNames, (v) => {
+    const chkNames = this.createCheckbox('Hiện tên người chơi khác (Player Names)', this.gameplayState.showPlayerNames, (v) => {
       this.gameplayState.showPlayerNames = v;
-      this.opts.onTogglePlayerNames?.(v);
+      this.panelOpts.onTogglePlayerNames?.(v);
     });
     list.push(...chkNames);
 
-    const chkMarker = this.createCheckbox('Hiệu ứng đánh dấu ô đích khi di chuyển (RMB marker)', this.gameplayState.targetMarker, (v) => {
+    const chkTarget = this.createCheckbox('Hiệu ứng đích đến khi nhấp di chuyển (Target Marker)', this.gameplayState.targetMarker, (v) => {
       this.gameplayState.targetMarker = v;
-      this.opts.onToggleTargetMarker?.(v);
+      this.panelOpts.onToggleTargetMarker?.(v);
     });
-    list.push(...chkMarker);
+    list.push(...chkTarget);
 
-    const chkGrid = this.createCheckbox('Hiển thị lưới toạ độ ô gạch (Grid overlay)', this.gameplayState.showGrid, (v) => {
+    const chkGrid = this.createCheckbox('Hiện lưới toạ độ thế giới (Grid Overlay)', this.gameplayState.showGrid, (v) => {
       this.gameplayState.showGrid = v;
-      this.opts.onToggleGrid?.(v);
+      this.panelOpts.onToggleGrid?.(v);
     });
     list.push(...chkGrid);
 
-    const chkAutoRun = this.createCheckbox('Mặc định luôn chạy nhanh (Auto-Run)', this.gameplayState.autoRun, (v) => {
+    const chkRun = this.createCheckbox('Mặc định luôn chạy (Auto-run)', this.gameplayState.autoRun, (v) => {
       this.gameplayState.autoRun = v;
-      this.opts.onToggleAutoRun?.(v);
+      this.panelOpts.onToggleAutoRun?.(v);
     });
-    list.push(...chkAutoRun);
+    list.push(...chkRun);
 
-    // Tuỳ chọn phím di chuyển
+    // Tuỳ chọn Cơ chế di chuyển
     const lblMove = this.scene.add
-      .text(0, 0, 'CƠ CHẾ DI CHUYỂN (CLICK-TO-MOVE):', ts(11, '#6c5ce7', FONT.ui))
+      .text(0, 0, 'CƠ CHẾ DI CHUYỂN BẰNG CHUỘT / CẢM ỨNG (CLICK TO MOVE):', ts(11, '#6c5ce7', FONT.ui))
       .setDepth(203).setScrollFactor(0).setVisible(false);
     list.push(lblMove);
 
-    const bgLeft = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
-    const txtLeft = this.scene.add
-      .text(0, 0, '👈 Chuột trái / Touch (LMB)', ts(12, '#ffffff', FONT.ui))
+    // Nút chọn Chuột trái (LMB)
+    const bgL = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
+    const txtL = this.scene.add
+      .text(0, 0, '👈 Chuột trái / Touch (LMB) [Mặc định]', ts(11, C.text, FONT.ui))
       .setOrigin(0.5)
-      .setDepth(204)
-      .setScrollFactor(0)
-      .setVisible(false);
-    const zoneLeft = this.scene.add
+      .setDepth(204).setScrollFactor(0).setVisible(false);
+    const zoneL = this.scene.add
       .zone(0, 0, 10, 10)
       .setOrigin(0.5)
-      .setDepth(205)
-      .setScrollFactor(0)
-      .setVisible(false)
+      .setDepth(205).setScrollFactor(0).setVisible(false)
       .setInteractive({ useHandCursor: true });
 
-    zoneLeft.on('pointerdown', (p: Phaser.Input.Pointer) => {
+    zoneL.on('pointerdown', (p: Phaser.Input.Pointer) => {
       p.event?.stopPropagation();
       this.setMoveButton('left');
     });
-    this.moveBtnLeft = { bg: bgLeft, txt: txtLeft, zone: zoneLeft };
-    list.push(bgLeft, txtLeft, zoneLeft);
+    this.moveBtnLeft = { bg: bgL, txt: txtL, zone: zoneL };
+    list.push(bgL, txtL, zoneL);
 
-    const bgRight = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
-    const txtRight = this.scene.add
-      .text(0, 0, '👉 Chuột phải (RMB)', ts(12, C.muted, FONT.ui))
+    // Nút chọn Chuột phải (RMB)
+    const bgR = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
+    const txtR = this.scene.add
+      .text(0, 0, '👉 Chuột phải (RMB)', ts(11, C.text, FONT.ui))
       .setOrigin(0.5)
-      .setDepth(204)
-      .setScrollFactor(0)
-      .setVisible(false);
-    const zoneRight = this.scene.add
+      .setDepth(204).setScrollFactor(0).setVisible(false);
+    const zoneR = this.scene.add
       .zone(0, 0, 10, 10)
       .setOrigin(0.5)
-      .setDepth(205)
-      .setScrollFactor(0)
-      .setVisible(false)
+      .setDepth(205).setScrollFactor(0).setVisible(false)
       .setInteractive({ useHandCursor: true });
 
-    zoneRight.on('pointerdown', (p: Phaser.Input.Pointer) => {
+    zoneR.on('pointerdown', (p: Phaser.Input.Pointer) => {
       p.event?.stopPropagation();
       this.setMoveButton('right');
     });
-    this.moveBtnRight = { bg: bgRight, txt: txtRight, zone: zoneRight };
-    list.push(bgRight, txtRight, zoneRight);
+    this.moveBtnRight = { bg: bgR, txt: txtR, zone: zoneR };
+    list.push(bgR, txtR, zoneR);
 
     const hint = this.scene.add
-      .text(
-        0,
-        0,
-        '💡 Mẹo: Nhấp chuột vào bản đồ để tự động tìm đường đi tới ô đích.\nGiữ chuột giữa (MMB) hoặc Shift + Chuột trái để kéo camera di chuyển.',
-        ts(11, C.muted, FONT.ui),
-      )
+      .text(0, 0, '• Di chuyển bằng bàn phím: Dùng 4 phím mũi tên hoặc W, A, S, D.\n• Giữ chuột giữa (MMB) hoặc Shift + Chuột trái để kéo di chuyển camera.', ts(11, C.muted, FONT.ui))
       .setDepth(203).setScrollFactor(0).setVisible(false);
     list.push(hint);
-
-    this.allObjects.push(...list);
   }
 
-  // ── Tab 3: Âm thanh (Audio) ────────────────────────────────────────────────
+  // ── Tab 3: Âm thanh ────────────────────────────────────────────────────────
   private buildAudioTab(): void {
     const list = this.tabObjects.get('audio')!;
 
     const lbl = this.scene.add
-      .text(0, 0, 'CÀI ĐẶT ÂM THANH TRONG GAME:', ts(11, '#6c5ce7', FONT.ui))
+      .text(0, 0, 'CÀI ĐẶT ÂM LƯỢNG & HIỆU ỨNG ÂM THANH:', ts(11, '#6c5ce7', FONT.ui))
       .setDepth(203).setScrollFactor(0).setVisible(false);
     list.push(lbl);
 
-    const chkBgm = this.createCheckbox('Nhạc nền thế giới (BGM World Music)', this.audioState.bgm, (v) => {
+    const chkBgm = this.createCheckbox('Bật nhạc nền thế giới & trận đấu (BGM)', this.audioState.bgm, (v) => {
       this.audioState.bgm = v;
-      this.opts.onToggleBgm?.(v);
+      this.panelOpts.onToggleBgm?.(v);
     });
     list.push(...chkBgm);
 
-    const chkSfx = this.createCheckbox('Hiệu ứng âm thanh (SFX Sound Effects)', this.audioState.sfx, (v) => {
+    const chkSfx = this.createCheckbox('Bật âm thanh chiêu thức & tương tác (SFX)', this.audioState.sfx, (v) => {
       this.audioState.sfx = v;
-      this.opts.onToggleSfx?.(v);
+      this.panelOpts.onToggleSfx?.(v);
     });
     list.push(...chkSfx);
 
     const note = this.scene.add
-      .text(
-        0,
-        0,
-        '🎵 Âm thanh web audio đang được tối ưu hoá theo từng bản đồ và tương tác.',
-        ts(11, C.muted, FONT.ui),
-      )
+      .text(0, 0, 'ℹ Hệ thống âm thanh đang được đồng bộ với máy chủ âm nhạc Pokemon.', ts(11, C.muted, FONT.ui))
       .setDepth(203).setScrollFactor(0).setVisible(false);
     list.push(note);
-
-    this.allObjects.push(...list);
   }
 
-  // ── Tab 4: Hệ thống (System) ────────────────────────────────────────────────
+  // ── Tab 4: Hệ thống ────────────────────────────────────────────────────────
   private buildSystemTab(): void {
     const list = this.tabObjects.get('system')!;
 
-    // Phân vùng chọn ngôn ngữ
     const lblLang = this.scene.add
-      .text(0, 0, 'NGÔN NGỮ HIỂN THỊ (LANGUAGE SETTINGS):', ts(11, '#6c5ce7', FONT.ui))
+      .text(0, 0, 'NGÔN NGỮ HIỂN THỊ (LANGUAGE):', ts(11, '#6c5ce7', FONT.ui))
       .setDepth(203).setScrollFactor(0).setVisible(false);
     list.push(lblLang);
 
     // Nút Tiếng Việt
     const bgVi = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
     const txtVi = this.scene.add
-      .text(0, 0, '🇻🇳 Tiếng Việt', ts(12, '#ffffff', FONT.ui))
+      .text(0, 0, '🇻🇳 Tiếng Việt', ts(12, C.text, FONT.ui))
       .setOrigin(0.5)
-      .setDepth(204)
-      .setScrollFactor(0)
-      .setVisible(false);
+      .setDepth(204).setScrollFactor(0).setVisible(false);
     const zoneVi = this.scene.add
       .zone(0, 0, 10, 10)
       .setOrigin(0.5)
-      .setDepth(205)
-      .setScrollFactor(0)
-      .setVisible(false)
+      .setDepth(205).setScrollFactor(0).setVisible(false)
       .setInteractive({ useHandCursor: true });
 
     zoneVi.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -648,17 +447,13 @@ export class SettingsPanel {
     // Nút English
     const bgEn = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
     const txtEn = this.scene.add
-      .text(0, 0, '🇺🇸 English', ts(12, C.muted, FONT.ui))
+      .text(0, 0, '🇺🇸 English', ts(12, C.text, FONT.ui))
       .setOrigin(0.5)
-      .setDepth(204)
-      .setScrollFactor(0)
-      .setVisible(false);
+      .setDepth(204).setScrollFactor(0).setVisible(false);
     const zoneEn = this.scene.add
       .zone(0, 0, 10, 10)
       .setOrigin(0.5)
-      .setDepth(205)
-      .setScrollFactor(0)
-      .setVisible(false)
+      .setDepth(205).setScrollFactor(0).setVisible(false)
       .setInteractive({ useHandCursor: true });
 
     zoneEn.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -688,8 +483,6 @@ export class SettingsPanel {
       this.close();
     });
     list.push(...btnClose);
-
-    this.allObjects.push(...list);
   }
 
   private setLanguage(lang: 'vi' | 'en'): void {
@@ -699,7 +492,18 @@ export class SettingsPanel {
     } catch {
       // ignore
     }
-    this.opts.onChangeLanguage?.(lang);
+    this.panelOpts.onChangeLanguage?.(lang);
+    this.relayout();
+  }
+
+  private setMoveButton(btn: 'left' | 'right'): void {
+    this.gameplayState.moveButton = btn;
+    try {
+      localStorage.setItem('pixelmon.moveButton', btn);
+    } catch {
+      // ignore
+    }
+    this.panelOpts.onMoveButtonChange?.(btn);
     this.relayout();
   }
 
@@ -716,14 +520,12 @@ export class SettingsPanel {
       .setDepth(204)
       .setScrollFactor(0)
       .setVisible(false);
-
     const labelText = this.scene.add
       .text(0, 0, label, ts(12, C.text, FONT.ui))
       .setOrigin(0, 0.5)
-      .setDepth(203)
+      .setDepth(204)
       .setScrollFactor(0)
       .setVisible(false);
-
     const hitZone = this.scene.add
       .zone(0, 0, 10, 10)
       .setOrigin(0, 0.5)
@@ -805,117 +607,34 @@ export class SettingsPanel {
     return [bg, txt, zone];
   }
 
-  // ── Show / Close / Toggle ──────────────────────────────────────────────────
-  isOpen(): boolean {
-    return this.open;
-  }
-
-  toggle(): void {
-    if (this.open) this.close();
-    else this.show();
-  }
-
-  show(): void {
-    this.open = true;
-    this.updateZoomLabels();
-    this.overlay.setVisible(true);
-    this.overlayBlocker.setVisible(true);
-    this.modalContainer.setVisible(true);
-    this.panel.setVisible(true);
-    this.titleText.setVisible(true);
-    this.headerZone.setVisible(true);
-    this.btnCenter.setVisible(true);
-    this.btnCloseX.setVisible(true);
-
-    this.tabButtons.forEach(({ bg, text, zone }) => {
-      bg.setVisible(true);
-      text.setVisible(true);
-      zone.setVisible(true);
-    });
-
-    this.relayout();
-  }
-
-  close(): void {
-    this.open = false;
-    this.isDragging = false;
-    this.overlay.setVisible(false);
-    this.overlayBlocker.setVisible(false);
-    this.modalContainer.setVisible(false);
-    this.allObjects.forEach((o) => o.setVisible(false));
-    this.opts.onClose?.();
-  }
-
   private updateZoomLabels(): void {
     const uiZ = this._uiZoomManager?.userZoom ?? 1;
     if (this.uiZoomValText) {
       this.uiZoomValText.setText(`${Math.round(uiZ * 100)}%`);
     }
 
-    const gameZ = this.opts.getGameZoom ? this.opts.getGameZoom() : 1;
+    const gameZ = this.panelOpts.getGameZoom ? this.panelOpts.getGameZoom() : 1;
     if (this.gameZoomValText) {
       this.gameZoomValText.setText(`${gameZ.toFixed(1)}x`);
     }
   }
 
-  // ── Layout & Render ────────────────────────────────────────────────────────
+  show(): void {
+    super.show();
+    this.updateZoomLabels();
+    this.tabButtons.forEach(({ bg, text, zone }) => {
+      bg.setVisible(true);
+      text.setVisible(true);
+      zone.setVisible(true);
+    });
+  }
+
   public relayout(): void {
     if (!this.open) return;
+    super.relayout();
 
-    const screenW = this.scene.scale.width;
-    const screenH = this.scene.scale.height;
-
-    // Full screen overlay khóa UI (depth 200)
-    this.overlay.clear();
-    this.overlay.fillStyle(0x000000, 0.65);
-    this.overlay.fillRect(0, 0, screenW, screenH);
-    this.overlayBlocker.setPosition(0, 0).setSize(screenW, screenH);
-
-    // Tính toán tỷ lệ scale: nhận theo UI zoom, nhưng tối đa không vượt quá màn hình
-    const { scale, actualW, actualH } = this.getScaleAndBounds();
-
-    // Toạ độ modal: ưu tiên customX/Y nếu người dùng kéo thả
-    let targetX: number;
-    let targetY: number;
-    if (this.customX !== undefined && this.customY !== undefined) {
-      const maxX = Math.max(0, screenW - actualW);
-      const maxY = Math.max(0, screenH - actualH);
-      targetX = Phaser.Math.Clamp(this.customX, 0, maxX);
-      targetY = Phaser.Math.Clamp(this.customY, 0, maxY);
-    } else {
-      targetX = Math.round((screenW - actualW) / 2);
-      targetY = Math.round((screenH - actualH) / 2);
-    }
-    this.currentX = targetX;
-    this.currentY = targetY;
-
-    // Áp dụng scale và toạ độ vào modalContainer
-    this.modalContainer.setScale(scale);
-    this.modalContainer.setPosition(targetX, targetY);
-
-    // Vẽ panel chính (toạ độ local bên trong container: 0, 0 đến MODAL_W, MODAL_H)
-    this.panel.clear();
-    this.panel.fillStyle(0x000000, 0.45);
-    this.panel.fillRoundedRect(4, 4, MODAL_W, MODAL_H, 8);
-    this.panel.fillStyle(0x151833, 0.98);
-    this.panel.fillRoundedRect(0, 0, MODAL_W, MODAL_H, 8);
-    this.panel.lineStyle(2, 0x2e3358, 1);
-    this.panel.strokeRoundedRect(0, 0, MODAL_W, MODAL_H, 8);
-
-    // Header top bar background (vùng kéo thả)
-    this.panel.fillStyle(0x0f1124, 0.95);
-    this.panel.fillRoundedRect(0, 0, MODAL_W, 40, { tl: 8, tr: 8, bl: 0, br: 0 });
-    this.panel.lineStyle(1, 0x2e3358, 0.8);
-    this.panel.lineBetween(0, 40, MODAL_W, 40);
-
-    // Header elements (toạ độ local trong container)
-    this.titleText.setPosition(16, 12);
-    this.headerZone.setPosition(0, 0).setSize(MODAL_W - 64, 40);
-    this.btnCenter.setPosition(MODAL_W - 40, 20);
-    this.btnCloseX.setPosition(MODAL_W - 18, 20);
-
-    // Tab buttons layout (toạ độ local trong container)
-    const tabY = 50;
+    // Tab buttons layout trong contentContainer
+    const tabY = 10;
     const tabW = Math.floor((MODAL_W - 32) / 4);
     const tabH = 30;
     let curTabX = 16;
@@ -954,9 +673,9 @@ export class SettingsPanel {
       objs.forEach((o) => o.setVisible(isCur));
     });
 
-    // Layout nội dung tab đang chọn (toạ độ local trong container)
+    // Layout nội dung tab đang chọn
     const contentX = 20;
-    const contentY = 94;
+    const contentY = 52;
     const contentW = MODAL_W - 40;
 
     switch (this.activeTab) {
@@ -1005,7 +724,7 @@ export class SettingsPanel {
     lbl2.setPosition(x, curY);
     curY += 24;
 
-    // Row UI Zoom: list[26..36]
+    // Row UI Zoom
     const lblUiZ = list[26] as Phaser.GameObjects.Text;
     lblUiZ.setPosition(x, curY);
 
@@ -1017,7 +736,7 @@ export class SettingsPanel {
 
     curY += 32;
 
-    // Row Game Zoom: list[37..47]
+    // Row Game Zoom
     const lblGameZ = list[37] as Phaser.GameObjects.Text;
     lblGameZ.setPosition(x, curY);
 
@@ -1026,17 +745,6 @@ export class SettingsPanel {
     gameVal.setPosition(x + 285, curY + 6);
     this.positionButton(list[42], list[43], list[44], x + 330, curY + 6, 26, 20); // +
     this.positionButton(list[45], list[46], list[47], x + 380, curY + 6, 44, 20); // 1.0x
-  }
-
-  private setMoveButton(btn: 'left' | 'right'): void {
-    this.gameplayState.moveButton = btn;
-    try {
-      localStorage.setItem('pixelmon.moveButton', btn);
-    } catch {
-      // ignore
-    }
-    this.opts.onMoveButtonChange?.(btn);
-    this.relayout();
   }
 
   private layoutGameplayTab(x: number, y: number, _w: number): void {
@@ -1241,15 +949,5 @@ export class SettingsPanel {
 
     txt.setPosition(cx, cy);
     zone.setPosition(cx, cy).setSize(w, h);
-  }
-
-  /** Lấy danh sách toàn bộ GameObjects để camera UI render. */
-  getGameObjects(): Phaser.GameObjects.GameObject[] {
-    return this.allObjects;
-  }
-
-  destroy(): void {
-    this.allObjects.forEach((o) => o.destroy());
-    this.allObjects = [];
   }
 }

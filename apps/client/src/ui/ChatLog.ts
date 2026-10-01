@@ -1,83 +1,71 @@
 import Phaser from 'phaser';
 import { C, FONT } from './theme';
+import { UiModal } from './UiModal';
 import type { UiZoomManager } from './UiZoomManager';
 import type { HudMode } from './HudManager';
 
 const BASE_MAX_LINES = 6;
-const LINE_H = 18;
+const LINE_H = 17;
+const CHAT_W = 320;
+const CHAT_H = 138;
 
 /**
  * Khung Chat (ChatLog):
- * - Tỷ lệ hiển thị lớn, sắc nét, dễ đọc.
+ * - Kế thừa từ `UiModal`: đồng bộ phong cách window chuẩn MMORPG.
  * - Draggable: kéo thả di chuyển bằng thanh tiêu đề (Title Bar).
- * - Nút Thu nhỏ / Mở rộng (Minimize/Expand: ▼ / ▲).
- * - Nút Neo (Dock: ⚓) đưa panel về vị trí neo mặc định ở góc màn hình.
- * - Enter mở input HTML để chat, Escape đóng.
+ * - Nút Thu nhỏ / Mở rộng (Minimize/Expand: － / ＋) thu gọn thành thanh tiêu đề khi cần tầm nhìn.
+ * - Nút Neo (Dock: ⚓) đưa panel về vị trí neo mặc định ở góc dưới-trái màn hình.
+ * - Nút Tắt (✕) ẩn khung chat.
+ * - Enter mở input HTML để chat, Escape đóng input.
  */
-export class ChatLog {
-  private scene: Phaser.Scene;
+export class ChatLog extends UiModal {
   private lines: string[] = [];
   private textObjects: Phaser.GameObjects.Text[] = [];
-  private graphics: Phaser.GameObjects.Graphics;
-  private title: Phaser.GameObjects.Text;
-  private btnMin: Phaser.GameObjects.Text;
-  private btnDock: Phaser.GameObjects.Text;
-  private titleBarZone: Phaser.GameObjects.Zone;
-
   private inputEl: HTMLInputElement | null = null;
   private onSend?: (msg: string) => void;
-
-  private readonly padding = 8;
   private _hudMode: HudMode = 'normal';
-  private _uiZoomManager?: UiZoomManager;
 
-  // Trạng thái kéo thả & thu nhỏ
-  private customX?: number;
-  private customY?: number;
-  private currentX = 0;
-  private currentY = 0;
-  private isDragging = false;
-  private dragOffset = { x: 0, y: 0 };
-  private isMinimized = false;
-  private isVisible = true;
+  constructor(scene: Phaser.Scene, onSend?: (msg: string) => void) {
+    super(scene, {
+      title: '💬 TRÒ CHUYỆN',
+      width: CHAT_W,
+      height: CHAT_H,
+      headerHeight: 28,
+      lockUi: false,
+      depth: 100,
+      showClose: true,
+      showMinimize: true,
+      showDock: true,
+      defaultAlign: 'bottom-left',
+      defaultOffsetX: 10,
+      defaultOffsetY: 10,
+      onClose: () => {
+        this.setVisible(false);
+      },
+      onMinimize: () => {
+        this.renderTextVisibility();
+      },
+    });
 
-  setUiZoomManager(m: UiZoomManager): void {
-    this._uiZoomManager = m;
-    this.scene.scale.on('ui-zoom-change', () => this.relayout());
+    this.onSend = onSend;
+
+    // Tạo các dòng text ban đầu trong contentContainer
+    this.recreateTextObjects();
+
+    this.addLine('--- Chào mừng đến với Pixelmon! ---');
+
+    if (scene.input.keyboard) {
+      scene.input.keyboard.on('keydown-ENTER', () => this.toggleInput());
+    }
+
+    this.show();
   }
 
   setHudMode(mode: HudMode): void {
+    if (this._hudMode === mode) return;
     this._hudMode = mode;
     this.recreateTextObjects();
     this.relayout();
-  }
-
-  private recreateTextObjects(): void {
-    this.textObjects.forEach((t) => t.destroy());
-    this.textObjects = [];
-    const max = this.maxLines();
-    const wrapW = Math.max(160, this.getBaseWidth() - 16);
-    for (let i = 0; i < max; i++) {
-      const t = this.scene.add
-        .text(0, 0, '', {
-          fontSize: '12px',
-          fontFamily: FONT.mono,
-          color: C.text,
-          wordWrap: { width: wrapW },
-        })
-        .setDepth(102)
-        .setScrollFactor(0);
-      this.textObjects.push(t);
-    }
-    this.render();
-  }
-
-  private getBaseWidth(): number {
-    const W = this.scene.scale.width;
-    if (W < 560) {
-      return Math.max(200, Math.min(280, W - 24));
-    }
-    return Math.min(340, Math.max(280, W * 0.38));
   }
 
   private isMiniMode(): boolean {
@@ -92,215 +80,29 @@ export class ChatLog {
     return this.isMiniMode() ? 3 : BASE_MAX_LINES;
   }
 
-  private getHeight(z: number): number {
-    if (this.isMinimized) {
-      return 26 * z;
+  private recreateTextObjects(): void {
+    this.textObjects.forEach((t) => t.destroy());
+    this.textObjects = [];
+    const max = this.maxLines();
+    const wrapW = CHAT_W - 16;
+
+    for (let i = 0; i < max; i++) {
+      const t = this.scene.add
+        .text(8, 4 + i * LINE_H, '', {
+          fontSize: '11px',
+          fontFamily: FONT.mono,
+          color: C.text,
+          wordWrap: { width: wrapW },
+        });
+      this.textObjects.push(t);
+      this.contentContainer.add(t);
     }
-    return (this.maxLines() * LINE_H + 28) * z;
+    this.render();
   }
 
-  /** Kích thước panel hiện tại. */
-  getSize(): { w: number; h: number } {
-    const z = this._uiZoomManager?.uiZoom ?? 1;
-    return {
-      w: this.getBaseWidth() * z,
-      h: this.getHeight(z),
-    };
-  }
-
-  constructor(scene: Phaser.Scene, onSend?: (msg: string) => void) {
-    this.scene = scene;
-    this.onSend = onSend;
-
-    // Graphics nền & viền
-    this.graphics = scene.add.graphics().setDepth(100).setScrollFactor(0);
-
-    // Tiêu đề
-    this.title = scene.add
-      .text(0, 0, '💬 CHAT', {
-        fontSize: '11px',
-        fontFamily: FONT.ui,
-        color: '#00cec9',
-        fontStyle: 'bold',
-      })
-      .setDepth(102)
-      .setScrollFactor(0);
-
-    // Nút Neo (Dock): quay về vị trí mặc định
-    this.btnDock = scene.add
-      .text(0, 0, '⚓', {
-        fontSize: '11px',
-        fontFamily: FONT.ui,
-        color: '#9aa0c3',
-      })
-      .setOrigin(0.5)
-      .setDepth(103)
-      .setScrollFactor(0)
-      .setInteractive({ useHandCursor: true });
-
-    this.btnDock.on('pointerover', () => this.btnDock.setColor('#00cec9'));
-    this.btnDock.on('pointerout', () => this.btnDock.setColor('#9aa0c3'));
-    this.btnDock.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      p.event?.stopPropagation();
-      this.customX = undefined;
-      this.customY = undefined;
-      this.relayout();
-    });
-
-    // Nút Thu nhỏ / Mở rộng (Minimize/Expand)
-    this.btnMin = scene.add
-      .text(0, 0, '▼', {
-        fontSize: '10px',
-        fontFamily: FONT.ui,
-        color: '#9aa0c3',
-      })
-      .setOrigin(0.5)
-      .setDepth(103)
-      .setScrollFactor(0)
-      .setInteractive({ useHandCursor: true });
-
-    this.btnMin.on('pointerover', () => this.btnMin.setColor('#00cec9'));
-    this.btnMin.on('pointerout', () => this.btnMin.setColor('#9aa0c3'));
-    this.btnMin.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      p.event?.stopPropagation();
-      this.isMinimized = !this.isMinimized;
-      this.btnMin.setText(this.isMinimized ? '▲' : '▼');
-      this.relayout();
-    });
-
-    // Vùng kéo thả Title Bar
-    this.titleBarZone = scene.add
-      .zone(0, 0, 10, 10)
-      .setOrigin(0, 0)
-      .setDepth(101)
-      .setScrollFactor(0)
-      .setInteractive({ cursor: 'grab' });
-
-    this.setupDragEvents();
-    this.recreateTextObjects();
-
-    this.addLine('--- Welcome to Pixelmon! ---');
-
-    if (scene.input.keyboard) {
-      scene.input.keyboard.on('keydown-ENTER', () => this.toggleInput());
-    }
-
-    this.relayout();
-    scene.scale.on('resize', () => this.relayout());
-  }
-
-  private setupDragEvents(): void {
-    this.titleBarZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.button !== 0) return;
-      this.isDragging = true;
-      this.dragOffset = {
-        x: pointer.x - this.currentX,
-        y: pointer.y - this.currentY,
-      };
-    });
-
-    this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isDragging) return;
-      const z = this._uiZoomManager?.uiZoom ?? 1;
-      const w = this.getBaseWidth() * z;
-      const h = this.getHeight(z);
-      const maxX = Math.max(0, this.scene.scale.width - w);
-      const maxY = Math.max(0, this.scene.scale.height - h);
-      this.customX = Phaser.Math.Clamp(pointer.x - this.dragOffset.x, 0, maxX);
-      this.customY = Phaser.Math.Clamp(pointer.y - this.dragOffset.y, 0, maxY);
-      this.relayout();
-    });
-
-    const endDrag = () => {
-      if (this.isDragging) {
-        this.isDragging = false;
-      }
-    };
-    this.scene.input.on('pointerup', endDrag);
-    this.scene.input.on('pointerupoutside', endDrag);
-  }
-
-  relayout(): void {
-    if (!this.isVisible) return;
-    const z = this._uiZoomManager?.uiZoom ?? 1;
-    const maxLines = this.maxLines();
-    const w = this.getBaseWidth() * z;
-    const h = this.getHeight(z);
-
-    // Tính toạ độ: ưu tiên customX/Y nếu người dùng kéo thả
-    let X: number;
-    let Y: number;
-    if (this.customX !== undefined && this.customY !== undefined) {
-      const maxX = Math.max(0, this.scene.scale.width - w);
-      const maxY = Math.max(0, this.scene.scale.height - h);
-      X = Phaser.Math.Clamp(this.customX, 0, maxX);
-      Y = Phaser.Math.Clamp(this.customY, 0, maxY);
-    } else {
-      X = this.scene.scale.width - w - this.padding * z;
-      Y = this.scene.scale.height - h - this.padding * z;
-    }
-    this.currentX = X;
-    this.currentY = Y;
-
-    // Header bar height
-    const headerH = 24 * z;
-
-    // Vẽ panel
-    this.graphics.clear();
-    // Shadow
-    this.graphics.fillStyle(0x000000, 0.35);
-    this.graphics.fillRoundedRect(X + 2, Y + 2, w, h, 6);
-    // Body background
-    this.graphics.fillStyle(C.panel, 0.94);
-    this.graphics.fillRoundedRect(X, Y, w, h, 6);
-    // Header background
-    this.graphics.fillStyle(0x13152c, 0.95);
-    this.graphics.fillRoundedRect(X, Y, w, headerH, { tl: 6, tr: 6, bl: 0, br: 0 });
-    // Border
-    this.graphics.lineStyle(1, C.border, 0.95);
-    this.graphics.strokeRoundedRect(X, Y, w, h, 6);
-    // Header divider line (nếu không minimize)
-    if (!this.isMinimized) {
-      this.graphics.lineStyle(1, 0x2e3358, 0.6);
-      this.graphics.lineBetween(X, Y + headerH, X + w, Y + headerH);
-    }
-
-    // Title text
-    this.title
-      .setPosition(X + 8 * z, Y + 5 * z)
-      .setFontSize(Math.max(10, Math.round(11 * z)));
-
-    // Drag zone
-    this.titleBarZone.setPosition(X, Y).setSize(w - 48 * z, headerH);
-
-    // Nút Neo (Dock)
-    const isDocked = this.customX === undefined;
-    this.btnDock
-      .setPosition(X + w - 32 * z, Y + headerH / 2)
-      .setFontSize(Math.max(9, Math.round(11 * z)))
-      .setColor(isDocked ? '#555a80' : '#00cec9');
-
-    // Nút Thu nhỏ / Mở rộng (Minimize)
-    this.btnMin
-      .setPosition(X + w - 12 * z, Y + headerH / 2)
-      .setFontSize(Math.max(9, Math.round(10 * z)));
-
-    // Cập nhật vị trí các dòng tin nhắn
-    if (this.isMinimized) {
-      this.textObjects.forEach((t) => t.setVisible(false));
-    } else {
-      const wrapW = Math.max(140, w - 16 * z);
-      for (let i = 0; i < maxLines; i++) {
-        const txt = this.textObjects[i];
-        if (txt) {
-          txt
-            .setPosition(X + 8 * z, Y + headerH + (4 + i * LINE_H) * z)
-            .setFontSize(Math.max(10, Math.round(11 * z)))
-            .setWordWrapWidth(wrapW)
-            .setVisible(this.isVisible);
-        }
-      }
-    }
+  private renderTextVisibility(): void {
+    const show = !this.isMinimized && this.open;
+    this.textObjects.forEach((t) => t.setVisible(show));
   }
 
   addLine(text: string): void {
@@ -321,17 +123,13 @@ export class ChatLog {
       this.removeInput();
       return;
     }
-    if (!this.isVisible) return;
+    if (!this.open) return;
 
     if (this.isMinimized) {
-      this.isMinimized = false;
-      this.btnMin.setText('▼');
-      this.relayout();
+      this.expand();
     }
 
-    const z = this._uiZoomManager?.uiZoom ?? 1;
-    const w = this.getBaseWidth() * z;
-    const h = this.getHeight(z);
+    const { actualW, actualH } = this.getScaleAndBounds();
     const X = this.currentX;
     const Y = this.currentY;
 
@@ -347,8 +145,8 @@ export class ChatLog {
     const scaleX = rect.width / this.scene.scale.width;
     const scaleY = rect.height / this.scene.scale.height;
     input.style.left = `${rect.left + X * scaleX}px`;
-    input.style.top = `${rect.top + (Y + h + 4) * scaleY}px`;
-    input.style.width = `${w * scaleX}px`;
+    input.style.top = `${rect.top + (Y + actualH + 4) * scaleY}px`;
+    input.style.width = `${actualW * scaleX}px`;
     input.style.height = `${24 * scaleY}px`;
 
     document.body.appendChild(input);
@@ -378,39 +176,26 @@ export class ChatLog {
   }
 
   setVisible(v: boolean): void {
-    this.isVisible = v;
-    this.graphics.setVisible(v);
-    this.title.setVisible(v);
-    this.btnMin.setVisible(v);
-    this.btnDock.setVisible(v);
-    this.titleBarZone.setActive(v);
-    if (!v) {
-      this.textObjects.forEach((t) => t.setVisible(false));
-      this.removeInput();
+    if (v) {
+      this.show();
     } else {
-      this.relayout();
+      this.removeInput();
+      this.close();
     }
   }
 
-  /** Danh sách object để WorldScene gán vào camera UI. */
-  getGameObjects(): Phaser.GameObjects.GameObject[] {
-    return [
-      this.graphics,
-      this.title,
-      this.btnMin,
-      this.btnDock,
-      this.titleBarZone,
-      ...this.textObjects,
-    ];
+  /** Kích thước panel hiện tại. */
+  getSize(): { w: number; h: number } {
+    return this.getActualSize();
+  }
+
+  public relayout(): void {
+    super.relayout();
+    this.renderTextVisibility();
   }
 
   destroy(): void {
     this.removeInput();
-    this.graphics.destroy();
-    this.title.destroy();
-    this.btnMin.destroy();
-    this.btnDock.destroy();
-    this.titleBarZone.destroy();
-    this.textObjects.forEach((t) => t.destroy());
+    super.destroy();
   }
 }

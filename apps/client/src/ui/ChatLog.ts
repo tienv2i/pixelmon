@@ -50,8 +50,24 @@ export class ChatLog {
     this.relayout();
   }
 
+  private getBaseWidth(): number {
+    const W = this.scene.scale.width;
+    if (W < 560) {
+      return Math.max(180, Math.min(220, W - 24));
+    }
+    return Math.max(220, Math.min(280, W * 0.35));
+  }
+
+  private isMiniMode(): boolean {
+    return (
+      this._hudMode === 'mini' ||
+      this.scene.scale.height < 500 ||
+      this.scene.scale.width < 560
+    );
+  }
+
   private maxLines(): number {
-    return this._hudMode === 'mini' ? 2 : BASE_MAX_LINES;
+    return this.isMiniMode() ? 2 : BASE_MAX_LINES;
   }
 
   /**
@@ -61,7 +77,7 @@ export class ChatLog {
   getSize(): { w: number; h: number } {
     const z = this._uiZoomManager?.uiZoom ?? 1;
     return {
-      w: this.baseW * z,
+      w: this.getBaseWidth() * z,
       h: (this.maxLines() * LINE_H + 24) * z,
     };
   }
@@ -69,7 +85,7 @@ export class ChatLog {
   constructor(scene: Phaser.Scene, onSend?: (msg: string) => void) {
     this.scene = scene;
     this.onSend = onSend;
-    this.baseW = Math.max(200, Math.min(320, scene.scale.width - 16));
+    this.baseW = 260;
     this.baseH = BASE_MAX_LINES * LINE_H + 24;
 
     this.graphics = drawPanel(scene, 0, 0, 0, 0, 100);
@@ -81,7 +97,7 @@ export class ChatLog {
           fontSize: '11px',
           fontFamily: FONT.mono,
           color: C.text,
-          wordWrap: { width: this.baseW - 16 },
+          wordWrap: { width: 240 },
         })
         .setDepth(102)
         .setScrollFactor(0);
@@ -101,7 +117,7 @@ export class ChatLog {
   private relayout(): void {
     const z = this._uiZoomManager?.uiZoom ?? 1;
     const maxLines = this.maxLines();
-    const w = this.baseW * z;
+    const w = this.getBaseWidth() * z;
     const h = (maxLines * LINE_H + 24) * z;
     const X = this.scene.scale.width - w - this.padding * z;
     const Y = this.scene.scale.height - h - this.padding * z;
@@ -116,9 +132,15 @@ export class ChatLog {
 
     this.title?.setPosition(X + 8 * z, Y + 5 * z).setFontSize(12 * z);
 
+    const wrapW = Math.max(120, w - 16 * z);
     for (let i = 0; i < maxLines; i++) {
-      this.textObjects[i]?.setPosition(X + 8 * z, Y + (20 + i * LINE_H) * z);
-      this.textObjects[i]?.setVisible(true);
+      const txt = this.textObjects[i];
+      if (txt) {
+        txt.setPosition(X + 8 * z, Y + (20 + i * LINE_H) * z);
+        txt.setFontSize(Math.max(10, Math.round(11 * z)));
+        txt.setWordWrapWidth(wrapW);
+        txt.setVisible(true);
+      }
     }
     // ẩn các text thừa (nếu trước đó ở mini rồi chuyển về normal)
     for (let i = maxLines; i < this.textObjects.length; i++) {
@@ -146,7 +168,7 @@ export class ChatLog {
     }
 
     const z = this._uiZoomManager?.uiZoom ?? 1;
-    const w = this.baseW * z;
+    const w = this.getBaseWidth() * z;
     const h = (this.maxLines() * LINE_H + 24) * z;
     const X = this.scene.scale.width - w - this.padding * z;
     const Y = this.scene.scale.height - h - this.padding * z;

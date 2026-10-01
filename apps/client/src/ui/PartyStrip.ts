@@ -48,13 +48,21 @@ export class PartyStrip {
     this.scene.scale.on('ui-zoom-change', () => this.relayout());
   }
 
+  private isMiniMode(): boolean {
+    return (
+      this._hudMode === 'mini' ||
+      this.scene.scale.height < 500 ||
+      this.scene.scale.width < 560
+    );
+  }
+
   /** Kích thước panel hiện tại (đã nhân uiZoom, đã xét mini) — dùng để xếp HUD. */
   getSize(): { w: number; h: number } {
     const z = this._uiZoomManager?.uiZoom ?? 1;
-    const isMini = this._hudMode === 'mini';
+    const isMini = this.isMiniMode();
     const headerH = isMini ? 0 : 20;
-    const slot = isMini ? Math.round(SLOT * 0.7) : SLOT;
-    const gap = isMini ? Math.round(SLOT_GAP * 0.7) : SLOT_GAP;
+    const slot = isMini ? 26 : SLOT;
+    const gap = isMini ? 4 : SLOT_GAP;
     const pad = isMini ? 4 : INNER_PAD;
     return {
       w: (slot + pad * 2) * z,
@@ -91,10 +99,10 @@ export class PartyStrip {
     this.objs = [];
 
     const z = this._uiZoomManager?.uiZoom ?? 1;
-    const isMini = this._hudMode === 'mini';
+    const isMini = this.isMiniMode();
     const headerH = isMini ? 0 : 20;
-    const slotSize = (isMini ? Math.round(SLOT * 0.7) : SLOT) * z;
-    const gap = (isMini ? Math.round(SLOT_GAP * 0.7) : SLOT_GAP) * z;
+    const slotSize = (isMini ? 26 : SLOT) * z;
+    const gap = (isMini ? 4 : SLOT_GAP) * z;
     const pad = (isMini ? 4 : INNER_PAD) * z;
     const { w, h } = this.getSize();
     const x = PAD * z;

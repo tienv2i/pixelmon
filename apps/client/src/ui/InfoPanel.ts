@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { C, FONT } from './theme';
+import type { UiZoomManager } from './UiZoomManager';
+import type { HudMode } from './HudManager';
 
 interface WeatherDef {
   glyph: string;
@@ -18,13 +20,15 @@ const WEATHERS: WeatherDef[] = [
 
 const PANEL_W = 168;
 const PANEL_H = 54;
+const MINI_W = 84;
+const MINI_H = 36;
 const PAD = 8;
 
 /**
  * **InfoPanel** — khối thông tin góc trên phải: giờ + thời tiết.
  *
  * Neo cố định góc trên phải. Minimap sẽ hiển thị ngay bên dưới panel này.
- * Thời tiết mô phỏng (chưa có hệ thời tiết server) — đổi theo giờ trong ngày.
+ * Hỗ trợ chế độ mini tự động khi màn hình nhỏ để tránh va chạm với TopMenu.
  */
 export class InfoPanel {
   private readonly scene: Phaser.Scene;
@@ -36,6 +40,9 @@ export class InfoPanel {
   private objects: Phaser.GameObjects.GameObject[] = [];
   private seed: number;
   private baseY = PAD;
+  private currentH = PANEL_H;
+  private _uiZoomManager?: UiZoomManager;
+  private _hudMode: HudMode = 'normal';
 
   constructor(scene: Phaser.Scene, seed = 0) {
     this.scene = scene;
@@ -88,36 +95,74 @@ export class InfoPanel {
     scene.scale.on('resize', () => this.relayout());
   }
 
+  setUiZoomManager(m: UiZoomManager): void {
+    this._uiZoomManager = m;
+    this.scene.scale.on('ui-zoom-change', () => this.relayout());
+  }
+
+  setHudMode(mode: HudMode): void {
+    if (this._hudMode === mode) return;
+    this._hudMode = mode;
+    this.relayout();
+  }
+
+  /** Kích thước hiện tại của panel. */
+  getSize(): { w: number; h: number } {
+    const z = this._uiZoomManager?.uiZoom ?? 1;
+    const isMini = this.isMiniMode();
+    return {
+      w: (isMini ? MINI_W : PANEL_W) * z,
+      h: (isMini ? MINI_H : PANEL_H) * z,
+    };
+  }
+
+  private isMiniMode(): boolean {
+    return this._hudMode === 'mini' || this.scene.scale.width < 640;
+  }
+
   /**
-   * Vị trí thanh trên của panel — Minimap dùng để neo ngay bên dưới.
-   * `extraTop` = khoảng cách thêm phía trên (không dùng hiện tại).
+   * Vị trí đáy của panel — Minimap dùng để neo ngay bên dưới.
    */
   getBottomY(): number {
-    this.relayout();
-    return this.baseY + PANEL_H;
+    return this.baseY + this.currentH;
   }
 
   private relayout(): void {
+    const z = this._uiZoomManager?.uiZoom ?? 1;
+    const isMini = this.isMiniMode();
+    const w = (isMini ? MINI_W : PANEL_W) * z;
+    const h = (isMini ? MINI_H : PANEL_H) * z;
+    const pad = (isMini ? 6 : PAD) * z;
+
     const W = this.scene.scale.width;
-    const x = W - PANEL_W - PAD;
-    const y = PAD;
+    const x = W - w - pad;
+    const y = pad;
     this.baseY = y;
+    this.currentH = h;
 
     this.panel.clear();
     this.panel.fillStyle(0x000000, 0.25);
-    this.panel.fillRoundedRect(x + 3, y + 3, PANEL_W, PANEL_H, 4);
+    this.panel.fillRoundedRect(x + 3, y + 3, w, h, 4);
     this.panel.fillStyle(C.panel, 0.94);
-    this.panel.fillRoundedRect(x, y, PANEL_W, PANEL_H, 4);
+    this.panel.fillRoundedRect(x, y, w, h, 4);
     this.panel.lineStyle(1, C.border, 0.95);
-    this.panel.strokeRoundedRect(x, y, PANEL_W, PANEL_H, 4);
+    this.panel.strokeRoundedRect(x, y, w, h, 4);
 
-    // Cột trái: giờ + ngày
-    this.clockText.setPosition(x + 12, y + 8).setFontSize(18);
-    this.dateText.setPosition(x + 13, y + 32).setFontSize(10);
+    if (isMini) {
+      // Chế độ mini: chỉ hiển thị giờ và glyph thời tiết cạnh nhau
+      this.clockText.setPosition(x + 8 * z, y + 9 * z).setFontSize(14 * z);
+      this.dateText.setVisible(false);
 
-    // Cột phải: icon + tên thời tiết
-    this.weatherGlyph.setPosition(x + PANEL_W - 48, y + 10).setFontSize(18);
-    this.weatherText.setPosition(x + PANEL_W - 34, y + 16).setFontSize(10);
+      this.weatherGlyph.setPosition(x + w - 24 * z, y + 9 * z).setFontSize(14 * z);
+      this.weatherText.setVisible(false);
+    } else {
+      // Chế độ normal: hiển thị đầy đủ
+      this.clockText.setPosition(x + 12 * z, y + 8 * z).setFontSize(18 * z);
+      this.dateText.setPosition(x + 13 * z, y + 32 * z).setFontSize(10 * z).setVisible(true);
+
+      this.weatherGlyph.setPosition(x + w - 48 * z, y + 10 * z).setFontSize(18 * z);
+      this.weatherText.setPosition(x + w - 34 * z, y + 16 * z).setFontSize(10 * z).setVisible(true);
+    }
   }
 
   private updateClock(): void {

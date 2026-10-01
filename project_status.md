@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành điều chỉnh cơ chế hiển thị map căn giữa trung tâm)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 22: Chuẩn hoá giao diện Client ở màn hình nhỏ)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -50,6 +50,7 @@
 | Plan 20 — Sprite #2 (jin-yuichi) + `users.sprite_id` + editor 16-frame + gán sprite trong admin      | ✅           |
 | Plan 21 — Import toàn bộ sprite (16-frame chuẩn), preview 128/256, nâng cấp Sprite Library, Register & Player Info | ✅           |
 | Căn giữa map ở trung tâm hiển thị thay vì neo ở góc trên bên trái                                    | ✅           |
+| Plan 22 — Chuẩn hoá giao diện Client ở màn hình nhỏ (Responsive Mobile & Small Viewport)             | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -607,6 +608,36 @@ quay hướng âm thầm. Chi tiết: `docs/sprite-import-guide.md` mục 3b.
 
 ---
 
+## Kế hoạch hiện tại: Plan 22 — Chuẩn hoá giao diện Client ở màn hình nhỏ (Responsive Mobile & Small Viewport)
+
+> Bắt đầu 2026-10-01. Mục tiêu: Client hiển thị đẹp, rõ ràng, không bị chồng đè hay tràn viền trên màn hình nhỏ (< 768px, < 640px, < 480px, < 400px) và xoay ngang mobile.
+
+1. **Bước 1 — Nâng cấp `UiZoomManager` & Adaptive Scaling:**
+   - [x] Bổ sung cơ chế tự động tính toán scale thích ứng (`adaptiveUiZoom`) dựa trên chiều rộng và chiều cao viewport khi ở màn hình nhỏ (< 640px).
+   - [x] Hỗ trợ xác định breakpoint tự động: `normal` (>= 720px), `compact` (540px - 719px), `mini` (< 540px hoặc height < 480px).
+2. **Bước 2 — Chuẩn hoá `PlayerHud` ở chế độ Mini:**
+   - [x] Sửa lỗi tính `w` và `h` trong `relayout()` khi ở `mini` mode (dùng 172×54px thay vì hardcode 260×92px).
+   - [x] Căn chỉnh tỉ lệ avatar 32px và text tên, tiền trong game cân đối, ẩn tiền thật khi ở chế độ mini.
+3. **Bước 3 — Chuẩn hoá `InfoPanel` Responsive:**
+   - [x] Hỗ trợ `UiZoomManager` và chế độ `mini` / `compact` (thu gọn từ 168×54px xuống 84×36px, chỉ hiện giờ to + icon thời tiết gọn).
+   - [x] Tự động chuyển compact khi chiều rộng màn hình < 640px để giải phóng khoảng trống cho TopMenu.
+4. **Bước 4 — Chuẩn hoá `TopMenu` Chống Va Chạm (Top Bar Collision-Free):**
+   - [x] Tính toán vị trí linh hoạt: Khi khoảng trống giữa `PlayerHud` và `InfoPanel` không đủ (< 260px), tự động thu nhỏ icon (từ 28px xuống 24px) và neo dạt phải hoặc xếp dưới thanh trạng thái thay vì đè lên `PlayerHud`.
+   - [x] Mở rộng hit area cảm ứng (zone tối thiểu 36px) để dễ chạm trên màn hình di động.
+5. **Bước 5 — Chuẩn hoá `PartyStrip` Chống Tràn Chiều Dọc:**
+   - [x] Kiểm tra chiều cao khả dụng: Khi `viewport.height < 480px` (mobile landscape), tự động chuyển sang slot mini 24px, giảm gap để tổng chiều cao <= 180px, không bị tràn ra khỏi đáy màn hình.
+6. **Bước 6 — Chuẩn hoá `ChatLog` Co Giãn & Thu Gọn:**
+   - [x] Tính lại `baseW` linh hoạt theo `scale.width` mỗi khi resize (`Math.min(240, scale.width * 0.55)`).
+   - [x] Giảm số dòng hiển thị ở mini xuống 2 dòng, hỗ trợ toggle thu nhỏ/mở rộng nhanh.
+7. **Bước 7 — Điều phối tập trung trong `WorldScene.ts`:**
+   - [x] Lắng nghe `scale.on('resize')`, tự động phân bổ `hudMode` (`normal`/`mini`) cho tất cả các panel.
+   - [x] Điều chỉnh lại toạ độ xếp chồng cột trái và các panel đảm bảo giao diện luôn thoáng đãng, nhìn rõ thế giới game.
+8. **Bước 8 — Kiểm tra typecheck và cập nhật status:**
+   - [x] Chạy `pnpm --filter client typecheck` pass 100%.
+   - [x] Cập nhật kết quả vào `project_status.md` và git commit.
+
+---
+
 ## Nhật ký 2026-10-01 — Sprite import & fix lỗi
 
 ### Khởi động lại game
@@ -908,6 +939,37 @@ eslint.config.js                                 (+ ignores .venv, temp)
 - **Pan camera (`camDrag`):** Kẹp toạ độ kéo `cam.scrollX` / `cam.scrollY` qua `clampX` / `clampY`, ngăn không cho kéo trôi map ra ngoài màn hình.
 - **Hover tile & Click-to-move:** Thêm kiểm tra ranh giới bản đồ (`col < 0 || row < 0 || col >= maxCols || row >= maxRows`). Khi con trỏ chuột trỏ ra ngoài khoảng trống bao quanh map (pillarbox / letterbox), tự động ẩn khung highlight và bỏ qua lệnh di chuyển tự động.
 - **Files sửa:** `apps/client/src/scenes/WorldScene.ts`.
+
+---
+
+## Nhật ký 2026-10-01 (6) — Plan 22: Chuẩn hoá giao diện Client ở màn hình nhỏ (Responsive Mobile & Small Viewport)
+
+### 1. Phân tích bài toán màn hình nhỏ & giải pháp
+- **Xung đột Top Bar (Top Bar Collision):**
+  - Trước đây, khi chiều rộng màn hình < 674px, `PlayerHud` (trái, 196-260px), `TopMenu` (giữa, 266px) và `InfoPanel` (phải, 168px) đè nát lên nhau.
+  - Giải pháp:
+    - `InfoPanel` chuyển sang chế độ compact khi màn hình < 640px, giảm từ 168px xuống 84px (chỉ hiện giờ to + icon thời tiết).
+    - `TopMenu` tự động tính toán không gian khả dụng (`setBoundsConstraints`). Nếu khoảng trống ở hàng 1 không đủ, tự động chuyển xuống hàng 2 (dưới PlayerHud/InfoPanel) và mở rộng hit area cảm ứng tối thiểu 36px cho mobile.
+- **Tràn viền cột trái (PartyStrip):**
+  - Chiều cao PlayerHud + PartyStrip trước đây lên tới ~380px, tràn khỏi mép dưới trên mobile landscape (chiều cao 360-400px).
+  - Giải pháp: Khi chiều cao < 500px, tự động kích hoạt mini mode, giảm slot Pokémon từ 40px xuống 26px, ẩn header "PARTY", neo sát dưới PlayerHud mini (54px), giúp toàn bộ cột trái chỉ chiếm ~260px.
+- **Che khuất gameplay (ChatLog):**
+  - Tính toán `baseW` linh hoạt theo `scale.width` (`Math.min(220, W * 0.35)`), giảm số dòng xuống 2 ở mini mode, tự động gói chữ theo chiều rộng thực tế.
+- **Thích ứng kích thước tự động (Adaptive UI Zoom):**
+  - `UiZoomManager` tự động nhân hệ số co giãn thích ứng khi `width < 640px` (`Math.max(0.7, width / 640)`), đồng thời phát hiện breakpoint (`normal`, `compact`, `mini`) và phát sự kiện `breakpoint-change`.
+- **Khung Menu Pause (MenuPanel):**
+  - Sửa lỗi không vẽ nền graphics của menu Esc trong `relayout()`.
+
+### 2. Files chỉnh sửa
+- `apps/client/src/ui/UiZoomManager.ts`: Thêm `UiBreakpoint`, adaptive scale factor theo viewport, sự kiện `breakpoint-change`.
+- `apps/client/src/ui/PlayerHud.ts`: Sửa kích thước mini mode thực tế 172×54px trong `relayout()` và `getSize()`, căn chỉnh lại avatar 32px và font chữ.
+- `apps/client/src/ui/InfoPanel.ts`: Hỗ trợ `UiZoomManager`, `setHudMode('mini')` thu gọn 84×36px, cập nhật `getBottomY()`.
+- `apps/client/src/ui/TopMenu.ts`: Thêm né va chạm thông minh (`setBoundsConstraints`), tự động xuống hàng 2 khi hẹp, mở rộng touch zone 36px cho cảm ứng.
+- `apps/client/src/ui/PartyStrip.ts`: Thêm tự động mini mode khi chiều cao < 500px, slot 26px chống tràn mép dưới.
+- `apps/client/src/ui/ChatLog.ts`: Co giãn chiều rộng động theo canvas, 2 dòng ở mini mode, cập nhật word wrap.
+- `apps/client/src/ui/MenuPanel.ts`: Vẽ khung nền panel trong `relayout()`.
+- `apps/client/src/scenes/WorldScene.ts`: Điều phối tập trung, tự động kích hoạt mini mode cho toàn bộ panel khi viewport nhỏ (`width < 640 || height < 500`).
+
 
 
 

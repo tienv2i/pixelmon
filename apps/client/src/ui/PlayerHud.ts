@@ -48,9 +48,9 @@ export class PlayerHud {
   /** Kích thước panel hiện tại (đã nhân uiZoom, đã xét mini) — dùng để xếp HUD. */
   getSize(): { w: number; h: number } {
     const z = this._uiZoomManager?.uiZoom ?? 1;
-    // Mini: rút gọn còn 2 hàng (avatar + tiền game), ẩn tiền thật.
-    const w = (this._hudMode === 'mini' ? 196 : PANEL_W) * z;
-    const h = (this._hudMode === 'mini' ? 64 : PANEL_H) * z;
+    const isMini = this._hudMode === 'mini';
+    const w = (isMini ? 172 : PANEL_W) * z;
+    const h = (isMini ? 54 : PANEL_H) * z;
     return { w, h };
   }
 
@@ -118,9 +118,10 @@ export class PlayerHud {
 
   private relayout(): void {
     const z = this._uiZoomManager?.uiZoom ?? 1;
-    const P = PAD * z;
-    const w = PANEL_W * z;
-    const h = PANEL_H * z;
+    const isMini = this._hudMode === 'mini';
+    const P = (isMini ? 6 : PAD) * z;
+    const w = (isMini ? 172 : PANEL_W) * z;
+    const h = (isMini ? 54 : PANEL_H) * z;
     const x = P;
     const y = P;
 
@@ -133,17 +134,21 @@ export class PlayerHud {
     this.graphics.lineStyle(1, C.border, 0.95);
     this.graphics.strokeRoundedRect(x, y, w, h, 4);
 
-    // Avatar: chiếm trọng cột trái, cao gần hết panel
-    const avatarSize = h - 12 * z;
+    // Avatar: chiếm trọng cột trái
+    const avatarSize = h - (isMini ? 8 : 12) * z;
     this.avatar
-      .setPosition(x + avatarSize / 2 + 6 * z, y + h / 2)
+      .setPosition(x + avatarSize / 2 + (isMini ? 4 : 6) * z, y + h / 2)
       .setScale(avatarSize / (this._avatarFrameSize || 32));
 
     // Cột phải: tên → tiền game → tiền thật (từ trên xuống)
-    const colX = x + avatarSize + 16 * z;
-    const isMini = this._hudMode === 'mini';
-    this.nameText.setPosition(colX, y + 14 * z).setFontSize(14 * z);
-    this.moneyText.setPosition(colX, y + (isMini ? 36 : 40) * z).setFontSize(13 * z);
+    const colX = x + avatarSize + (isMini ? 10 : 16) * z;
+    if (isMini) {
+      this.nameText.setPosition(colX, y + 9 * z).setFontSize(12 * z);
+      this.moneyText.setPosition(colX, y + 28 * z).setFontSize(11 * z);
+    } else {
+      this.nameText.setPosition(colX, y + 14 * z).setFontSize(14 * z);
+      this.moneyText.setPosition(colX, y + 40 * z).setFontSize(13 * z);
+    }
     this.realMoneyText.setPosition(colX, y + 64 * z).setFontSize(13 * z);
     // Mini: ẩn tiền thật để panel gọn hơn.
     this.realMoneyText.setVisible(!isMini);

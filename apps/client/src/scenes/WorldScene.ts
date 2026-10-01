@@ -642,6 +642,7 @@ export class WorldScene extends Phaser.Scene {
 
     // InfoPanel (góc trên phải) — giờ + thời tiết. Minimap neo dưới panel này.
     this.infoPanel = new InfoPanel(this, (ColyseusManager.getInstance().id || '').length);
+    this.infoPanel.setUiZoomManager(this.uiZoom);
     this.minimap.setAnchorYSource(() => this.infoPanel.getBottomY());
 
     // Menu panel (Esc)
@@ -663,9 +664,42 @@ export class WorldScene extends Phaser.Scene {
 
     // TopMenu — dãy icon nhỏ neo giữa cạnh trên
     this.topMenu = new TopMenu(this, (key) => this.onTopMenuIcon(key));
+    this.topMenu.setBoundsConstraints(
+      () => this.hud.getSize().w + (this.isSmallViewport() ? 6 : 8) * (this.uiZoom?.uiZoom ?? 1),
+      () =>
+        this.scale.width -
+        (this.infoPanel.getSize().w + (this.isSmallViewport() ? 6 : 8) * (this.uiZoom?.uiZoom ?? 1)),
+    );
 
     // Bảng hướng dẫn — ẩn mặc định, bật qua nút ? hoặc phím H
     this.createHintPanel();
+
+    // Áp dụng responsive mode ban đầu và lắng nghe sự kiện
+    this.applyViewportHudMode();
+    this.scale.on('resize', () => {
+      this.applyViewportHudMode();
+      this.layoutLeftColumn();
+      this.topMenu.relayout();
+    });
+    this.scale.on('breakpoint-change', () => {
+      this.applyViewportHudMode();
+      this.layoutLeftColumn();
+      this.topMenu.relayout();
+    });
+  }
+
+  private isSmallViewport(): boolean {
+    return this.scale.width < 640 || this.scale.height < 500;
+  }
+
+  private applyViewportHudMode(): void {
+    const isMini = this.isSmallViewport();
+    const mode = isMini ? 'mini' : 'normal';
+    this.hud.setHudMode(mode);
+    this.partyStrip.setHudMode(mode);
+    this.infoPanel.setHudMode(mode);
+    this.chatLog.setHudMode(mode);
+    this.minimap.setHudMode(mode);
   }
 
   /**
@@ -674,8 +708,9 @@ export class WorldScene extends Phaser.Scene {
    */
   private layoutLeftColumn(): void {
     const z = this.uiZoom?.uiZoom ?? 1;
-    // PlayerHud panel: PAD(8) + PANEL_H(92) + 8 = 108
-    this.partyStrip.anchorY = (8 + 92 + 8) * z;
+    const hudSize = this.hud.getSize();
+    const pad = (this.isSmallViewport() ? 6 : 8) * z;
+    this.partyStrip.anchorY = pad + hudSize.h + pad;
     this.partyStrip.relayoutPublic();
     this.partyStrip.setVisible(this.hudVisible);
   }

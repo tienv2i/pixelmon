@@ -122,6 +122,15 @@ export class MenuPanel {
     const py = cy - BASE_H / 2;
 
     this.overlay.setSize(W, H);
+
+    this.panel.clear();
+    this.panel.fillStyle(0x000000, 0.4);
+    this.panel.fillRoundedRect(px + 4, py + 4, BASE_W, BASE_H, 8);
+    this.panel.fillStyle(C.panel, 0.98);
+    this.panel.fillRoundedRect(px, py, BASE_W, BASE_H, 8);
+    this.panel.lineStyle(1, C.border, 1);
+    this.panel.strokeRoundedRect(px, py, BASE_W, BASE_H, 8);
+
     this.title.setPosition(cx, py + 24);
     this.hint.setPosition(cx, py + 46);
     this.hudCheck.setPosition(px + 30, py + 76);

@@ -24,6 +24,7 @@ class IconButton {
   readonly zone: Phaser.GameObjects.Zone;
   private hover = false;
   private active = false;
+  private currentSize = ICON_SIZE;
 
   constructor(
     private scene: Phaser.Scene,
@@ -40,7 +41,7 @@ class IconButton {
 
     this.zone = scene.add
       .zone(0, 0, ICON_SIZE, ICON_SIZE)
-      .setOrigin(0, 0)
+      .setOrigin(0.5, 0.5)
       .setInteractive({ useHandCursor: true })
       .setScrollFactor(0)
       .setDepth(142);
@@ -63,10 +64,19 @@ class IconButton {
     this.draw();
   }
 
-  setPosition(x: number, y: number): void {
+  setPosition(x: number, y: number, size = ICON_SIZE): void {
+    this.currentSize = size;
     this.gfx.setPosition(x, y);
-    this.glyph.setPosition(x + ICON_SIZE / 2, y + ICON_SIZE / 2);
-    this.zone.setPosition(x, y);
+    this.glyph
+      .setPosition(x + size / 2, y + size / 2)
+      .setFontSize(Math.max(11, Math.round(size * 0.5)));
+
+    // Touch padding: trên màn hình cảm ứng, mở rộng hit area tối thiểu 36px
+    const touchSize = Math.max(36, size + 8);
+    this.zone.setSize(touchSize, touchSize);
+    this.zone.setPosition(x + size / 2, y + size / 2);
+
+    this.draw();
   }
 
   setActive(v: boolean): void {
@@ -92,7 +102,7 @@ class IconButton {
   }
 
   private draw(): void {
-    const s = ICON_SIZE;
+    const s = this.currentSize;
     this.gfx.clear();
     // nền
     if (this.active) {
@@ -127,29 +137,25 @@ const ICONS: MenuIconDef[] = [
 /**
  * **TopMenu** — dãy icon nhỏ neo giữa cạnh trên màn hình.
  *
- * Icon nhỏ 28×28, bo góc, hover đổi viền, active đổi nền.
- * Icon `gps` toggle minimap; các icon khác hiện là nút bấm (chưa cần popup).
+ * Tự động chuyển xuống hàng thứ 2 khi chiều rộng hẹp để tránh
+ * đè lên PlayerHud và InfoPanel.
  */
 export class TopMenu {
   private buttons: IconButton[] = [];
   private hint?: Phaser.GameObjects.Text;
   private hoverLabel: string | null = null;
+  private leftBoundFn?: () => number;
+  private rightBoundFn?: () => number;
 
   constructor(
     private scene: Phaser.Scene,
     private onIcon: (key: string) => void,
   ) {
-    // Khối dải icon, neo giữa trên cạnh trên
-    const totalW = ICONS.length * ICON_SIZE + (ICONS.length - 1) * GAP;
-    const x0 = Math.floor((scene.scale.width - totalW) / 2);
-    const y0 = 8;
-
-    ICONS.forEach((def, i) => {
+    ICONS.forEach((def) => {
       const b = new IconButton(scene, def, onIcon, (label) => {
         this.hoverLabel = label;
         this.updateHint();
       });
-      b.setPosition(x0 + i * (ICON_SIZE + GAP), y0);
       this.buttons.push(b);
     });
 
@@ -167,8 +173,18 @@ export class TopMenu {
       .setScrollFactor(0)
       .setVisible(false);
 
+    this.relayout();
     this.updateHint();
     scene.scale.on('resize', () => this.relayout());
+  }
+
+  /**
+   * Cung cấp ranh giới trái/phải từ WorldScene để tự động tránh va chạm.
+   */
+  setBoundsConstraints(leftBound: () => number, rightBound: () => number): void {
+    this.leftBoundFn = leftBound;
+    this.rightBoundFn = rightBound;
+    this.relayout();
   }
 
   setActive(key: string): void {
@@ -201,17 +217,40 @@ export class TopMenu {
     this.relayout();
   }
 
-  private relayout(): void {
-    const totalW = ICONS.length * ICON_SIZE + (ICONS.length - 1) * GAP;
-    const x0 = Math.floor((this.scene.scale.width - totalW) / 2);
-    const y0 = 8;
+  relayout(): void {
+    const W = this.scene.scale.width;
+    const isSmall = W < 640;
+    const iconSize = isSmall ? 24 : ICON_SIZE;
+    const gap = isSmall ? 4 : GAP;
+
+    const totalW = ICONS.length * iconSize + (ICONS.length - 1) * gap;
+
+    // Ranh giới an toàn của hàng trên
+    const leftLimit = this.leftBoundFn ? this.leftBoundFn() + 8 : 180;
+    const rightLimit = this.rightBoundFn ? this.rightBoundFn() - 8 : W - 90;
+    const availW = rightLimit - leftLimit;
+
+    let x0: number;
+    let y0: number;
+
+    if (availW >= totalW) {
+      // Đủ chỗ ở hàng 1: căn giữa khoảng trống giữa PlayerHud và InfoPanel
+      x0 = Math.floor(leftLimit + (availW - totalW) / 2);
+      y0 = isSmall ? 6 : 8;
+    } else {
+      // Không đủ chỗ ở hàng 1: chuyển xuống hàng 2 (dưới PlayerHud/InfoPanel)
+      // Căn dạt sang phải của PartyStrip hoặc căn giữa
+      const leftPad = this.leftBoundFn ? 62 : 12;
+      x0 = Math.max(leftPad, Math.floor((W - totalW) / 2));
+      y0 = isSmall ? 64 : 100;
+    }
 
     this.buttons.forEach((b, i) => {
-      b.setPosition(x0 + i * (ICON_SIZE + GAP), y0);
+      b.setPosition(x0 + i * (iconSize + gap), y0, iconSize);
     });
 
     if (this.hint && this.hint.visible) {
-      this.hint.setPosition(this.scene.scale.width / 2, y0 + ICON_SIZE + 4);
+      this.hint.setPosition(x0 + totalW / 2, y0 + iconSize + 4);
     }
   }
 }

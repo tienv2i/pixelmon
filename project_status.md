@@ -772,3 +772,18 @@ eslint.config.js                                 (+ ignores .venv, temp)
   - Tự động cập nhật lại vị trí `nameText` trong constructor, `setPosition()`, và khi gọi `swapSheet()`.
 - **File sửa:** `apps/client/src/entities/PlayerSprite.ts`.
 
+### Lỗi 3c: Trang admin tiếng Anh / tiếng Việt chưa phân rõ
+
+- **Nguyên nhân:**
+  1. `admin.html` có nhiều label, tiêu đề KPI, bảng người chơi/pokemon/vị trí, modal inputs, placeholder bị hardcode tiếng Việt hoặc tiếng Anh không có thuộc tính `data-i18n` / `data-i18n-ph`.
+  2. `admin.js` chứa nhiều chuỗi tiếng Việt hardcode trong thông báo đăng nhập, confirm xóa user/sprite, prompt đổi mật khẩu, title nút thao tác bảng users (`Sửa`, `Xóa`, `Ban`, `Gỡ ban`).
+  3. `i18n.js` thiếu nhiều translation key song ngữ và chưa hỗ trợ chèn tham số động (`{username}`, `{name}`) trong hàm `t()`.
+  4. Khi chuyển ngôn ngữ qua nút EN/VI, các view không được re-render đồng bộ.
+- **Khắc phục:**
+  - Bổ sung toàn bộ translation keys EN/VI thiếu trong `i18n.js` và hỗ trợ biến template `{key}` trong hàm `t(key, params)`.
+  - Gắn thuộc tính `data-i18n` / `data-i18n-ph` cho tất cả các thẻ trong `admin.html` (tiêu đề KPI, bảng thống kê, modal options, placeholder).
+  - Thay thế các thông báo `alert`, `confirm`, `prompt`, `showMsg`, tiêu đề nút bảng trong `admin.js` bằng `t()`.
+  - Định dạng ngày tháng và tiền tệ theo locale tương ứng (`vi-VN` khi ở tiếng Việt, `en-US` khi ở tiếng Anh).
+  - Đồng bộ re-render lại toàn bộ bảng khi bấm nút chuyển đổi ngôn ngữ EN/VI.
+- **File sửa:** `apps/server/public/admin.html`, `apps/server/public/js/admin.js`, `apps/server/public/js/i18n.js`.
+

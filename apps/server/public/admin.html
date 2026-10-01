@@ -24,7 +24,7 @@
 
         <form id="login-form">
           <label class="form-field">
-            <span class="form-label">Tên đăng nhập</span>
+            <span class="form-label" data-i18n="login.username">Tên đăng nhập</span>
             <input
               name="username"
               type="text"
@@ -55,7 +55,7 @@
           </button>
         </form>
         <p style="text-align: center; margin-top: 16px; font-size: 13px" class="dim">
-          <a href="/" data-i18n="btn.backHome">← Về trang chủ</a>
+          <a href="/" data-i18n="btn.backHome">← Trang chủ</a>
         </p>
       </div>
     </div>
@@ -71,8 +71,8 @@
           Chỉ tài khoản có quyền <strong>Admin</strong> mới vào được trang quản trị.
         </p>
         <div style="display: flex; gap: 10px; justify-content: center">
-          <a class="btn btn-ghost" href="/">← Trang chủ</a>
-          <button class="btn" id="denied-logout-btn">Đăng xuất</button>
+          <a class="btn btn-ghost" href="/" data-i18n="btn.backHome">← Trang chủ</a>
+          <button class="btn" id="denied-logout-btn" data-i18n="btn.logout">Đăng xuất</button>
         </div>
       </div>
     </div>
@@ -139,7 +139,7 @@
               <button class="lang-btn" data-lang-toggle="en">EN</button>
               <button class="lang-btn" data-lang-toggle="vi">VI</button>
             </div>
-            <span class="badge badge-off" id="server-status" data-i18n="ov.noData">kiểm tra…</span>
+            <span class="badge badge-off" id="server-status" data-i18n="common.loading">kiểm tra…</span>
             <button class="btn btn-sm" id="refresh-btn" data-i18n="btn.refresh">Làm mới</button>
           </div>
         </header>
@@ -149,38 +149,38 @@
           <section class="view active" id="view-overview">
             <div class="kpi-grid">
               <div class="card kpi">
-                <div class="kpi-label">Server uptime</div>
+                <div class="kpi-label" data-i18n="ov.uptime">Server uptime</div>
                 <div class="kpi-value mono" id="kpi-uptime">—</div>
               </div>
               <div class="card kpi">
-                <div class="kpi-label">Tổng người chơi</div>
+                <div class="kpi-label" data-i18n="ov.totalUsers">Tổng người chơi</div>
                 <div class="kpi-value" id="kpi-users">—</div>
               </div>
               <div class="card kpi">
-                <div class="kpi-label">Đang online</div>
+                <div class="kpi-label" data-i18n="ov.online">Đang online</div>
                 <div class="kpi-value" id="kpi-online">—</div>
               </div>
               <div class="card kpi">
-                <div class="kpi-label">Tổng Pokémon</div>
+                <div class="kpi-label" data-i18n="ov.totalPokemon">Tổng Pokémon</div>
                 <div class="kpi-value" id="kpi-pokemon">—</div>
               </div>
             </div>
 
             <div class="card" style="margin-top: 20px">
-              <h2 class="panel-title">Phân quyền</h2>
+              <h2 class="panel-title" data-i18n="ov.permTitle">Phân quyền</h2>
               <div class="user-stats" id="role-stats">
-                <span class="stat-item dim">Đang tải…</span>
+                <span class="stat-item dim" data-i18n="common.loading">Đang tải…</span>
               </div>
             </div>
 
             <div class="card" style="margin-top: 20px">
-              <h2 class="panel-title">Trạng thái hệ thống</h2>
+              <h2 class="panel-title" data-i18n="ov.sysStatus">Trạng thái hệ thống</h2>
               <table>
                 <thead>
                   <tr>
-                    <th>Thành phần</th>
-                    <th>Trạng thái</th>
-                    <th>Chi tiết</th>
+                    <th data-i18n="ov.colComponent">Thành phần</th>
+                    <th data-i18n="ov.colStatus">Trạng thái</th>
+                    <th data-i18n="ov.colDetails">Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -204,22 +204,22 @@
             </div>
 
             <div class="card" style="margin-top: 20px">
-              <h2 class="panel-title">Người chơi mới nhất</h2>
+              <h2 class="panel-title" data-i18n="ov.recentUsers">Người chơi mới nhất</h2>
               <div class="table-wrap">
                 <table id="recent-users-table">
                   <thead>
                     <tr>
-                      <th>Tên hiển thị</th>
-                      <th>Tài khoản</th>
-                      <th>Role</th>
-                      <th>Cấp</th>
-                      <th>Đăng nhập gần nhất</th>
+                      <th data-i18n="ov.colDisplayName">Tên hiển thị</th>
+                      <th data-i18n="ov.colUsername">Tài khoản</th>
+                      <th data-i18n="ov.colRole">Role</th>
+                      <th data-i18n="ov.colLevel">Cấp</th>
+                      <th data-i18n="ov.colLastLogin">Đăng nhập gần nhất</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
                 </table>
               </div>
-              <div class="empty hidden" id="recent-users-empty">Chưa có dữ liệu.</div>
+              <div class="empty hidden" id="recent-users-empty" data-i18n="ov.noData">Chưa có dữ liệu.</div>
             </div>
           </section>
 
@@ -304,26 +304,26 @@
           <section class="view" id="view-pokemon">
             <div class="card">
               <div class="panel-head">
-                <h2 class="panel-title">Pokémon đã bắt</h2>
+                <h2 class="panel-title" data-i18n="p.title">Pokémon đã bắt</h2>
                 <span class="dim" id="pokemon-count">0</span>
               </div>
               <div class="table-wrap">
                 <table id="pokemon-table">
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>Chủ nhân</th>
-                      <th>Species</th>
-                      <th>Cấp</th>
-                      <th>Hệ</th>
-                      <th>Party slot</th>
-                      <th>Shiny</th>
+                      <th data-i18n="p.colId">ID</th>
+                      <th data-i18n="p.colOwner">Chủ nhân</th>
+                      <th data-i18n="p.colSpecies">Species</th>
+                      <th data-i18n="p.colLevel">Cấp</th>
+                      <th data-i18n="p.colTypes">Hệ</th>
+                      <th data-i18n="p.colPartySlot">Party slot</th>
+                      <th data-i18n="p.colShiny">Shiny</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
                 </table>
               </div>
-              <div class="empty hidden" id="pokemon-empty">Chưa có dữ liệu.</div>
+              <div class="empty hidden" id="pokemon-empty" data-i18n="p.empty">Chưa có dữ liệu.</div>
             </div>
           </section>
 
@@ -331,25 +331,25 @@
           <section class="view" id="view-players">
             <div class="card">
               <div class="panel-head">
-                <h2 class="panel-title">Vị trí người chơi</h2>
+                <h2 class="panel-title" data-i18n="pl.title">Vị trí người chơi</h2>
                 <span class="dim" id="players-count">0</span>
               </div>
               <div class="table-wrap">
                 <table id="players-table">
                   <thead>
                     <tr>
-                      <th>Tài khoản</th>
-                      <th>Map</th>
-                      <th>X</th>
-                      <th>Y</th>
-                      <th>Hướng</th>
-                      <th>Cấp</th>
+                      <th data-i18n="pl.colUsername">Tài khoản</th>
+                      <th data-i18n="pl.colMap">Map</th>
+                      <th data-i18n="pl.colX">X</th>
+                      <th data-i18n="pl.colY">Y</th>
+                      <th data-i18n="pl.colDir">Hướng</th>
+                      <th data-i18n="pl.colLevel">Cấp</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
                 </table>
               </div>
-              <div class="empty hidden" id="players-empty">Chưa có dữ liệu.</div>
+              <div class="empty hidden" id="players-empty" data-i18n="pl.empty">Chưa có dữ liệu.</div>
             </div>
           </section>
 
@@ -377,13 +377,13 @@
                       <th data-i18n="sp.colMode">Loại</th>
                       <th data-i18n="sp.colSize">Khung</th>
                       <th data-i18n="sp.colCreated">Ngày tạo</th>
-                      <th data-i18n="sp.colActions"></th>
+                      <th data-i18n="sp.colActions">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
                 </table>
               </div>
-              <div class="empty hidden" id="sprites-empty">Chưa có sprite nào.</div>
+              <div class="empty hidden" id="sprites-empty" data-i18n="sp.empty">Chưa có sprite nào.</div>
             </div>
           </section>
         </main>
@@ -442,14 +442,14 @@
             <label class="form-field">
               <span class="form-label" data-i18n="m.role">Quyền</span>
               <select name="role" class="input-search" style="width: 100%; padding: 10px 12px">
-                <option value="player" data-i18n="m.rolePlayerHint">
+                <option value="player" data-i18n="m.rolePlayerOption">
                   Player — người chơi bình thường
                 </option>
-                <option value="moderator" data-i18n="m.roleModHint">
+                <option value="moderator" data-i18n="m.roleModOption">
                   Moderator — quản trị viên nhỏ
                 </option>
-                <option value="admin" data-i18n="m.roleAdminHint">Admin — quản trị cao nhất</option>
-                <option value="banned" data-i18n="m.roleBannedHint">
+                <option value="admin" data-i18n="m.roleAdminOption">Admin — quản trị cao nhất</option>
+                <option value="banned" data-i18n="m.roleBannedOption">
                   Banned — bị khóa tài khoản
                 </option>
               </select>
@@ -488,11 +488,11 @@
           </label>
           <label class="form-field">
             <span class="form-label" data-i18n="m.bio">Giới thiệu</span>
-            <textarea name="bio" rows="2" placeholder="Giới thiệu bản thân…"></textarea>
+            <textarea name="bio" rows="2" data-i18n-ph="m.bioPh" placeholder="Giới thiệu bản thân…"></textarea>
           </label>
           <label class="form-field">
             <span class="form-label" data-i18n="m.notes">Ghi chú (admin)</span>
-            <textarea name="notes" rows="2" placeholder="Ghi chú nội bộ…"></textarea>
+            <textarea name="notes" rows="2" data-i18n-ph="m.notesPh" placeholder="Ghi chú nội bộ…"></textarea>
           </label>
           <div id="modal-msg" class="msg hidden"></div>
           <div class="modal-actions">
@@ -655,7 +655,7 @@
             <!-- Bảng toạ độ frame -->
             <div style="margin-top: 14px">
               <div class="panel-head" style="margin-bottom: 6px">
-                <h3 class="panel-title" style="font-size: 13px" id="sprite-frames-title">
+                <h3 class="panel-title" style="font-size: 13px" id="sprite-frames-title" data-i18n="sp.frames">
                   Toạ độ frame
                 </h3>
                 <button
@@ -700,7 +700,7 @@
                 type="submit"
                 class="btn btn-primary"
                 id="sprite-modal-submit"
-                data-i18n="btn.save"
+                data-i18n="sp.saveLib"
               >
                 Lưu vào thư viện
               </button>

@@ -6,6 +6,8 @@
   var MESSAGES = {
     // ── Common ──
     'app.title': ['Pixelmon Admin', 'Pixelmon Quản trị'],
+    'common.error': ['Error', 'Lỗi'],
+    'common.loading': ['Loading…', 'Đang tải…'],
     'btn.save': ['Save', 'Lưu'],
     'btn.cancel': ['Cancel', 'Hủy'],
     'btn.create': ['Create', 'Tạo'],
@@ -25,6 +27,7 @@
     'login.username': ['Username', 'Tên đăng nhập'],
     'login.password': ['Password', 'Mật khẩu'],
     'login.submit': ['Sign in', 'Đăng nhập'],
+    'login.loggingIn': ['Signing in…', 'Đang đăng nhập…'],
     'login.notAdmin': [
       'Only admin accounts can access the admin panel.',
       'Chỉ tài khoản admin mới được truy cập trang quản trị.',
@@ -115,6 +118,15 @@
     'sp.play': ['▶ Preview', '▶ Xem trước'],
     'sp.pause': ['⏸ Pause', '⏸ Dừng'],
     'sp.export': ['Export sheet PNG', 'Xuất sheet PNG'],
+    'sp.saveLib': ['Save to library', 'Lưu vào thư viện'],
+    'sp.empty': ['No sprites found.', 'Chưa có sprite nào.'],
+    'sp.nameRequired': ['Please enter a sprite name.', 'Vui lòng nhập tên sprite.'],
+    'sp.loadError': ['Failed to load sprite.', 'Không tải được sprite.'],
+    'sp.exported': ['Exported sheet PNG.', 'Đã xuất sheet PNG.'],
+    'sp.confirmDelete': [
+      'Are you sure you want to delete sprite "{name}"? This action cannot be undone.',
+      'Bạn có chắc muốn xóa sprite "{name}"? Hành động này không thể hoàn tác.',
+    ],
     'sp.dirDown': ['↓ Down', '↓ Xuống'],
     'sp.dirUp': ['↑ Up', '↑ Lên'],
     'sp.dirLeft': ['← Left', '← Trái'],
@@ -159,12 +171,33 @@
     'u.empty': ['No users found.', 'Không tìm thấy user nào.'],
     'u.prev': ['« Prev', '« Trước'],
     'u.next': ['Next »', 'Tiếp »'],
-    'u.ban': ['Ban', 'Ban'],
-    'u.unban': ['Unban', 'Gỡ ban'],
+    'u.ban': ['Ban', 'Khóa'],
+    'u.unban': ['Unban', 'Gỡ khóa'],
     'u.resetPass': ['Reset password', 'Đặt lại mật khẩu'],
     'u.confirmDelete': ['Delete', 'Xóa'],
-    'u.banConfirm': ['Ban', 'Ban'],
+    'u.banConfirm': ['Ban', 'Khóa'],
     'u.rowSelf': ['(you)', '(bạn)'],
+    'u.confirmDeleteFull': [
+      'Are you sure you want to delete user "{username}"? This action cannot be undone.',
+      'Bạn có chắc muốn xóa user "{username}"? Hành động này không thể hoàn tác.',
+    ],
+    'u.confirmBan': [
+      'Ban "{username}"? The user will not be able to log in.',
+      'Khóa tài khoản "{username}"? Người chơi sẽ không thể đăng nhập.',
+    ],
+    'u.promptResetPass': [
+      'Enter new password (min 6 characters):',
+      'Nhập mật khẩu mới (tối thiểu 6 ký tự):',
+    ],
+    'u.passTooShort': [
+      'Password must be at least 6 characters.',
+      'Mật khẩu phải tối thiểu 6 ký tự.',
+    ],
+    'u.passResetSuccess': [
+      'Password reset successfully.',
+      'Đã đặt lại mật khẩu thành công.',
+    ],
+    'u.deleteError': ['Delete failed.', 'Xóa thất bại.'],
 
     // ── Roles ──
     'role.player': ['Player', 'Người chơi'],
@@ -196,6 +229,8 @@
     'm.birthday': ['Birthday', 'Ngày sinh'],
     'm.bio': ['Bio / Intro', 'Giới thiệu'],
     'm.notes': ['Admin notes', 'Ghi chú (admin)'],
+    'm.bioPh': ['Personal bio / introduction…', 'Giới thiệu bản thân…'],
+    'm.notesPh': ['Internal admin notes…', 'Ghi chú nội bộ…'],
     'm.hintUsername': ['3-20 chars, letters/digits/_', '3-20 ký tự, chữ/số/_'],
     'm.hintDisplayName': ['Character name', 'Tên nhân vật'],
     'm.hintPassword': ['Minimum 6 characters', 'Tối thiểu 6 ký tự'],
@@ -203,6 +238,10 @@
     'm.roleModHint': ['Moderator', 'Quản trị viên nhỏ'],
     'm.roleAdminHint': ['Full admin access', 'Quản trị cao nhất'],
     'm.roleBannedHint': ['Locked account', 'Bị khóa tài khoản'],
+    'm.rolePlayerOption': ['Player — normal player', 'Player — người chơi bình thường'],
+    'm.roleModOption': ['Moderator — moderator', 'Moderator — quản trị viên nhỏ'],
+    'm.roleAdminOption': ['Admin — full admin access', 'Admin — quản trị cao nhất'],
+    'm.roleBannedOption': ['Banned — locked account', 'Banned — bị khóa tài khoản'],
     'm.noSelfEdit': [
       'You cannot change your own role.',
       'Không thể thay đổi quyền của chính mình.',
@@ -213,6 +252,7 @@
     'c.deleteText': ['Are you sure you want to delete', 'Bạn có chắc muốn xóa'],
 
     // ── Pokemon / Players ──
+    'p.title': ['Caught Pokémon', 'Pokémon đã bắt'],
     'p.colId': ['ID', 'ID'],
     'p.colOwner': ['Owner', 'Chủ nhân'],
     'p.colSpecies': ['Species', 'Loài'],
@@ -221,12 +261,14 @@
     'p.colPartySlot': ['Party slot', 'Vị trí đội'],
     'p.colShiny': ['Shiny', 'Shiny'],
     'p.empty': ['No data yet.', 'Chưa có dữ liệu.'],
+    'pl.title': ['Player locations', 'Vị trí người chơi'],
     'pl.colUsername': ['Account', 'Tài khoản'],
     'pl.colMap': ['Map', 'Map'],
     'pl.colX': ['X', 'X'],
     'pl.colY': ['Y', 'Y'],
     'pl.colDir': ['Direction', 'Hướng'],
     'pl.colLevel': ['Level', 'Cấp'],
+    'pl.empty': ['No data yet.', 'Chưa có dữ liệu.'],
   };
 
   var LANG_KEY = 'pixelmon.lang';
@@ -242,10 +284,15 @@
     document.documentElement.lang = l;
     applyAll();
   }
-  function t(key) {
+  function t(key, params) {
     var entry = MESSAGES[key];
-    if (!entry) return key;
-    return entry[current === 'vi' ? 1 : 0];
+    var str = entry ? entry[current === 'vi' ? 1 : 0] : key;
+    if (params && typeof params === 'object') {
+      Object.keys(params).forEach(function (k) {
+        str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
+      });
+    }
+    return str;
   }
 
   // Áp dụng: [data-i18n] = text, [data-i18n-ph] = placeholder, [data-i18n-title] = title

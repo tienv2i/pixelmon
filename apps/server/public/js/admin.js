@@ -88,7 +88,8 @@
   function fmtDate(v) {
     if (!v) return '—';
     var d = new Date(v);
-    return isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN');
+    var loc = window.I18N && window.I18N.getLang() === 'vi' ? 'vi-VN' : 'en-US';
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString(loc);
   }
   function fmtUptime(sec) {
     sec = Math.floor(sec || 0);
@@ -102,7 +103,7 @@
   function setBadge(el, ok, okText, failText) {
     if (!el) return;
     el.className = 'badge ' + (ok ? 'badge-ok' : 'badge-warn');
-    el.textContent = ok ? okText : failText;
+    el.textContent = ok ? okText : (failText || t('common.error'));
   }
   function fillTable(tableId, emptyId, rows, renderRow) {
     var table = $(tableId),
@@ -219,12 +220,12 @@
       var username = String(fd.get('username') || '').trim();
       var password = String(fd.get('password') || '').trim();
       if (!username || !password) {
-        showMsg($('login-msg'), 'Vui lòng nhập đầy đủ.', 'error');
+        showMsg($('login-msg'), t('login.fillAll'), 'error');
         return;
       }
       var btn = $('login-btn');
       btn.disabled = true;
-      btn.textContent = 'Đang đăng nhập…';
+      btn.textContent = t('login.loggingIn');
       hideMsg($('login-msg'));
 
       postJSON('/api/auth/login', { username: username, password: password })
@@ -234,28 +235,28 @@
             localStorage.setItem('pixelmon.token', d.token);
             localStorage.setItem('pixelmon.userId', d.userId);
             if (d.role === 'banned') {
-              showMsg($('login-msg'), 'Tài khoản đã bị khóa. Liên hệ admin.', 'error');
+              showMsg($('login-msg'), t('login.banned'), 'error');
               TOKEN = '';
               localStorage.removeItem('pixelmon.token');
             } else if (d.role && d.role !== 'admin') {
               showMsg(
                 $('login-msg'),
-                'Chỉ tài khoản admin mới được truy cập trang quản trị.',
+                t('login.notAdmin'),
                 'error',
               );
             } else {
               checkAuth();
             }
           } else {
-            showMsg($('login-msg'), d.message || 'Đăng nhập thất bại.', 'error');
+            showMsg($('login-msg'), d.message || t('login.connectFail'), 'error');
           }
         })
         .catch(function (err) {
-          showMsg($('login-msg'), err.message || 'Không kết nối server.', 'error');
+          showMsg($('login-msg'), err.message || t('login.connectFail'), 'error');
         })
         .finally(function () {
           btn.disabled = false;
-          btn.textContent = 'Đăng nhập';
+          btn.textContent = t('login.submit');
         });
     });
   }
@@ -461,12 +462,16 @@
           var banBtn = isBanned
             ? '<button class="btn btn-sm btn-ghost btn-unban" onclick="window._adminUnban(\'' +
               u.id +
-              '\')" title="Gỡ ban">🔓</button> '
+              '\')" title="' +
+              esc(t('u.unban')) +
+              '">🔓</button> '
             : '<button class="btn btn-sm btn-ghost btn-danger" onclick="window._adminBan(\'' +
               u.id +
               "','" +
               esc(u.username) +
-              '\')" title="Ban">🚫</button> ';
+              '\')" title="' +
+              esc(t('u.ban')) +
+              '">🚫</button> ';
 
           return (
             '<tr class="' +
@@ -494,7 +499,11 @@
             esc(u.level) +
             '</td>' +
             '<td class="mono">' +
-            (u.money !== null ? Number(u.money).toLocaleString('vi-VN') : '—') +
+            (u.money !== null
+              ? Number(u.money).toLocaleString(
+                  window.I18N && window.I18N.getLang() === 'vi' ? 'vi-VN' : 'en-US',
+                )
+              : '—') +
             '</td>' +
             '<td>' +
             spriteCell(u) +
@@ -505,10 +514,14 @@
             '<td class="actions">' +
             '<button class="btn btn-sm btn-ghost" onclick="window._adminEdit(\'' +
             u.id +
-            '\')" title="Sửa">✎</button> ' +
+            '\')" title="' +
+            esc(t('btn.edit')) +
+            '">✎</button> ' +
             '<button class="btn btn-sm btn-ghost" onclick="window._adminPasswd(\'' +
             u.id +
-            '\')" title="Reset password">🔑</button> ' +
+            '\')" title="' +
+            esc(t('u.resetPass')) +
+            '">🔑</button> ' +
             banBtn +
             (isMe
               ? ''
@@ -516,7 +529,9 @@
                 u.id +
                 "','" +
                 esc(u.username) +
-                '\')" title="Xóa">✕</button>') +
+                '\')" title="' +
+                esc(t('btn.delete')) +
+                '">✕</button>') +
             '</td></tr>'
           );
         });
@@ -691,15 +706,15 @@
   }
 
   function resetPassword(userId) {
-    var newPass = window.prompt('Nhập mật khẩu mới (tối thiểu 6 ký tự):');
+    var newPass = window.prompt(t('u.promptResetPass'));
     if (newPass === null) return;
     if (newPass.length < 6) {
-      alert('Mật khẩu phải ≥ 6 ký tự');
+      alert(t('u.passTooShort'));
       return;
     }
     postJSON('/api/admin/users/' + userId + '/password', { newPassword: newPass }, 'POST')
       .then(function (d) {
-        alert(d.ok ? d.message || 'Đã reset password' : d.message || 'Lỗi');
+        alert(d.ok ? d.message || t('u.passResetSuccess') : d.message || t('common.error'));
       })
       .catch(function (e) {
         alert(e.message);
@@ -707,11 +722,11 @@
   }
 
   function banUser(userId, username) {
-    if (!window.confirm('Ban "' + username + '"? User sẽ không thể đăng nhập.')) return;
+    if (!window.confirm(t('u.confirmBan', { username: username }))) return;
     postJSON('/api/admin/users/' + userId + '/ban', {}, 'POST')
       .then(function (d) {
         if (d.ok) loadUsers();
-        else alert(d.message || 'Lỗi');
+        else alert(d.message || t('common.error'));
       })
       .catch(function (e) {
         alert(e.message);
@@ -722,7 +737,7 @@
     postJSON('/api/admin/users/' + userId + '/unban', {}, 'POST')
       .then(function (d) {
         if (d.ok) loadUsers();
-        else alert(d.message || 'Lỗi');
+        else alert(d.message || t('common.error'));
       })
       .catch(function (e) {
         alert(e.message);
@@ -730,15 +745,14 @@
   }
 
   function deleteUser(userId, username) {
-    $('confirm-text').textContent =
-      'Bạn có chắc muốn xóa "' + username + '"? Hành động này không thể hoàn tác.';
+    $('confirm-text').textContent = t('u.confirmDeleteFull', { username: username });
     $('confirm-modal').classList.remove('hidden');
     $('confirm-delete').onclick = function () {
       postJSON('/api/admin/users/' + userId, {}, 'DELETE')
         .then(function (d) {
           $('confirm-modal').classList.add('hidden');
           if (d.ok) loadUsers();
-          else alert(d.message || 'Lỗi xóa');
+          else alert(d.message || t('u.deleteError'));
         })
         .catch(function (e) {
           alert(e.message);
@@ -955,7 +969,7 @@
           }
         })
         .catch(function (e) {
-          showMsg($('sprite-modal-msg'), e.message || 'Không tải được sprite.', 'error');
+          showMsg($('sprite-modal-msg'), e.message || t('sp.loadError'), 'error');
         });
     }
 
@@ -1280,7 +1294,7 @@
   function saveSprite() {
     var name = $('sprite-name').value.trim();
     if (!name) {
-      showMsg($('sprite-modal-msg'), 'Vui lòng nhập tên sprite.', 'error');
+      showMsg($('sprite-modal-msg'), t('sp.nameRequired'), 'error');
       return;
     }
     var mode = $('sprite-mode').value;
@@ -1330,24 +1344,23 @@
           closeSpriteModal();
           loadSprites();
         } else {
-          showMsg($('sprite-modal-msg'), d.message || 'Lỗi khi lưu sprite.', 'error');
+          showMsg($('sprite-modal-msg'), d.message || t('common.error'), 'error');
         }
       })
       .catch(function (e) {
-        showMsg($('sprite-modal-msg'), e.message || 'Lỗi kết nối.', 'error');
+        showMsg($('sprite-modal-msg'), e.message || t('login.connectFail'), 'error');
       });
   }
 
   function deleteSprite(id, name) {
-    $('confirm-text').textContent =
-      'Bạn có chắc muốn xóa sprite "' + name + '"? Hành động này không thể hoàn tác.';
+    $('confirm-text').textContent = t('sp.confirmDelete', { name: name });
     $('confirm-modal').classList.remove('hidden');
     $('confirm-delete').onclick = function () {
       postJSON('/api/admin/sprites/' + id, {}, 'DELETE')
         .then(function (d) {
           $('confirm-modal').classList.add('hidden');
           if (d.ok) loadSprites();
-          else alert(d.message || 'Lỗi xóa');
+          else alert(d.message || t('u.deleteError'));
         })
         .catch(function (e) {
           alert(e.message);
@@ -1405,6 +1418,7 @@
         if (currentView === 'users') loadUsers();
         else if (currentView === 'pokemon') loadPokemon();
         else if (currentView === 'players') loadPlayers();
+        else if (currentView === 'sprites') loadSprites();
       });
     }
 
@@ -1485,7 +1499,7 @@
     $('sprite-modal-submit').addEventListener('click', saveSprite);
     $('sprite-export-btn').addEventListener('click', function () {
       exportSheet();
-      showMsg($('sprite-modal-msg'), 'Đã xuất sheet PNG (384×32).', 'ok');
+      showMsg($('sprite-modal-msg'), t('sp.exported'), 'ok');
     });
     $('sprite-play-btn').addEventListener('click', togglePreview);
     $('sprite-preview-dir').addEventListener('change', function () {

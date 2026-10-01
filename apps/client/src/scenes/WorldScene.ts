@@ -256,7 +256,7 @@ export class WorldScene extends Phaser.Scene {
    * Game zoom: chỉ zoom camera world, KHÔNG đụng camera UI nên HUD giữ nguyên size.
    * Được `main.ts` gọi từ scroll wheel.
    */
-  zoomGameBy(delta: number, screenX: number, screenY: number): void {
+  zoomGameBy(delta: number, screenX?: number, screenY?: number): void {
     this.setGameZoom(this.cameras.main.zoom + delta, screenX, screenY);
   }
 
@@ -648,7 +648,10 @@ export class WorldScene extends Phaser.Scene {
 
     // Settings panel (Esc / icon ⚙)
     this.settingsPanel = new SettingsPanel(this, {
-      onToggleHud: (v) => this.applyHudVisible(v),
+      onToggleProfile: (v) => this.hud.setVisible(v),
+      onToggleClock: (v) => this.infoPanel.setVisible(v),
+      onToggleParty: (v) => this.partyStrip.setVisible(v),
+      onToggleChat: (v) => this.chatLog.setVisible(v),
       onToggleMinimap: (v) => {
         this.minimap.setVisible(v);
         this.topMenu?.setActive(v ? 'gps' : '');
@@ -662,6 +665,10 @@ export class WorldScene extends Phaser.Scene {
       onUiZoomIn: () => this.uiZoom.zoomIn(),
       onUiZoomOut: () => this.uiZoom.zoomOut(),
       onUiZoomReset: () => this.uiZoom.reset(),
+      onGameZoomIn: () => this.zoomGameBy(0.2),
+      onGameZoomOut: () => this.zoomGameBy(-0.2),
+      onGameZoomReset: () => this.setGameZoom(1.0),
+      getGameZoom: () => this.getGameZoom(),
       onLogout: () => {
         ColyseusManager.getInstance().disconnect();
         this.scene.start('Login');

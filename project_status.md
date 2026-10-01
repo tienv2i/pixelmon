@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 23: Tinh gọn UI, Profile Mini, Toolbar thu gọn & Settings Panel)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 24: Nâng cấp Tabbed Settings Panel & Khung Chat Draggable)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -52,6 +52,7 @@
 | Căn giữa map ở trung tâm hiển thị thay vì neo ở góc trên bên trái                                    | ✅           |
 | Plan 22 — Chuẩn hoá giao diện Client ở màn hình nhỏ (Responsive Mobile & Small Viewport)             | ✅           |
 | Plan 23 — Tinh gọn UI, Profile Mini, Toolbar thu gọn & Settings Panel đa năng                        | ✅           |
+| Plan 24 — Nâng cấp Tabbed Settings Panel & Khung Chat Draggable                                      | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -636,6 +637,63 @@ quay hướng âm thầm. Chi tiết: `docs/sprite-import-guide.md` mục 3b.
 8. **Bước 8 — Kiểm tra typecheck và cập nhật status:**
    - [x] Chạy `pnpm --filter client typecheck` pass 100%.
    - [x] Cập nhật kết quả vào `project_status.md` và git commit.
+
+---
+
+## Kế hoạch hiện tại: Plan 24 — Nâng cấp Tabbed Settings Panel & Khung Chat Draggable
+
+> Bắt đầu 2026-10-01. Hoàn thành 2026-10-01. Mục tiêu: Mở rộng Settings Panel thành modal lớn có nhiều Tab (Giao diện, Gameplay, Âm thanh, Hệ thống), tích hợp Game Zoom, bật tắt độc lập 5 thành phần UI (Profile, Clock, Party, Chat, Minimap); Nâng cấp ChatLog lớn hơn, có thể kéo thả di chuyển, có nút thu nhỏ và nút neo xuống.
+
+1. **Bước 1 — Nâng cấp ChatLog (`ChatLog.ts`):**
+   - [x] Tăng tỷ lệ khung chat: chiều rộng `320px` (desktop), 6 dòng tin nhắn, `LINE_H = 18px`, chữ sắc nét dễ đọc.
+   - [x] Hỗ trợ kéo thả (Draggable) di chuyển vị trí khung chat tự do trên màn hình bằng chuột tại Title Bar (`cursor: grab`), có clamp toạ độ an toàn.
+   - [x] Bổ sung nút Thu nhỏ (`▼` / `▲`) trên Title bar: Khi thu nhỏ, panel chỉ còn thanh header mỏng ~26px, bấm lại mở rộng tức thì.
+   - [x] Bổ sung nút Neo (`⚓` / Snap): Đưa khung chat về lại vị trí neo mặc định ở góc màn hình.
+2. **Bước 2 — Xây dựng SettingsPanel Đa Tab (`SettingsPanel.ts`):**
+   - [x] Mở rộng kích thước modal (540×410px), thiết kế chuyên nghiệp với thanh Tab bar:
+     - `[🖥 Giao diện]`
+     - `[🎮 Lối chơi]`
+     - `[🔊 Âm thanh]`
+     - `[⚙ Hệ thống]`
+   - [x] Tab Giao diện:
+     - Bật/tắt độc lập 5 thành phần UI: Profile Info, Clock/Weather, Party, Chat Box, Minimap.
+     - Toggle chế độ tối giản (Mini Mode / Normal Mode).
+     - Điều khiển UI Zoom (`-`, `+`, `Reset 100%`).
+     - Điều khiển Game Zoom (Camera Zoom: `-`, `+`, `Reset 1.0x`), hiển thị giá trị zoom thực tế (1.0x, 1.2x, v.v.).
+   - [x] Tab Lối chơi (Gameplay):
+     - Hiển thị tên người chơi khác (Show Names).
+     - Hiệu ứng click-to-move marker.
+     - Chế độ tự động chạy (Auto-Run) / Lưới toạ độ (Grid Overlay).
+   - [x] Tab Âm thanh (Audio):
+     - Bật/tắt và chỉnh âm lượng BGM & SFX.
+   - [x] Tab Hệ thống (System):
+     - Lựa chọn ngôn ngữ (VI / EN).
+     - Thông tin tài khoản & Nút Đăng xuất (Logout).
+3. **Bước 3 — Kết nối và điều phối trong `WorldScene.ts`:**
+   - [x] Nối Game Zoom điều khiển camera world trong scene (`cameras.main.zoom` qua `zoomGameBy` / `setGameZoom`).
+   - [x] Nối các toggle độc lập cho từng thành phần UI (`hud.setVisible`, `infoPanel.setVisible`, `partyStrip.setVisible`, `chatLog.setVisible`, `minimap.setVisible`).
+4. **Bước 4 — Typecheck, cập nhật trạng thái & Git commit:**
+   - [x] Typecheck pass 100% (cả client, server, shared).
+   - [x] Cập nhật `project_status.md` và tạo git commit.
+
+---
+
+### Nhật ký 2026-10-01 (8) — Plan 24: Tabbed Settings Modal & Khung Chat Draggable
+
+- **Khung Chat (ChatLog) hoàn thiện cao cấp:**
+  - Tăng kích thước rộng `320px` (desktop), hiển thị 6 dòng tin nhắn cùng lúc, font 12px rõ nét, padding hợp lý.
+  - **Kéo thả di chuyển (Draggable):** Chuột trái nhấn giữ thanh tiêu đề (Title Bar) để kéo thả khung chat đến bất kỳ vị trí mong muốn trên màn hình. Có clamp chống kéo bay ra ngoài viewport.
+  - **Thu nhỏ (Minimize/Expand):** Nút `▼` / `▲` trên thanh tiêu đề cho phép thu gọn khung chat chỉ còn thanh bar cao 26px giúp người chơi quan sát map tối đa, bấm lại bung to ngay lập tức.
+  - **Nút Neo (Dock):** Icon `⚓` trên thanh tiêu đề giúp đưa khung chat lập tức snap trở lại vị trí neo chuẩn góc màn hình.
+- **Settings Panel đa Tab lớn:**
+  - Nâng cấp modal lên kích thước 540×410px với 4 Tab:
+    1. **🖥 Giao diện:** Toggle độc lập 5 thành phần UI (Profile, Clock/Weather, Party, Chat Box, Minimap); Toggle chế độ Mini; Bộ điều khiển UI Zoom (`-`, `+`, `100%`); Bộ điều khiển Game Zoom (`-`, `+`, `1.0x`).
+    2. **🎮 Lối chơi:** Bật/tắt tên người chơi, hiệu ứng click-to-move, lưới toạ độ, auto-run.
+    3. **🔊 Âm thanh:** Bật/tắt BGM & SFX.
+    4. **⚙ Hệ thống:** Chọn ngôn ngữ VI/EN, Đăng xuất tài khoản, Đóng bảng cài đặt.
+- **Kết nối camera và scene:**
+  - `zoomGameBy(delta, screenX?, screenY?)` hỗ trợ zoom từ SettingsPanel không cần truyền toạ độ chuột (mặc định lấy tâm màn hình).
+  - Tách bạch hoàn toàn việc ẩn/hiện từng thành phần UI thay vì chỉ có 1 nút toggle toàn bộ HUD.
 
 ---
 

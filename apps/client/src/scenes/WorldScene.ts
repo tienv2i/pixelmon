@@ -754,7 +754,9 @@ export class WorldScene extends Phaser.Scene {
     const pad = (this.isSmallViewport() ? 6 : 8) * z;
     this.partyStrip.anchorY = pad + hudSize.h + pad;
     this.partyStrip.relayoutPublic();
-    this.partyStrip.setVisible(this.hudVisible);
+    if (!this.hudVisible) {
+      this.partyStrip.setVisible(false);
+    }
   }
 
   private hudVisible = true;
@@ -843,10 +845,14 @@ export class WorldScene extends Phaser.Scene {
       case 'logout':
         this.confirmLogout();
         break;
+      case 'team': {
+        this.partyStrip.toggle();
+        this.topMenu?.setActive(this.partyStrip.isOpen() ? 'team' : '');
+        break;
+      }
       case 'pokedex':
       case 'bag':
       case 'map':
-      case 'team':
       default:
         // Các icon khác hiện chỉ là nút bấm — chưa cần popup.
         this.chatLog?.addLine(`[${key}] chưa implement`);

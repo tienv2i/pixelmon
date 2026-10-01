@@ -30,6 +30,7 @@ export interface SettingsPanelOptions {
   onToggleTargetMarker?: (enabled: boolean) => void;
   onToggleGrid?: (enabled: boolean) => void;
   onToggleAutoRun?: (enabled: boolean) => void;
+  onToggleScrollToZoom?: (enabled: boolean) => void;
   onMoveButtonChange?: (button: 'left' | 'right') => void;
 
   // Audio & System
@@ -47,7 +48,8 @@ const MODAL_H = 430;
  * SettingsPanel — Modal Cài đặt đa tab lớn, phân vùng rõ ràng:
  * - Kế thừa từ `UiModal`, chuẩn hoá phong cách và hành vi với toàn hệ thống pop-up.
  * - Khóa hoàn toàn UI và gameplay bên dưới (`lockUi: true`, depth 200).
- * - Hỗ trợ đầy đủ: 2 nút tắt (✕ chính + ⮌ phụ), nút thu nhỏ (－), nút neo (⚓), kéo thả Header.
+ * - Nút Reset Settings (↺) trên header bar giúp khôi phục toàn bộ cài đặt gốc.
+ * - Hỗ trợ đầy đủ: nút thu nhỏ (－), nút neo (⚓), nút tắt (✕), kéo thả Header.
  * - Tự động hưởng theo UI Zoom và giới hạn an toàn trong màn hình.
  */
 export class SettingsPanel extends UiModal {
@@ -70,6 +72,7 @@ export class SettingsPanel extends UiModal {
     targetMarker: true,
     showGrid: false,
     autoRun: false,
+    scrollToZoom: false,
     moveButton: 'left' as 'left' | 'right',
   };
 
@@ -102,6 +105,7 @@ export class SettingsPanel extends UiModal {
   private langBtnEn?: { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone };
   private moveBtnLeft?: { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone };
   private moveBtnRight?: { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone };
+  private checkboxSetters: Map<string, (val: boolean) => void> = new Map();
 
   constructor(scene: Phaser.Scene, opts: SettingsPanelOptions) {
     super(scene, {
@@ -114,7 +118,16 @@ export class SettingsPanel extends UiModal {
       showClose: true,
       showMinimize: true,
       showDock: true,
-      showSecondaryClose: true,
+      showSecondaryClose: false,
+      customHeaderButtons: [
+        {
+          id: 'reset',
+          icon: '↺',
+          tooltip: 'Khôi phục cài đặt gốc (Reset Settings)',
+          color: '#ffeaa7',
+          onClick: () => this.resetAllSettings(),
+        },
+      ],
       defaultAlign: 'center',
       onClose: () => {
         opts.onClose?.();
@@ -123,7 +136,7 @@ export class SettingsPanel extends UiModal {
 
     this.panelOpts = opts;
 
-    // Load ngôn ngữ và cơ chế di chuyển đã lưu
+    // Load ngôn ngữ, cơ chế di chuyển và scroll to zoom đã lưu
     try {
       const savedLang = localStorage.getItem('pixelmon.lang');
       if (savedLang === 'vi' || savedLang === 'en') {
@@ -132,6 +145,10 @@ export class SettingsPanel extends UiModal {
       const savedMoveBtn = localStorage.getItem('pixelmon.moveButton');
       if (savedMoveBtn === 'left' || savedMoveBtn === 'right') {
         this.gameplayState.moveButton = savedMoveBtn;
+      }
+      const savedScroll = localStorage.getItem('pixelmon.scrollToZoom');
+      if (savedScroll === 'true') {
+        this.gameplayState.scrollToZoom = true;
       }
     } catch {
       // ignore
@@ -212,39 +229,39 @@ export class SettingsPanel extends UiModal {
     const chkProfile = this.createCheckbox('Thông tin nhân vật (Profile Info)', this.uiState.profile, (v) => {
       this.uiState.profile = v;
       this.panelOpts.onToggleProfile?.(v);
-    });
+    }, 'profile');
     list.push(...chkProfile);
 
     const chkClock = this.createCheckbox('Đồng hồ & Thời tiết (Clock / Weather)', this.uiState.clock, (v) => {
       this.uiState.clock = v;
       this.panelOpts.onToggleClock?.(v);
-    });
+    }, 'clock');
     list.push(...chkClock);
 
     // Party & Chat
     const chkParty = this.createCheckbox('Danh sách đội hình (Party Pokemon)', this.uiState.party, (v) => {
       this.uiState.party = v;
       this.panelOpts.onToggleParty?.(v);
-    });
+    }, 'party');
     list.push(...chkParty);
 
     const chkChat = this.createCheckbox('Khung trò chuyện (Chat Box)', this.uiState.chat, (v) => {
       this.uiState.chat = v;
       this.panelOpts.onToggleChat?.(v);
-    });
+    }, 'chat');
     list.push(...chkChat);
 
     // Minimap & Mini
     const chkMinimap = this.createCheckbox('Bản đồ thu nhỏ (Minimap / GPS)', this.uiState.minimap, (v) => {
       this.uiState.minimap = v;
       this.panelOpts.onToggleMinimap?.(v);
-    });
+    }, 'minimap');
     list.push(...chkMinimap);
 
     const chkMini = this.createCheckbox('Giao diện tối giản (Chế độ Mini HUD)', this.uiState.miniMode, (v) => {
       this.uiState.miniMode = v;
       this.panelOpts.onToggleMiniMode?.(v);
-    });
+    }, 'miniMode');
     list.push(...chkMini);
 
     // Phân nhóm 2: Zoom
@@ -318,26 +335,31 @@ export class SettingsPanel extends UiModal {
     const chkNames = this.createCheckbox('Hiện tên người chơi khác (Player Names)', this.gameplayState.showPlayerNames, (v) => {
       this.gameplayState.showPlayerNames = v;
       this.panelOpts.onTogglePlayerNames?.(v);
-    });
+    }, 'showPlayerNames');
     list.push(...chkNames);
 
     const chkTarget = this.createCheckbox('Hiệu ứng đích đến khi nhấp di chuyển (Target Marker)', this.gameplayState.targetMarker, (v) => {
       this.gameplayState.targetMarker = v;
       this.panelOpts.onToggleTargetMarker?.(v);
-    });
+    }, 'targetMarker');
     list.push(...chkTarget);
 
     const chkGrid = this.createCheckbox('Hiện lưới toạ độ thế giới (Grid Overlay)', this.gameplayState.showGrid, (v) => {
       this.gameplayState.showGrid = v;
       this.panelOpts.onToggleGrid?.(v);
-    });
+    }, 'showGrid');
     list.push(...chkGrid);
 
     const chkRun = this.createCheckbox('Mặc định luôn chạy (Auto-run)', this.gameplayState.autoRun, (v) => {
       this.gameplayState.autoRun = v;
       this.panelOpts.onToggleAutoRun?.(v);
-    });
+    }, 'autoRun');
     list.push(...chkRun);
+
+    const chkScrollZoom = this.createCheckbox('Cuộn chuột để thu phóng (Scroll to zoom)', this.gameplayState.scrollToZoom, (v) => {
+      this.setScrollToZoom(v);
+    }, 'scrollToZoom');
+    list.push(...chkScrollZoom);
 
     // Tuỳ chọn Cơ chế di chuyển
     const lblMove = this.scene.add
@@ -401,13 +423,13 @@ export class SettingsPanel extends UiModal {
     const chkBgm = this.createCheckbox('Bật nhạc nền thế giới & trận đấu (BGM)', this.audioState.bgm, (v) => {
       this.audioState.bgm = v;
       this.panelOpts.onToggleBgm?.(v);
-    });
+    }, 'bgm');
     list.push(...chkBgm);
 
     const chkSfx = this.createCheckbox('Bật âm thanh chiêu thức & tương tác (SFX)', this.audioState.sfx, (v) => {
       this.audioState.sfx = v;
       this.panelOpts.onToggleSfx?.(v);
-    });
+    }, 'sfx');
     list.push(...chkSfx);
 
     const note = this.scene.add
@@ -485,6 +507,86 @@ export class SettingsPanel extends UiModal {
     list.push(...btnClose);
   }
 
+  public setScrollToZoom(enabled: boolean): void {
+    this.gameplayState.scrollToZoom = enabled;
+    try {
+      localStorage.setItem('pixelmon.scrollToZoom', enabled ? 'true' : 'false');
+    } catch {
+      // ignore
+    }
+    this.checkboxSetters.get('scrollToZoom')?.(enabled);
+    this.panelOpts.onToggleScrollToZoom?.(enabled);
+  }
+
+  public resetAllSettings(): void {
+    // 1. Reset UI Zoom & Game Zoom
+    this.panelOpts.onUiZoomReset?.();
+    this.panelOpts.onGameZoomReset?.();
+
+    // 2. Reset Move button về mặc định 'left'
+    this.setMoveButton('left');
+
+    // 3. Reset Scroll to zoom về mặc định false
+    this.setScrollToZoom(false);
+
+    // 4. Reset Ngôn ngữ về 'vi'
+    this.setLanguage('vi');
+
+    // 5. Reset UI toggles
+    this.uiState.profile = true;
+    this.checkboxSetters.get('profile')?.(true);
+    this.panelOpts.onToggleProfile?.(true);
+
+    this.uiState.clock = true;
+    this.checkboxSetters.get('clock')?.(true);
+    this.panelOpts.onToggleClock?.(true);
+
+    this.uiState.party = true;
+    this.checkboxSetters.get('party')?.(true);
+    this.panelOpts.onToggleParty?.(true);
+
+    this.uiState.chat = true;
+    this.checkboxSetters.get('chat')?.(true);
+    this.panelOpts.onToggleChat?.(true);
+
+    this.uiState.minimap = false;
+    this.checkboxSetters.get('minimap')?.(false);
+    this.panelOpts.onToggleMinimap?.(false);
+
+    this.uiState.miniMode = false;
+    this.checkboxSetters.get('miniMode')?.(false);
+    this.panelOpts.onToggleMiniMode?.(false);
+
+    // 6. Reset Gameplay toggles
+    this.gameplayState.showPlayerNames = true;
+    this.checkboxSetters.get('showPlayerNames')?.(true);
+    this.panelOpts.onTogglePlayerNames?.(true);
+
+    this.gameplayState.targetMarker = true;
+    this.checkboxSetters.get('targetMarker')?.(true);
+    this.panelOpts.onToggleTargetMarker?.(true);
+
+    this.gameplayState.showGrid = false;
+    this.checkboxSetters.get('showGrid')?.(false);
+    this.panelOpts.onToggleGrid?.(false);
+
+    this.gameplayState.autoRun = false;
+    this.checkboxSetters.get('autoRun')?.(false);
+    this.panelOpts.onToggleAutoRun?.(false);
+
+    // 7. Reset Audio
+    this.audioState.bgm = true;
+    this.checkboxSetters.get('bgm')?.(true);
+    this.panelOpts.onToggleBgm?.(true);
+
+    this.audioState.sfx = true;
+    this.checkboxSetters.get('sfx')?.(true);
+    this.panelOpts.onToggleSfx?.(true);
+
+    this.updateZoomLabels();
+    this.relayout();
+  }
+
   private setLanguage(lang: 'vi' | 'en'): void {
     this.systemState.lang = lang;
     try {
@@ -512,6 +614,7 @@ export class SettingsPanel extends UiModal {
     label: string,
     initial: boolean,
     onChange: (checked: boolean) => void,
+    idKey?: string,
   ): Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> {
     const boxGfx = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
     const checkText = this.scene.add
@@ -535,9 +638,16 @@ export class SettingsPanel extends UiModal {
       .setInteractive({ useHandCursor: true });
 
     let checked = initial;
+    const setVal = (v: boolean) => {
+      checked = v;
+      checkText.setText(v ? '✔' : '');
+    };
+    if (idKey) {
+      this.checkboxSetters.set(idKey, setVal);
+    }
+
     const toggle = () => {
-      checked = !checked;
-      checkText.setText(checked ? '✔' : '');
+      setVal(!checked);
       onChange(checked);
     };
 
@@ -765,10 +875,13 @@ export class SettingsPanel extends UiModal {
     curY += 26;
 
     this.positionCheckbox(list, 13, x, curY, 360);
+    curY += 26;
+
+    this.positionCheckbox(list, 17, x, curY, 400);
     curY += 30;
 
     // Cơ chế di chuyển
-    const lblMove = list[17] as Phaser.GameObjects.Text;
+    const lblMove = list[21] as Phaser.GameObjects.Text;
     lblMove.setPosition(x, curY);
     curY += 20;
 
@@ -805,7 +918,7 @@ export class SettingsPanel extends UiModal {
 
     curY += 34;
 
-    const hint = list[24] as Phaser.GameObjects.Text;
+    const hint = list[28] as Phaser.GameObjects.Text;
     hint.setPosition(x, curY);
   }
 

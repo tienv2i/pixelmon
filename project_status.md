@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 27: Xây dựng thư viện UiModal dùng chung & Chuẩn hoá toàn bộ Pop-up/Panel: Settings, Chat, Party, Weather, Confirm, UserInfo)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 28: Nâng cấp UiModal neo gắn cứng, Reset Settings, Scroll to Zoom, Khắc phục ẩn Party Box & Hud không title bar)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -56,6 +56,7 @@
 | Plan 25 — Chuẩn hoá Tỷ lệ HUD, Draggable Settings, Overlay Khóa UI, Ngôn ngữ & Logout trên Toolbar    | ✅           |
 | Plan 26 — Baseline scale 1.25x, Toolbar Pixel Art, Cắt padding Info, Confirm Modal, Fix Settings & Move LMB | ✅           |
 | Plan 27 — Thư viện UiModal dùng chung & Chuẩn hoá 6 Pop-up/Panel (Settings, Chat, Party, Weather, Confirm, UserInfo) | ✅           |
+| Plan 28 — Nâng cấp UiModal (Dock gắn cứng, không Titlebar, Depth, Padding, Footer, Header buttons) + Reset Settings + Scroll to Zoom + Fix Party | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -640,6 +641,37 @@ quay hướng âm thầm. Chi tiết: `docs/sprite-import-guide.md` mục 3b.
 8. **Bước 8 — Kiểm tra typecheck và cập nhật status:**
    - [x] Chạy `pnpm --filter client typecheck` pass 100%.
    - [x] Cập nhật kết quả vào `project_status.md` và git commit.
+
+---
+
+## Kế hoạch hiện tại: Plan 28 — Nâng cấp UiModal nâng cao (Dock khoá cứng, Ẩn Title Bar, Z-Index, Padding, Footer, Nút phụ), Reset Settings, Khôi phục Party Box & Tuỳ chọn Scroll-to-Zoom
+
+> Bắt đầu 2026-10-01. Mục tiêu:
+> 1. Nâng cấp `UiModal`: Chế độ neo khoá cứng vị trí (không thể drag khi đang neo), ẩn title bar linh hoạt, thuộc tính z-index/depth, padding tuỳ biến, thanh công cụ footer, hỗ trợ thêm nút tính năng phụ trên header.
+> 2. Menu Settings: Thay nút return bằng chức năng Reset Settings (khôi phục cài đặt gốc).
+> 3. Cố định UserInfo (`PlayerHud`) và Weather (`InfoPanel`): Ẩn title bar, neo cố định không thể drag.
+> 4. Khắc phục sự cố Party Box biến mất: Bỏ nút ✕ tránh bấm nhầm, nối nút `team` trên Toolbar để mở lại bất kỳ lúc nào.
+> 5. Tuỳ chọn Scroll to Zoom: Thêm cấu hình cuộn chuột zoom thế giới game vào Settings, mặc định TẮT.
+
+1. **Bước 1 — Nâng cấp `UiModal` (`apps/client/src/ui/UiModal.ts`):**
+   - [ ] Hỗ trợ `docked: true` (khoá cứng vị trí không thể drag khi neo, toggle mở khoá bằng ⚓).
+   - [ ] Hỗ trợ `showTitleBar: false` (ẩn hoàn toàn header bar, nội dung chiếm trọn panel).
+   - [ ] Thêm tuỳ biến z-index/depth, padding (top, right, bottom, left).
+   - [ ] Thêm thanh footer (`showFooter`, `footerHeight`, `footerContainer`).
+   - [ ] Thêm mảng nút tính năng phụ trên header (`customHeaderButtons`, `addHeaderButton`).
+2. **Bước 2 — Cập nhật `SettingsPanel` (Reset Settings & Scroll-to-Zoom):**
+   - [ ] Thay nút return bằng chức năng Reset Settings (khôi phục toàn bộ cài đặt gốc).
+   - [ ] Thêm checkbox Cuộn chuột thu phóng game (Scroll to zoom) — mặc định tắt.
+3. **Bước 3 — Cố định `PlayerHud` (UserInfo) & `InfoPanel` (Weather):**
+   - [ ] Đặt `showTitleBar: false`, chế độ neo khoá cứng `docked: true`, không thể kéo đi.
+4. **Bước 4 — Khắc phục Party Box & Nối nút Team trên Toolbar:**
+   - [ ] Bỏ nút ✕ trên `PartyStrip` tránh click nhầm làm mất panel.
+   - [ ] Nối nút `team` trên thanh Toolbar trong `WorldScene.ts` để toggle bật/tắt Party Box.
+5. **Bước 5 — Kiểm soát Scroll-to-Zoom (`main.ts` & `WorldScene.ts`):**
+   - [ ] Kiểm tra cấu hình `localStorage('pixelmon.scrollToZoom')`, mặc định không zoom khi cuộn chuột.
+6. **Bước 6 — Typecheck, kiểm tra toàn bộ & Git commit:**
+   - [ ] Chạy typecheck `pnpm run typecheck` đảm bảo 4/4 pass.
+   - [ ] Cập nhật kết quả vào `project_status.md` và tạo git commit.
 
 ---
 
@@ -1228,6 +1260,57 @@ eslint.config.js                                 (+ ignores .venv, temp)
 - `apps/client/src/ui/ChatLog.ts`: Co giãn chiều rộng động theo canvas, 2 dòng ở mini mode, cập nhật word wrap.
 - `apps/client/src/ui/MenuPanel.ts`: Vẽ khung nền panel trong `relayout()`.
 - `apps/client/src/scenes/WorldScene.ts`: Điều phối tập trung, tự động kích hoạt mini mode cho toàn bộ panel khi viewport nhỏ (`width < 640 || height < 500`).
+
+---
+
+## Nhật ký 2026-10-01 (12) — Plan 28: Nâng cấp UiModal neo gắn cứng, Reset Settings, Scroll to Zoom & Khắc phục Party Box
+
+### 1. Nâng cấp cốt lõi `UiModal`
+- **Chế độ Neo gắn cứng (`docked: true`):**
+  - Khi `isDocked === true`, con trỏ chuột trên header chuyển thành `default`, thao tác kéo thả bị khóa hoàn toàn.
+  - Người chơi chỉ có thể click nút ⚓ (Dock toggle) để mở khóa trạng thái neo sang tự do trước khi di chuyển modal.
+- **Tùy chọn ẩn Title bar (`showTitleBar: false`):**
+  - Cho phép các panel HUD tinh gọn (như `PlayerHud`, `InfoPanel`) không có thanh header, `contentContainer` tự động chiếm trọn không gian modal từ đỉnh `(0, 0)`.
+- **Quản lý Depth / Z-Index linh hoạt (`depth`, `zIndex`, `setDepth(d)`):**
+  - Thiết lập depth đồng bộ cho `overlay`, `overlayBlocker`, `modalContainer` và nội dung.
+- **Tùy biến khoảng đệm nội dung (`padding`, `setPadding()`):**
+  - Hỗ trợ số nguyên đồng nhất hoặc object `{ top, right, bottom, left }`.
+- **Thanh công cụ đáy (`showFooter`, `footerHeight`, `footerContainer`):**
+  - Cho phép thêm các nút điều khiển, phân trang hoặc action bar ở đáy modal.
+- **Nút tính năng phụ trên Header (`customHeaderButtons: UiModalCustomButton[]`, `addHeaderButton()`):**
+  - Hỗ trợ chèn các icon tùy biến vào bên trái nhóm nút hệ thống (✕, －, ⚓).
+
+### 2. Cải tiến Bảng Settings & Reset Settings
+- **Thay nút Return bằng Reset Settings (↺):**
+  - Gắn nút `↺` (`customHeaderButtons`) màu vàng nhạt trên header của `SettingsPanel`.
+  - Hàm `resetAllSettings()`: Đưa toàn bộ cấu hình về mặc định:
+    - UI Zoom: 100%
+    - Game Zoom: 1.0x
+    - Cơ chế di chuyển: Chuột trái / Touch (`left`)
+    - Cuộn chuột để thu phóng (Scroll to zoom): Tắt (`false`)
+    - Ngôn ngữ: Tiếng Việt (`vi`)
+    - Các thành phần HUD: Profile bật, Clock bật, Party bật, Chat bật, Minimap tắt, Mini HUD tắt
+    - Gameplay: Hiện tên bật, Đích đến bật, Lưới toạ độ tắt, Auto-run tắt
+    - Âm thanh: BGM bật, SFX bật.
+  - Đồng bộ cập nhật visual cho toàn bộ checkbox (`checkboxSetters`) và labels.
+- **Tùy chọn Scroll to Zoom:**
+  - Thêm checkbox `Cuộn chuột để thu phóng (Scroll to zoom)` trong Tab Lối chơi (Gameplay), **mặc định tắt** (`false`).
+  - Trong `main.ts`, hàm `handleWheelZoom` kiểm tra `localStorage.getItem('pixelmon.scrollToZoom') === 'true'`. Khi người chơi chưa kích hoạt, con lăn chuột sẽ không zoom camera thế giới, tránh tình trạng giật lag hoặc zoom ngoài ý muốn khi lướt web.
+
+### 3. Cập nhật HUD & Khắc phục Party Box
+- **`PlayerHud` & `InfoPanel`:**
+  - Cấu hình `showTitleBar: false`, `docked: true`, gắn cứng tại góc trên-trái (`top-left`) và góc trên-phải (`top-right`), không có thanh title bar cồng kềnh.
+  - Kích thước tinh gọn: `PlayerHud` 168×56px, `InfoPanel` 154×40px.
+- **Khắc phục lỗi thanh Party Box biến mất:**
+  - **Nguyên nhân:** Khung `PartyStrip` trước đây có chiều rộng nhỏ (76px) nhưng chứa cả 3 nút (✕, －, ⚓), dẫn tới người chơi click nhầm vào nút ✕ làm modal đóng lại; đồng thời icon `team` trên Toolbar rơi vào `default: [team] chưa implement` nên không có cách nào mở lại.
+  - **Khắc phục:**
+    - Đặt `showClose: false` trên `PartyStrip`, tăng nhẹ chiều rộng lên 82px.
+    - Trong `WorldScene.ts`: Xử lý sự kiện icon `team` trên Toolbar để gọi `this.partyStrip.toggle()` và đồng bộ trạng thái active của icon.
+    - Trong `WorldScene.layoutLeftColumn()`: Tôn trọng trạng thái của `partyStrip`, không ép bật lại khi người chơi chủ động đóng.
+
+### 4. Kết quả kiểm tra
+- `pnpm typecheck`: 4/4 packages pass không có lỗi TypeScript nào (`@pixelmon/shared`, `client`, `server`).
+
 
 
 

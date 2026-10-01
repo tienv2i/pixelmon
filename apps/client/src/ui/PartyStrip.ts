@@ -7,7 +7,7 @@ import type { HudMode } from './HudManager';
 const SLOT = 36;
 const SLOT_GAP = 5;
 const PARTY_COUNT = 6;
-const PANEL_W = 76;
+const PANEL_W = 82;
 const PANEL_H = PARTY_COUNT * SLOT + (PARTY_COUNT - 1) * SLOT_GAP + 14;
 const HEADER_H = 26;
 
@@ -30,10 +30,11 @@ const EMPTY_BG = 0x262a4d;
 
 /**
  * **PartyStrip** — Khung danh sách Pokémon trong đội hình (Party):
- * - Kế thừa từ `UiModal`: thanh tiêu đề chuẩn mực, có nút thu nhỏ (－), nút neo (⚓), nút tắt (✕).
- * - Draggable: có thể kéo thả di chuyển tự do trên màn hình.
+ * - Kế thừa từ `UiModal`: thanh tiêu đề pixel chuẩn, có nút thu nhỏ (－), nút neo (⚓).
+ * - Bỏ nút tắt (✕) trên khung để tránh click nhầm làm mất HUD; toggle qua icon Team trên thanh công cụ.
+ * - Draggable: có thể kéo thả di chuyển tự do trên màn hình khi mở khóa neo.
  * - Nút Thu nhỏ: gập lại chỉ còn thanh tiêu đề giúp không chiếm tầm nhìn thế giới game.
- * - Nút Neo: khôi phục vị trí mặc định ở góc trái bên dưới PlayerHud.
+ * - Nút Neo: gắn cứng hoặc khôi phục vị trí mặc định ở góc trái bên dưới PlayerHud.
  */
 export class PartyStrip extends UiModal {
   private members: Array<PartyMember | null>;
@@ -46,13 +47,13 @@ export class PartyStrip extends UiModal {
 
   constructor(scene: Phaser.Scene, members: Array<PartyMember | null>) {
     super(scene, {
-      title: '🐾 PARTY',
+      title: '🐾 ĐỘI HÌNH',
       width: PANEL_W,
       height: PANEL_H,
       headerHeight: HEADER_H,
       lockUi: false,
       depth: 100,
-      showClose: true,
+      showClose: false,
       showMinimize: true,
       showDock: true,
       defaultAlign: 'top-left',
@@ -161,7 +162,7 @@ export class PartyStrip extends UiModal {
     }
 
     // Cập nhật tiêu đề hiển thị số lượng Pokémon
-    this.setTitle(`🐾 PARTY (${activeCount}/${PARTY_COUNT})`);
+    this.setTitle(`🐾 ĐỘI HÌNH (${activeCount}/${PARTY_COUNT})`);
   }
 
   setVisible(v: boolean): void {

@@ -13,16 +13,13 @@ export interface PlayerHudData {
 }
 
 const PANEL_W = 168;
-const PANEL_H = 82;
-const HEADER_H = 26;
+const PANEL_H = 56;
 
 /**
  * **PlayerHud** — Bảng thông tin người chơi (UserInfo):
- * - Kế thừa từ `UiModal`: đồng bộ thanh tiêu đề chuẩn với toàn bộ hệ thống popup.
- * - Draggable: kéo thả di chuyển tự do bằng thanh tiêu đề.
- * - Nút Thu nhỏ (－): thu gọn bảng chỉ còn thanh tiêu đề giúp mở rộng không gian quan sát.
- * - Nút Neo (⚓): đưa panel về vị trí mặc định ở góc trên-trái màn hình.
- * - Nút Tắt (✕): ẩn bảng thông tin người chơi.
+ * - Kế thừa từ `UiModal`: chuẩn hoá khung giao diện pixel thống nhất.
+ * - Chế độ neo (`docked: true`) cố định ở góc trên-trái màn hình.
+ * - Không có thanh tiêu đề (`showTitleBar: false`), gắn cứng và không thể drag.
  */
 export class PlayerHud extends UiModal {
   private avatar: Phaser.GameObjects.Image;
@@ -37,12 +34,13 @@ export class PlayerHud extends UiModal {
       title: '👤 NHÂN VẬT',
       width: PANEL_W,
       height: PANEL_H,
-      headerHeight: HEADER_H,
+      showTitleBar: false,
+      docked: true,
       lockUi: false,
       depth: 100,
-      showClose: true,
-      showMinimize: true,
-      showDock: true,
+      showClose: false,
+      showMinimize: false,
+      showDock: false,
       defaultAlign: 'top-left',
       defaultOffsetX: 8,
       defaultOffsetY: 8,

@@ -18,16 +18,13 @@ const WEATHERS: WeatherDef[] = [
 ];
 
 const PANEL_W = 154;
-const PANEL_H = 68;
-const HEADER_H = 26;
+const PANEL_H = 40;
 
 /**
  * **InfoPanel** — Bảng thông tin góc trên-phải: Đồng hồ & Thời tiết:
- * - Kế thừa từ `UiModal`: đồng bộ thanh tiêu đề với toàn bộ hệ thống popup.
- * - Draggable: kéo thả di chuyển tự do bằng thanh tiêu đề.
- * - Nút Thu nhỏ (－): thu gọn panel chỉ còn lại giờ trên thanh tiêu đề khi cần thoáng màn hình.
- * - Nút Neo (⚓): đưa panel về vị trí mặc định ở góc trên-phải màn hình.
- * - Nút Tắt (✕): ẩn bảng thời tiết.
+ * - Kế thừa từ `UiModal`: chuẩn hoá khung giao diện pixel thống nhất.
+ * - Chế độ neo (`docked: true`) cố định ở góc trên-phải màn hình.
+ * - Không có thanh tiêu đề (`showTitleBar: false`), gắn cứng và không thể drag.
  */
 export class InfoPanel extends UiModal {
   private clockText: Phaser.GameObjects.Text;
@@ -42,12 +39,13 @@ export class InfoPanel extends UiModal {
       title: '🌤 THỜI TIẾT',
       width: PANEL_W,
       height: PANEL_H,
-      headerHeight: HEADER_H,
+      showTitleBar: false,
+      docked: true,
       lockUi: false,
       depth: 100,
-      showClose: true,
-      showMinimize: true,
-      showDock: true,
+      showClose: false,
+      showMinimize: false,
+      showDock: false,
       defaultAlign: 'top-right',
       defaultOffsetX: 8,
       defaultOffsetY: 8,

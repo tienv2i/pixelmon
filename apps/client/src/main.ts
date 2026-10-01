@@ -53,8 +53,14 @@ if (import.meta.env.DEV) {
 }
 
 // Game zoom bằng scroll wheel — CHỈ zoom phần thế giới (map + nhân vật).
-// Không zoom UI: HUD nằm trên camera thứ hai (zoom cố định 1) nên không bị ảnh hưởng.
+// Mặc định TẮT — chỉ hoạt động khi người chơi bật trong bảng Settings ('pixelmon.scrollToZoom' === 'true').
 function handleWheelZoom(e: WheelEvent) {
+  try {
+    if (localStorage.getItem('pixelmon.scrollToZoom') !== 'true') return;
+  } catch {
+    return;
+  }
+
   const active = game.scene.scenes.find((s) => s.scene.isActive());
   if (!active) return;
   // Chỉ WorldScene có gameZoomBy — các scene khác (Login/Battle) bỏ qua.

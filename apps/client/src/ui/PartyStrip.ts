@@ -7,10 +7,9 @@ import type { HudMode } from './HudManager';
 const SLOT = 34;
 const SLOT_GAP = 4;
 const PARTY_COUNT = 6;
-const PANEL_W = 84;
-const HEADER_H = 26;
+const PANEL_W = 48;
 const CONTENT_H = PARTY_COUNT * SLOT + (PARTY_COUNT - 1) * SLOT_GAP + 12;
-const PANEL_H = HEADER_H + CONTENT_H;
+const PANEL_H = CONTENT_H;
 
 export interface PartyMember {
   name: string;
@@ -31,10 +30,10 @@ const EMPTY_BG = 0x262a4d;
 
 /**
  * **PartyStrip** — Khung danh sách Pokémon trong đội hình (Party):
- * - Kế thừa từ `UiModal`: thanh tiêu đề pixel chuẩn, có nút thu nhỏ (－), nút neo (⚓).
- * - Bỏ title chữ để thanh header gọn gàng tối đa, không bị tràn.
- * - Bỏ nút tắt (✕) trên khung để tránh click nhầm làm mất HUD; toggle qua icon Team trên thanh công cụ.
- * - Draggable: có thể kéo thả di chuyển tự do trên màn hình khi mở khóa neo.
+ * - Kế thừa từ `UiModal`: chuẩn hoá khung giao diện pixel thống nhất.
+ * - Chế độ neo (`docked: true`) cố định bên dưới PlayerHud.
+ * - Không có thanh tiêu đề (`showTitleBar: false`), tinh gọn tối đa.
+ * - Bật/tắt thuận tiện qua icon Team trên thanh công cụ.
  */
 export class PartyStrip extends UiModal {
   private members: Array<PartyMember | null>;
@@ -50,12 +49,13 @@ export class PartyStrip extends UiModal {
       title: '',
       width: PANEL_W,
       height: PANEL_H,
-      headerHeight: HEADER_H,
+      showTitleBar: false,
+      docked: true,
       lockUi: false,
       depth: 100,
       showClose: false,
-      showMinimize: true,
-      showDock: true,
+      showMinimize: false,
+      showDock: false,
       defaultAlign: 'top-left',
       defaultOffsetX: 8,
       defaultOffsetY: 96,
@@ -77,11 +77,6 @@ export class PartyStrip extends UiModal {
   setHudMode(mode: HudMode): void {
     if (this._hudMode === mode) return;
     this._hudMode = mode;
-    if (mode === 'mini') {
-      this.minimize();
-    } else if (mode === 'normal') {
-      this.expand();
-    }
   }
 
   /** Chiều cao khung party theo zoom — WorldScene dùng để tính vị trí. */

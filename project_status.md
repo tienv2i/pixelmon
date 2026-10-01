@@ -1301,10 +1301,10 @@ eslint.config.js                                 (+ ignores .venv, temp)
 - **`PlayerHud` & `InfoPanel`:**
   - Cấu hình `showTitleBar: false`, `docked: true`, gắn cứng tại góc trên-trái (`top-left`) và góc trên-phải (`top-right`), không có thanh title bar cồng kềnh.
   - Kích thước tinh gọn: `PlayerHud` 168×56px, `InfoPanel` 154×40px.
-- **Khắc phục lỗi thanh Party Box biến mất, tràn title & tràn ô slot:**
-  - Bỏ title chữ trên khung `PartyStrip` (`title: ''`), thanh header chỉ còn nút thu nhỏ (－) và neo (⚓), hoàn toàn không vướng chữ và không bị tràn.
-  - Tính đúng chiều cao: `PANEL_H = HEADER_H + CONTENT_H = 26 + (6 * 34 + 5 * 4 + 12) = 264px`, `PANEL_W = 84px`, các ô slot nằm trọn vẹn bên trong khung modal.
-  - Trong `UiModal.ts`: Gọi `setInteractive()` ngay khi khởi tạo `headerZone`, mở rộng hitArea của `btnDock` (22×22px) và đồng bộ resize hitArea của `headerZone` trong `relayout()` để kéo thả mượt mà 100%.
+- **Tinh gọn Party Box (Bỏ toàn bộ Title Bar, neo dạng cột dọc gọn gàng):**
+  - Cấu hình `showTitleBar: false`, `docked: true` cho `PartyStrip`.
+  - Khung party chuyển thành dạng dải cột slot gọn gàng dọc mép trái (rộng 48px, cao 236px), các ô slot 34×34px lọt trọn vẹn bên trong với viền pixel chuẩn.
+  - Bật/tắt thanh Party linh hoạt và dễ dàng qua icon Team trên thanh công cụ TopMenu.
 - **Phóng to khung Avatar & Sprite Preview trên PlayerHud:**
   - Nâng kích thước `PlayerHud` lên 180×68px.
   - Khung nền avatar phóng to 50×50px bo góc viền kép, avatar sprite preview tăng kích thước mục tiêu lên 46px (rõ nét gấp 1.35x), dịch chuyển text sang x=66px, không bị tràn ra ngoài.

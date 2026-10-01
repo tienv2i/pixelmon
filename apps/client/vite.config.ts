@@ -6,6 +6,20 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:2567',
+        changeOrigin: true,
+      },
+      '/assets': {
+        target: 'http://localhost:2567',
+        changeOrigin: true,
+      },
+      '/sprites': {
+        target: 'http://localhost:2567',
+        changeOrigin: true,
+      },
+    },
     fs: {
       // Cho phép serve file từ packages/shared (data + assets).
       // LƯU Ý: khai báo `allow` sẽ GHI ĐÈ danh sách mặc định của Vite (vốn cho

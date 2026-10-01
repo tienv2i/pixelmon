@@ -61,6 +61,11 @@
       'Upload, align and export character sheets',
       'Upload, căn khung và xuất sheet nhân vật',
     ],
+    'view.gamedata': ['Game Data (Essentials)', 'Dữ liệu Game (Essentials)'],
+    'view.gamedata.sub': [
+      'Imported data from Pokémon Essentials v21.1: Species, Moves, Items, Abilities, Types',
+      'Dữ liệu đã nạp từ Pokémon Essentials v21.1: Loài, Chiêu thức, Vật phẩm, Đặc tính, Hệ',
+    ],
 
     // ── Sprites ──
     'sp.title': ['Character sprite library', 'Thư viện Sprite nhân vật'],

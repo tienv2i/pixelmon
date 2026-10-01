@@ -1,0 +1,56 @@
+{
+  "version": "Pokemon Essentials v21.1 (2023-07-30)",
+  "importedAt": "2026-10-01T16:45:00.000Z",
+  "counts": {
+    "species": 898,
+    "forms": 339,
+    "moves": 740,
+    "items": 693,
+    "abilities": 267,
+    "types": 19
+  },
+  "breakdown": {
+    "generations": {
+      "Gen 1": 151,
+      "Gen 2": 100,
+      "Gen 3": 135,
+      "Gen 4": 107,
+      "Gen 5": 156,
+      "Gen 6": 72,
+      "Gen 7": 88,
+      "Gen 8": 89
+    },
+    "speciesTypes": {
+      "grass": 107,
+      "poison": 69,
+      "fire": 71,
+      "flying": 102,
+      "water": 141,
+      "bug": 84,
+      "normal": 115,
+      "electric": 57,
+      "ground": 67,
+      "fairy": 54,
+      "fighting": 61,
+      "psychic": 90,
+      "rock": 65,
+      "steel": 54,
+      "ice": 41,
+      "ghost": 51,
+      "dragon": 56,
+      "dark": 55
+    },
+    "moveCategories": {
+      "physical": 293,
+      "special": 194,
+      "status": 253
+    },
+    "itemCategories": {
+      "misc": 474,
+      "pokeball": 31,
+      "berry": 70,
+      "medicine": 79,
+      "key": 39
+    }
+  }
+}

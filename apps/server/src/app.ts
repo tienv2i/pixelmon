@@ -5,7 +5,13 @@ import { fileURLToPath } from 'url';
 import { config } from './config/index.js';
 import { authRouter } from './modules/auth/index.js';
 import { getPlayer, listOnlinePlayers } from './modules/player/index.js';
-import { getPokemonByUser } from './modules/pokemon/index.js';
+import {
+  getPokemonList,
+  swapPokemon,
+  depositPokemon,
+  withdrawPokemon,
+  releasePokemon,
+} from './modules/pokemon/index.js';
 import {
   getAdminStatus,
   listAdminUsers,
@@ -29,6 +35,15 @@ import {
 } from './modules/admin/sprite.js';
 import { requireAuth, requireAdmin } from './middleware/auth.js';
 import { getUserInfo, updateUserInfo } from './modules/user/index.js';
+import {
+  getGameDataSummary,
+  listGameDataSpecies,
+  getGameDataSpeciesDetail,
+  listGameDataMoves,
+  listGameDataItems,
+  listGameDataAbilities,
+  getGameDataTypes,
+} from './modules/admin/gamedata.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -48,6 +63,12 @@ export function createApp(): Express {
     res.json({ ok: true, uptime: process.uptime() });
   });
 
+  // ── Shared assets (pokemon icons, battlers, items, audio) ──
+  app.use(
+    '/assets',
+    express.static(path.join(__dirname, '..', '..', '..', 'packages', 'shared', 'assets')),
+  );
+
   // ── Static pages (landing + admin) ──
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -65,6 +86,15 @@ export function createApp(): Express {
   app.delete('/api/admin/users/:id', requireAuth, requireAdmin, deleteAdminUser);
   app.get('/api/admin/pokemon', requireAuth, requireAdmin, listAdminPokemon);
   app.get('/api/admin/players', requireAuth, requireAdmin, listAdminPlayers);
+
+  // ── Dữ liệu game (Essentials Game Data) ──
+  app.get('/api/admin/gamedata/summary', requireAuth, requireAdmin, getGameDataSummary);
+  app.get('/api/admin/gamedata/species', requireAuth, requireAdmin, listGameDataSpecies);
+  app.get('/api/admin/gamedata/species/:id', requireAuth, requireAdmin, getGameDataSpeciesDetail);
+  app.get('/api/admin/gamedata/moves', requireAuth, requireAdmin, listGameDataMoves);
+  app.get('/api/admin/gamedata/items', requireAuth, requireAdmin, listGameDataItems);
+  app.get('/api/admin/gamedata/abilities', requireAuth, requireAdmin, listGameDataAbilities);
+  app.get('/api/admin/gamedata/types', requireAuth, requireAdmin, getGameDataTypes);
 
   // ── Thư viện sprite nhân vật ──
   app.get('/api/sprites', listPublicSprites);
@@ -96,7 +126,12 @@ export function createApp(): Express {
   // ── Game API (bảo vệ bằng JWT) ──
   app.get('/api/players/:userId', requireAuth, getPlayer);
   app.get('/api/players', requireAuth, listOnlinePlayers);
-  app.get('/api/pokemon/:userId', requireAuth, getPokemonByUser);
+  app.get('/api/pokemon', requireAuth, getPokemonList);
+  app.get('/api/pokemon/:userId', requireAuth, getPokemonList);
+  app.post('/api/pokemon/swap', requireAuth, swapPokemon);
+  app.post('/api/pokemon/deposit', requireAuth, depositPokemon);
+  app.post('/api/pokemon/withdraw', requireAuth, withdrawPokemon);
+  app.post('/api/pokemon/release', requireAuth, releasePokemon);
 
   // ── Serve admin.html (chỉ admin vào được — client-side check role) ──
   app.get('/admin', (_req, res) => {

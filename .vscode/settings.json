@@ -1,0 +1,36 @@
+{
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.turbo": true,
+    "**/.pm": true,
+    "**/.playwright-mcp": true,
+    "**/.venv": true,
+    "**/packages/shared/assets/audio": true,
+    "**/packages/shared/assets/battlers": true,
+    "**/packages/shared/assets/battlebacks": true,
+    "**/packages/shared/assets/characters": true,
+    "**/packages/shared/assets/autotiles": true,
+    "**/packages/shared/assets/animations": true,
+    "**/packages/shared/assets/weather": true,
+    "**/packages/shared/assets/fogs": true,
+    "**/packages/shared/assets/trainers": true,
+    "**/packages/shared/assets/ui": true,
+    "**/packages/shared/data/pbs": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/.turbo/**": true,
+    "**/.venv/**": true,
+    "**/packages/shared/assets/audio/**": true,
+    "**/packages/shared/assets/battlers/**": true,
+    "**/packages/shared/assets/battlebacks/**": true,
+    "**/packages/shared/assets/characters/**": true,
+    "**/packages/shared/assets/autotiles/**": true,
+    "**/packages/shared/assets/animations/**": true,
+    "**/packages/shared/data/pbs/**": true
+  }
+}

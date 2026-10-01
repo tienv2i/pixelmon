@@ -12,6 +12,7 @@ const ICONS: MenuIconDef[] = [
   { key: 'pokedex', label: 'Pokédex' },
   { key: 'bag', label: 'Túi đồ' },
   { key: 'team', label: 'Đội hình' },
+  { key: 'pc', label: 'PC Box' },
   { key: 'map', label: 'Bản đồ' },
   { key: 'gps', label: 'GPS / Minimap' },
   { key: 'settings', label: 'Cài đặt' },
@@ -74,6 +75,20 @@ function drawPixelIcon(
       gfx.fillRect(cx - 2 * p, cy - 2 * p, 4 * p, 4 * p);
       gfx.fillStyle(0xffffff, 1);
       gfx.fillRect(cx - 1 * p, cy - 1 * p, 2 * p, 2 * p);
+      break;
+    }
+    case 'pc': {
+      // Màn hình máy tính PC retro màu kem xám, màn hình cyan
+      gfx.fillStyle(0xdfe6e9, 1);
+      gfx.fillRect(cx - 5 * p, cy - 6 * p, 10 * p, 8 * p); // viền màn hình
+      gfx.fillStyle(0x00cec9, 1);
+      gfx.fillRect(cx - 4 * p, cy - 5 * p, 8 * p, 6 * p); // màn hình hiển thị
+      gfx.fillStyle(0xffffff, 0.8);
+      gfx.fillRect(cx - 3 * p, cy - 4 * p, 2 * p, 2 * p); // ánh sáng phản chiếu
+      // Chân đế máy tính
+      gfx.fillStyle(0xb2bec3, 1);
+      gfx.fillRect(cx - 1 * p, cy + 2 * p, 2 * p, 2 * p); // trụ
+      gfx.fillRect(cx - 4 * p, cy + 4 * p, 8 * p, 2 * p); // đế
       break;
     }
     case 'map': {
@@ -403,7 +418,7 @@ export class TopMenu {
   relayout(): void {
     const z = this._uiZoomManager?.uiZoom ?? 1.25;
     const W = this.scene.scale.width;
-    const isSmall = this.isMini || W < 640;
+    const isSmall = this.isMini || W < 800 || this.scene.scale.height < 600;
 
     const baseBtnSize = Math.round(26 * z);
     const gap = Math.round(6 * z);

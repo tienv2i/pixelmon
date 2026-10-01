@@ -107,6 +107,10 @@
             <span class="nav-icon">▩</span>
             <span data-i18n="view.sprites">Thư viện Sprite</span>
           </button>
+          <button class="nav-item" data-view="gamedata">
+            <span class="nav-icon">📚</span>
+            <span data-i18n="view.gamedata">Dữ liệu Game</span>
+          </button>
         </nav>
 
         <div class="sidebar-foot">
@@ -384,6 +388,253 @@
                 </table>
               </div>
               <div class="empty hidden" id="sprites-empty" data-i18n="sp.empty">Chưa có sprite nào.</div>
+            </div>
+          </section>
+
+          <!-- ═══ ESSENTIALS GAME DATA ═══ -->
+          <section class="view" id="view-gamedata">
+            <div class="card" style="margin-bottom: 20px;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+                <div>
+                  <h2 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                    <span>📚</span>
+                    <span>Dữ liệu Game Pokémon Essentials v21.1</span>
+                    <span class="badge" style="background:#00cec922; color:#00cec9; border: 1px solid #00cec9;">Đã nạp thành công</span>
+                  </h2>
+                  <p class="dim" style="margin-top: 6px; font-size: 13px;">
+                    Kho dữ liệu gốc trích xuất từ Pokémon Essentials (2023-07-30). Đã chuẩn hoá và nạp vào máy chủ Pixelmon.
+                  </p>
+                </div>
+                <div style="font-size: 12px; color: #a0aec0;" id="gd-source-time">
+                  Nguồn: Pokémon Essentials v21.1
+                </div>
+              </div>
+
+              <!-- KPI Stats Grid -->
+              <div class="kpi-grid" style="margin-top: 16px;">
+                <div class="card kpi" style="padding: 14px;">
+                  <div class="kpi-label">Loài Pokémon</div>
+                  <div class="kpi-value mono" style="color: #00cec9;" id="gd-stat-species">898</div>
+                  <div class="dim" style="font-size: 11px; margin-top: 4px;">Gen 1 → Gen 8 (339 forms)</div>
+                </div>
+                <div class="card kpi" style="padding: 14px;">
+                  <div class="kpi-label">Chiêu thức (Moves)</div>
+                  <div class="kpi-value mono" style="color: #ff7675;" id="gd-stat-moves">740</div>
+                  <div class="dim" style="font-size: 11px; margin-top: 4px;">Physical / Special / Status</div>
+                </div>
+                <div class="card kpi" style="padding: 14px;">
+                  <div class="kpi-label">Vật phẩm (Items)</div>
+                  <div class="kpi-value mono" style="color: #fdcb6e;" id="gd-stat-items">693</div>
+                  <div class="dim" style="font-size: 11px; margin-top: 4px;">8 nhóm túi đồ</div>
+                </div>
+                <div class="card kpi" style="padding: 14px;">
+                  <div class="kpi-label">Đặc tính (Abilities)</div>
+                  <div class="kpi-value mono" style="color: #a29bfe;" id="gd-stat-abilities">267</div>
+                  <div class="dim" style="font-size: 11px; margin-top: 4px;">Thường & Ẩn</div>
+                </div>
+                <div class="card kpi" style="padding: 14px;">
+                  <div class="kpi-label">Hệ nguyên tố</div>
+                  <div class="kpi-value mono" style="color: #55efc4;" id="gd-stat-types">19</div>
+                  <div class="dim" style="font-size: 11px; margin-top: 4px;">Bao gồm Fairy & Shadow</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub Tabs and Content -->
+            <div class="card">
+              <div style="display: flex; gap: 8px; border-bottom: 1px solid #2e3358; padding-bottom: 12px; margin-bottom: 16px; overflow-x: auto;">
+                <button class="btn btn-sm btn-primary gd-nav-btn active" data-gd-tab="species">🐾 Pokémon (898)</button>
+                <button class="btn btn-sm btn-ghost gd-nav-btn" data-gd-tab="moves">⚔ Chiêu thức (740)</button>
+                <button class="btn btn-sm btn-ghost gd-nav-btn" data-gd-tab="items">🎒 Vật phẩm (693)</button>
+                <button class="btn btn-sm btn-ghost gd-nav-btn" data-gd-tab="abilities">🔮 Đặc tính (267)</button>
+                <button class="btn btn-sm btn-ghost gd-nav-btn" data-gd-tab="types">🌟 Tương khắc Hệ (19)</button>
+              </div>
+
+              <!-- Tab: Species -->
+              <div class="gd-tab-pane" id="gd-pane-species">
+                <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+                  <input type="text" id="gd-species-search" class="input" placeholder="Tìm theo tên loài, số Dex (#001), phân loại..." style="flex: 1; min-width: 220px;" />
+                  <select id="gd-species-gen" class="input" style="width: 140px;">
+                    <option value="">Tất cả Thế hệ</option>
+                    <option value="1">Gen 1 (Kanto)</option>
+                    <option value="2">Gen 2 (Johto)</option>
+                    <option value="3">Gen 3 (Hoenn)</option>
+                    <option value="4">Gen 4 (Sinnoh)</option>
+                    <option value="5">Gen 5 (Unova)</option>
+                    <option value="6">Gen 6 (Kalos)</option>
+                    <option value="7">Gen 7 (Alola)</option>
+                    <option value="8">Gen 8 (Galar)</option>
+                  </select>
+                  <select id="gd-species-type" class="input" style="width: 130px;">
+                    <option value="">Tất cả Hệ</option>
+                    <option value="normal">Normal</option>
+                    <option value="fire">Fire</option>
+                    <option value="water">Water</option>
+                    <option value="grass">Grass</option>
+                    <option value="electric">Electric</option>
+                    <option value="ice">Ice</option>
+                    <option value="fighting">Fighting</option>
+                    <option value="poison">Poison</option>
+                    <option value="ground">Ground</option>
+                    <option value="flying">Flying</option>
+                    <option value="psychic">Psychic</option>
+                    <option value="bug">Bug</option>
+                    <option value="rock">Rock</option>
+                    <option value="ghost">Ghost</option>
+                    <option value="dragon">Dragon</option>
+                    <option value="dark">Dark</option>
+                    <option value="steel">Steel</option>
+                    <option value="fairy">Fairy</option>
+                  </select>
+                  <select id="gd-species-rarity" class="input" style="width: 130px;">
+                    <option value="">Tất cả độ hiếm</option>
+                    <option value="common">Common</option>
+                    <option value="uncommon">Uncommon</option>
+                    <option value="rare">Rare</option>
+                    <option value="legendary">Legendary</option>
+                  </select>
+                </div>
+                <div class="table-wrap">
+                  <table id="gd-species-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 50px;">Icon</th>
+                        <th style="width: 65px;">#Dex</th>
+                        <th>Tên loài</th>
+                        <th>Hệ</th>
+                        <th>Phân loại</th>
+                        <th>Chỉ số gốc (HP/Atk/Def/SpA/SpD/Spe)</th>
+                        <th>BST</th>
+                        <th>Độ hiếm</th>
+                        <th style="width: 90px;">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div id="gd-species-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 8px;"></div>
+              </div>
+
+              <!-- Tab: Moves -->
+              <div class="gd-tab-pane hidden" id="gd-pane-moves">
+                <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+                  <input type="text" id="gd-moves-search" class="input" placeholder="Tìm kiếm chiêu thức..." style="flex: 1; min-width: 220px;" />
+                  <select id="gd-moves-cat" class="input" style="width: 160px;">
+                    <option value="">Tất cả loại chiêu</option>
+                    <option value="physical">Physical (Vật lý)</option>
+                    <option value="special">Special (Đặc biệt)</option>
+                    <option value="status">Status (Biến hoá)</option>
+                  </select>
+                  <select id="gd-moves-type" class="input" style="width: 140px;">
+                    <option value="">Tất cả Hệ</option>
+                    <option value="normal">Normal</option>
+                    <option value="fire">Fire</option>
+                    <option value="water">Water</option>
+                    <option value="grass">Grass</option>
+                    <option value="electric">Electric</option>
+                    <option value="ice">Ice</option>
+                    <option value="fighting">Fighting</option>
+                    <option value="poison">Poison</option>
+                    <option value="ground">Ground</option>
+                    <option value="flying">Flying</option>
+                    <option value="psychic">Psychic</option>
+                    <option value="bug">Bug</option>
+                    <option value="rock">Rock</option>
+                    <option value="ghost">Ghost</option>
+                    <option value="dragon">Dragon</option>
+                    <option value="dark">Dark</option>
+                    <option value="steel">Steel</option>
+                    <option value="fairy">Fairy</option>
+                  </select>
+                </div>
+                <div class="table-wrap">
+                  <table id="gd-moves-table">
+                    <thead>
+                      <tr>
+                        <th>Tên chiêu thức</th>
+                        <th>Hệ</th>
+                        <th>Phân loại</th>
+                        <th>Sức mạnh (Power)</th>
+                        <th>Độ chính xác</th>
+                        <th>PP</th>
+                        <th>Mục tiêu</th>
+                        <th>Mô tả tác dụng</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div id="gd-moves-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 8px;"></div>
+              </div>
+
+              <!-- Tab: Items -->
+              <div class="gd-tab-pane hidden" id="gd-pane-items">
+                <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+                  <input type="text" id="gd-items-search" class="input" placeholder="Tìm vật phẩm..." style="flex: 1; min-width: 220px;" />
+                  <select id="gd-items-cat" class="input" style="width: 160px;">
+                    <option value="">Tất cả túi đồ</option>
+                    <option value="pokeball">Poké Balls</option>
+                    <option value="medicine">Medicine (Hồi phục)</option>
+                    <option value="berry">Berries (Quả mọng)</option>
+                    <option value="evolution">Evolution (Tiến hoá)</option>
+                    <option value="key">Key Items (Quan trọng)</option>
+                    <option value="misc">Khác (Misc)</option>
+                  </select>
+                </div>
+                <div class="table-wrap">
+                  <table id="gd-items-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 50px;">Icon</th>
+                        <th>Tên vật phẩm</th>
+                        <th>Nhóm</th>
+                        <th>Giá mua</th>
+                        <th>Giá bán</th>
+                        <th>Mô tả</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div id="gd-items-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 8px;"></div>
+              </div>
+
+              <!-- Tab: Abilities -->
+              <div class="gd-tab-pane hidden" id="gd-pane-abilities">
+                <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                  <input type="text" id="gd-abilities-search" class="input" placeholder="Tìm đặc tính theo tên hoặc mô tả..." style="flex: 1;" />
+                </div>
+                <div class="table-wrap">
+                  <table id="gd-abilities-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 220px;">Tên đặc tính</th>
+                        <th>Mô tả tác dụng trong chiến đấu & thế giới</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div id="gd-abilities-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 8px;"></div>
+              </div>
+
+              <!-- Tab: Types -->
+              <div class="gd-tab-pane hidden" id="gd-pane-types">
+                <p class="dim" style="margin-bottom: 14px; font-size: 13px;">Bảng hệ thống 19 hệ và tương khắc sát thương (Damage Multiplier: Weaknesses x2, Resistances x0.5, Immunities x0).</p>
+                <div class="table-wrap">
+                  <table id="gd-types-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 120px;">Hệ phòng thủ</th>
+                        <th>Bị khắc chế / Điểm yếu (x2.0)</th>
+                        <th>Kháng đòn đánh (x0.5)</th>
+                        <th>Miễn nhiễm sát thương (x0.0)</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </section>
         </main>
@@ -744,6 +995,19 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ POKEMON SPECIES DETAIL MODAL ═══ -->
+    <div id="gd-species-modal" class="modal hidden">
+      <div class="modal-box" style="max-width: 720px; width: 92%;">
+        <div class="modal-header">
+          <h3 id="gd-modal-species-title">Chi tiết Pokémon</h3>
+          <button class="modal-close" id="gd-modal-species-close">×</button>
+        </div>
+        <div id="gd-modal-species-body" style="padding: 20px; max-height: 75vh; overflow-y: auto;">
+          <!-- Loaded dynamically -->
         </div>
       </div>
     </div>

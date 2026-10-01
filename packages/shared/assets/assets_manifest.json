@@ -1,0 +1,41 @@
+{
+  "source": "Pokemon Essentials v21.1 (2023-07-30)",
+  "audio": {
+    "cries": 655,
+    "bgm": 43,
+    "me": 22,
+    "bgs": 0,
+    "se": 223
+  },
+  "graphics": {
+    "battlers": {
+      "front": 834,
+      "back": 834,
+      "front_shiny": 832,
+      "back_shiny": 832,
+      "eggs": 5
+    },
+    "icons": {
+      "pokemon": 714,
+      "pokemon_shiny": 0,
+      "items": 449,
+      "footprints": 649
+    },
+    "battlebacks": 200,
+    "characters": 211,
+    "trainers": 76,
+    "tilesets": 22,
+    "autotiles": 40,
+    "weather": 23,
+    "fogs": 7,
+    "animations": 168,
+    "town_map": 9,
+    "ui": {
+      "transitions": 66,
+      "windowskins": 106
+    }
+  },
+  "pbs": {
+    "total_files": 73
+  }
+}

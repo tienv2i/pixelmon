@@ -39,6 +39,9 @@
     "*": {
       "schema": [
         "./dist/schema/index.d.ts"
+      ],
+      "data": [
+        "./dist/data/index.d.ts"
       ]
     }
   }

@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 28: Nâng cấp UiModal neo gắn cứng, Reset Settings, Scroll to Zoom, Khắc phục ẩn Party Box & Hud không title bar)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 32: Hệ thống PC Box, Đội hình Party & Bảng chi tiết Pokémon)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -14,7 +14,7 @@
 | ---------------------------------------------------------------------------------------------------- | ------------ |
 | Monorepo scaffold (pnpm 9.15.0 + turbo 2.x)                                                          | ✅           |
 | `packages/shared` — Types, Constants, Formulas, Schema, Data                                         | ✅           |
-| `packages/shared` — Game data (649 species, 559 moves, 526 items)                                    | ✅           |
+| `packages/shared` — Game data (898 loài Pokémon, 740 chiêu thức, 693 vật phẩm, 267 đặc tính, 19 hệ) | ✅           |
 | `packages/shared` — Engine code (typechart, combat, stats, encounter, learnset, mapruntime)          | ✅           |
 | `apps/server` — Colyseus 0.15 + Express + PostgreSQL + Redis                                         | ✅           |
 | `apps/client` — Phaser 3 + Vite + Colyseus.js                                                        | ✅           |
@@ -57,6 +57,10 @@
 | Plan 26 — Baseline scale 1.25x, Toolbar Pixel Art, Cắt padding Info, Confirm Modal, Fix Settings & Move LMB | ✅           |
 | Plan 27 — Thư viện UiModal dùng chung & Chuẩn hoá 6 Pop-up/Panel (Settings, Chat, Party, Weather, Confirm, UserInfo) | ✅           |
 | Plan 28 — Nâng cấp UiModal (Dock gắn cứng, không Titlebar, Depth, Padding, Footer, Header buttons) + Reset Settings + Scroll to Zoom + Fix Party | ✅           |
+| Plan 29 — Chuyển khung Hướng dẫn điều khiển (Help) sang UiModal                                      | ✅           |
+| Plan 30 — Đổi icon nút Dock theo chế độ, Liên kết Modal với Settings, ChatLog bên phải              | ✅           |
+| Plan 31 — Nạp dữ liệu Pokémon Essentials v21.1 & Giao diện Quản trị Game Data                        | ✅           |
+| Plan 32 — Hệ thống PC Box, Đội hình Party & Bảng chi tiết Pokémon (Storage & Summary)                | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -1376,10 +1380,185 @@ eslint.config.js                                 (+ ignores .venv, temp)
 ### 6. Kết quả kiểm tra
 - `pnpm typecheck`: 4/4 packages pass không có lỗi TypeScript nào.
 
+---
 
+## Nhật ký 2026-10-01 (15) — Plan 31: Nạp dữ liệu Pokémon Essentials v21.1 và Giao diện Quản trị Game Data
 
+### 1. Mục tiêu
+- Phân tích và trích xuất dữ liệu gốc từ `Pokemon Essentials v21.1 (2023-07-30)` (`PBS/`, `Graphics/`).
+- Chuẩn hoá và nạp vào thư mục dữ liệu game của dự án (`packages/shared/data/`), mở rộng hệ sinh thái Pokémon, Chiêu thức, Vật phẩm, Đặc tính, Hệ nguyên tố.
+- Xây dựng giao diện trang Admin hoàn chỉnh (`admin.html`, `admin.js`, Express backend) cho phép duyệt xem, tìm kiếm, lọc và xem chi tiết toàn bộ dữ liệu đã nhập.
 
+### 2. Dữ liệu đã trích xuất & Chuẩn hoá (`scripts/import_essentials.py`)
+- **898 Loài Pokémon (`species.json`):**
+  - Bao quát toàn bộ Gen 1 → Gen 8 và 339 dạng biến thể (forms: Mega, Alolan, Galarian, v.v.).
+  - Chuẩn hoá Base Stats theo đúng thứ tự Essentials: HP, Attack, Defense, Speed, SpAtk, SpDef.
+  - Phân loại độ hiếm (Common, Uncommon, Rare, Legendary), tỷ lệ bắt (Catch rate), chỉ số kinh nghiệm gốc (`baseExperience`), nhóm trứng, hệ nguyên tố.
+  - Bảng chiêu thức học theo cấp (Level-up moves) và tuyến tiến hoá (Evolutions) chuẩn hoá method (`level`, `item`, `trade`, `friendship`, `move`).
+- **740 Chiêu thức (`moves.json`):**
+  - Đầy đủ 3 phân loại: Physical (Vật lý), Special (Đặc biệt), Status (Biến hoá).
+  - Chuẩn hoá thuộc tính: Hệ (Type), Sức mạnh (Power), Độ chính xác (Accuracy), Điểm năng lượng (PP), Mục tiêu (Target), Mô tả tác dụng.
+- **693 Vật phẩm (`items.json`):**
+  - Phân loại theo 8 nhóm túi đồ: Poké Balls, Medicine, Berries, Evolution Stones, Key Items, TMs/HMs, Battle Items, Misc.
+  - Giá mua, giá bán và mô tả công dụng.
+- **267 Đặc tính (`abilities.json`):**
+  - Tên tiếng Anh chuẩn và mô tả hiệu ứng trong chiến đấu / ngoài thế giới.
+- **19 Hệ nguyên tố (`types.json`):**
+  - Đầy đủ 18 hệ chính thống + hệ Shadow, ma trận khắc chế sát thương 19x19 (Weaknesses x2.0, Resistances x0.5, Immunities x0.0).
+- **Tài nguyên hình ảnh (Assets):**
+  - Sao chép 714 Pokémon icons, 738 battler sprites (front sprites), 449 item icons vào `packages/shared/assets/` và mount tĩnh qua route `/assets` trên máy chủ.
+- **Kiểm định dữ liệu:**
+  - Toàn bộ dữ liệu đã được kiểm chứng khớp 100% với Zod schemas trong `packages/shared/src/contracts.ts` qua `gameData.load()` (0 lỗi).
 
+### 3. Backend Admin API (`apps/server/src/modules/admin/gamedata.ts`)
+- Các endpoint quản trị có xác thực quyền Admin (`requireAuth, requireAdmin`):
+  - `GET /api/admin/gamedata/summary`: Thống kê tổng quan số lượng các mục, phân bố theo thế hệ (Gen 1-8).
+  - `GET /api/admin/gamedata/species`: Danh sách Pokémon phân trang, tìm kiếm đa năng (tên, số Dex, phân loại), lọc theo Gen (1-8), Hệ (18 hệ) và Độ hiếm.
+  - `GET /api/admin/gamedata/species/:id`: Chi tiết 1 loài Pokémon (stats, forms, evolutions, moveset, pokedex).
+  - `GET /api/admin/gamedata/moves`: Danh sách chiêu thức phân trang, tìm kiếm, lọc theo phân loại (Physical/Special/Status) và Hệ.
+  - `GET /api/admin/gamedata/items`: Danh sách vật phẩm phân trang, tìm kiếm, lọc theo nhóm túi đồ.
+  - `GET /api/admin/gamedata/abilities`: Danh sách đặc tính phân trang và tìm kiếm.
+  - `GET /api/admin/gamedata/types`: Danh sách hệ và ma trận tương khắc sát thương (Type Chart).
 
+### 4. Giao diện Frontend Admin (`admin.html`, `admin.js`, `i18n.js`)
+- Thêm mục menu điều hướng **Dữ liệu Game** (`data-view="gamedata"`).
+- Thẻ KPI Header hiển thị tổng số: **898 Loài**, **740 Chiêu thức**, **693 Vật phẩm**, **267 Đặc tính**, **19 Hệ**.
+- Hệ thống Sub-tabs trực quan mượt mà không cần reload trang:
+  - **Tab Pokémon:** Bảng hiển thị Icon pixel 32px, số #Dex, Tên loài, Badges hệ có màu sắc đặc trưng, Phân loại, Bộ chỉ số gốc đầy đủ, Điểm tổng BST, Độ hiếm, và Nút Xem chi tiết.
+  - **Tab Chiêu thức:** Bảng chiêu thức với Badge loại chiêu (⚔ Physical đỏ cam, ✨ Special xanh dương, 🌀 Status tím), sức mạnh, độ chính xác, PP, mô tả.
+  - **Tab Vật phẩm:** Bảng hiển thị icon vật phẩm, tên, nhóm túi đồ, giá mua bán, mô tả.
+  - **Tab Đặc tính:** Bảng tên đặc tính và mô tả tác dụng chiến đấu.
+  - **Tab Tương khắc Hệ:** Bảng trực quan ma trận tương khắc với badges hệ rõ ràng (Điểm yếu x2.0, Kháng x0.5, Miễn nhiễm x0.0).
+- Phân trang máy chủ (Server-side pagination) với các nút Đầu, Trước, Trang hiện tại, Sau, Cuối mượt mà.
+- **Modal Xem chi tiết Pokémon (`#gd-species-modal`):**
+  - Hiển thị ảnh Battler sprite lớn 128px pixel-art.
+  - Mô tả Pokédex nguyên bản.
+  - Chỉ số cơ bản (Base Stats) dạng thanh đồ hoạ tiến trình có màu sắc trực quan (HP, Atk, Def, SpA, SpD, Spe) kèm tổng BST.
+  - Thông số sinh học (Chiều cao, Cân nặng, Tỷ lệ bắt, Nhóm đặc tính & đặc tính ẩn).
+  - Tuyến tiến hoá (Evolutions) với các điều kiện cấp độ / đá tiến hoá.
+  - Bảng danh sách chiêu thức học theo cấp độ (Level-up learnset).
+
+### 5. Kết quả kiểm tra
+- `pnpm typecheck`: 4/4 packages pass (`@pixelmon/shared`, `client`, `server`, root turbo) sạch 100%.
+- Toàn bộ chức năng tìm kiếm, chuyển tab, phân trang, lọc và mở modal xem chi tiết hoạt động đồng bộ.
+
+---
+
+## Plan 32 — Hệ thống PC Box, Đội hình Party & Bảng chi tiết Pokémon (Hoàn thành 2026-10-01)
+
+### 1. Mục tiêu
+Xây dựng trọn vẹn chu trình quản lý Pokémon cho người chơi trong thế giới Pixelmon:
+- Đội hình Party (tối đa 6 Pokémon mang theo) hiển thị trực quan ở cột trái.
+- Bảng thông tin chi tiết Pokémon (Pokemon Summary Modal) với 3 tab: Tổng quan, Chỉ số & Chiêu thức kèm sprite battler lớn, tiếng kêu Cry, Nature, IVs/EVs.
+- Hộp lưu trữ Pokémon (PC Box Modal) dạng lưới 30 ô (6×5) chia thành 8 Box, thao tác Rút / Gửi / Hoán đổi / Thả về tự nhiên kết nối trực tiếp với backend database.
+
+### 2. Backend Storage API (`apps/server/src/modules/pokemon/index.ts`)
+- Cung cấp các endpoint quản lý Pokémon được bảo vệ bằng JWT Auth (`requireAuth`):
+  - `GET /api/pokemon`: Lấy toàn bộ danh sách Pokémon của người chơi (phân chia `party` tối đa 6 con và `box` trong kho lưu trữ). Tự động cấp starter cho tài khoản mới (Party: Bulbasaur, Charmander, Pikachu; Box: Squirtle, Pidgey, Eevee).
+  - `POST /api/pokemon/swap`: Hoán đổi vị trí hoặc chuyển đổi giữa Party và PC Box.
+  - `POST /api/pokemon/deposit`: Gửi Pokémon từ Party vào PC Box (đảm bảo Party luôn còn ít nhất 1 Pokémon chiến đấu).
+  - `POST /api/pokemon/withdraw`: Rút Pokémon từ PC Box vào Party (kiểm tra giới hạn 6 thành viên).
+  - `POST /api/pokemon/release`: Thả Pokémon về tự nhiên.
+- Đăng ký middleware và route `/api/pokemon` vào `apps/server/src/app.ts`.
+
+### 3. Thành phần Frontend UI (`apps/client/src/ui/`)
+- **`PokemonSummaryModal.ts` (Bảng thông tin chi tiết Pokémon):**
+  - Kế thừa chuẩn `UiModal` (khung viền pixel, draggable, nút đóng/thu nhỏ/neo).
+  - Khung Battler Sprite 96px pixel art, nút nghe tiếng kêu `🔊 Cry` (`/assets/audio/cries/{species_id}.ogg`), huy hiệu hệ nguyên tố.
+  - Tab 1 — Tổng quan: Cấp độ, Kinh nghiệm (EXP Bar), Trạng thái, Giới tính, Bản chất (Nature), Chỉ số cơ bản.
+  - Tab 2 — Chỉ số (Stats): Đồ hoạ 6 thanh chỉ số (HP, Atk, Def, SpA, SpD, Spe) với màu sắc Nature tăng/giảm, hiển thị chi tiết IVs (0-31) và EVs (0-252).
+  - Tab 3 — Chiêu thức (Moveset): Danh sách 4 chiêu thức kèm badge hệ, phân loại (Vật lý/Đặc biệt/Trạng thái), Uy lực (Power), Độ chính xác (Accuracy), và số lần dùng (PP).
+- **`PcBoxModal.ts` (Hộp lưu trữ PC Box):**
+  - Quản lý 8 Hộp lưu trữ (Box 1 đến Box 8), mỗi hộp 30 ô (lưới 6×5) tương đương sức chứa 240 Pokémon.
+  - Lưới hiển thị icon Pokémon pixel art chân thực từ `/assets/icons/pokemon/{id}.png`.
+  - Cột 6 ô Đội hình Party bên trái để dễ dàng thao tác chuyển đổi qua lại.
+  - Panel Xem trước (Preview) ở góc phải: avatar, tên, level, thanh máu HP, hệ, và 4 nút thao tác tương tác:
+    - 📥 **Rút về đội** (Withdraw)
+    - 📤 **Cất vào hộp** (Deposit)
+    - 🔍 **Xem chi tiết** (Mở nhanh `PokemonSummaryModal`)
+    - 🕊 **Thả tự do** (Release)
+- **Nâng cấp `PartyStrip.ts`:**
+  - Thay thế placeholder tròn bằng Icon Pokémon thật theo từng loài.
+  - Hiển thị thanh máu Mini HP Bar và cấp độ.
+  - Bấm vào bất kỳ thành viên nào trong Party sẽ mở ngay `PokemonSummaryModal` của Pokémon đó.
+- **`TopMenu.ts`:**
+  - Thêm nút chức năng `pc` (PC Box) với pixel art retro máy vi tính màu xanh cyan.
+- **`HelpModal.ts`:**
+  - Bổ sung phím tắt `P` (Ẩn/hiện Party) và `B` (Mở/đóng PC Box).
+
+### 4. Tích hợp trong `WorldScene.ts`
+- Khởi tạo `PcBoxModal` và `PokemonSummaryModal`, tự động nạp dữ liệu Pokémon khi vào game.
+- Đăng ký vào `getHudObjects()` để UI Camera xử lý độc lập, tránh hiện tượng render đôi hoặc lỗi camera zoom.
+- Gắn phím tắt `B` và `P`, hỗ trợ tương tác trên cả bàn phím, chuột và toolbar.
+- Cập nhật responsive và sắp xếp lại toàn bộ layout khi thay đổi kích thước cửa sổ hoặc mức thu phóng UI (`uiZoom`).
+
+### 5. Kết quả kiểm tra
+- `pnpm run typecheck`: 4/4 packages pass (`@pixelmon/shared`, `client`, `server`, turbo).
+- `pnpm run build`: 3/3 packages build thành công trơn tru.
+- Dịch vụ Client (port 5173) và Server (port 2567) được khởi động lại mượt mà qua `pm.sh`.
+
+### 6. Cập nhật sửa lỗi PC Box & Seeding Pokémon Gen 1 cho toàn bộ tài khoản
+- **Khắc phục lỗi PC Box không mở được:**
+  - Sửa lỗi đệ quy vô hạn trong `onClose` callback của `PcBoxModal.ts` và `PokemonSummaryModal.ts` (`onClose: () => { onClose?.(); }`).
+  - Thêm `this.renderAll()` vào hàm `show()` và constructor của `PcBoxModal` để luôn khởi tạo và làm mới dữ liệu lưới ô ngay khi mở.
+  - Chặn lệnh click-to-move của WorldScene khi `pcBoxModal` hoặc `pokemonSummaryModal` đang mở.
+  - Tự động gọi `loadPlayerPokemon()` khi nhấn phím `B` hoặc bấm icon `pc` trên TopMenu.
+- **Seeding Đội hình Party & 10 Pokémon ngẫu nhiên Gen 1:**
+  - Bổ sung 2 cột `nature` (jsonb) và `gender` (text) vào bảng `pokemon`.
+  - Nâng cấp `autoSeedStarters` tích hợp `generatePokemon` và dữ liệu 151 loài Gen 1 từ `gameData`.
+  - Mỗi tài khoản nhận ngay:
+    - **6 Pokémon Party chuẩn Gen 1:** Pikachu (Lv.25), Charizard (Lv.36), Blastoise (Lv.36), Venusaur (Lv.32), Snorlax (Lv.30), Gengar (Lv.32) với moveset chuẩn theo cấp độ.
+    - **10 Pokémon Gen 1 ngẫu nhiên trong PC Box:** Chọn ngẫu nhiên không trùng lặp từ 151 loài Gen 1, cấp độ ngẫu nhiên từ Lv.18 đến Lv.32, đầy đủ Nature, Gender, IVs, EVs, stats và moveset.
+  - Đã chạy seed thành công cho toàn bộ 12 tài khoản (`admin`, `tienv2i`, `user01` đến `user10`), tổng cộng 192 Pokémon.
+- **Khắc phục triệt để khung Party không hiển thị Pokémon:**
+  - Cấu hình Reverse Proxy trong `apps/client/vite.config.ts`: chuyển tiếp tự động `/api`, `/assets`, `/sprites` từ cổng Vite dev (5173) sang server backend Colyseus/Express (2567).
+  - Cập nhật các yêu cầu API trong `WorldScene.ts`, `PcBoxModal.ts`, `PokemonSummaryModal.ts` sử dụng `SERVER_ORIGIN` tuyệt đối.
+  - Thay thế cơ chế tải dynamic texture của Phaser bằng `loadTextureImage` (sử dụng `new Image()` và `textures.addImage`) trong cả `PartyStrip.ts`, `PcBoxModal.ts` và `PokemonSummaryModal.ts`, ngăn ngừa hoàn toàn tình trạng tắc nghẽn hàng đợi loader khi nạp nhiều icon cùng lúc.
+  - Tự động gọi `loadPlayerPokemon()` khi nhấn phím `P` hoặc bấm icon `team` trên Toolbar và gọi `scheduleCameraRefresh()` ngay sau khi cập nhật danh sách thành viên Party.
+
+### 7. Tinh chỉnh Pokemon Summary Modal, Icon Pokémon & Sửa lỗi Admin Game Data (2026-10-01)
+- **Chuẩn hoá toàn bộ 1,430 Icon Pokémon (Cắt frame đôi):**
+  - Sử dụng Python Pillow (`scripts/crop_pokemon_icons.py`) tự động crop toàn bộ 1,430 icon từ kích thước đôi 128×64 thành chuẩn vuông 64×64 (cắt nửa bên trái frame 0).
+  - Triệt tiêu hoàn toàn hiện tượng hiển thị kép 2 icon trong PartyStrip, PC Box và Summary Modal; tối ưu 50% dung lượng ảnh.
+- **Khắc phục triệt để hiện tượng Double Icon Pokémon do Asset Shadowing:**
+  - Phát hiện thư mục dư thừa `apps/server/public/assets` chứa 714 file icon cũ 128×64 được tạo từ lúc import ban đầu, bị Express middleware `express.static('public')` ưu tiên phục vụ trước route `/assets` dẫn tới việc các icon đã crop 64×64 trong `packages/shared/assets/` bị che mất.
+  - Đã xoá thư mục dư thừa `apps/server/public/assets` và điều chỉnh thứ tự middleware trong `apps/server/src/app.ts` (phục vụ `/assets` trực tiếp từ `packages/shared/assets/`).
+  - Kiểm tra toàn bộ phản hồi HTTP cổng :2567 và :5173: 100% icon Pokémon trả về chuẩn kích thước 64×64 đơn frame.
+
+  - Sửa lỗi `ReferenceError: bst is not defined` và thiếu trường `dexNum` trong `apps/server/public/js/admin.js`.
+  - Bổ sung logic tự động gán `dexNum = idx + 1` và `generation` tương ứng (Gen 1-8) trong `apps/server/src/modules/admin/gamedata.ts`.
+- **Nâng cấp và tinh chỉnh PokemonSummaryModal:**
+  - **Mở rộng kích thước Modal:** Điều chỉnh từ 460×340 lên 500×370 để đảm bảo không gian thoáng đãng, chống tràn các dòng chỉ số.
+  - **Tab Tổng quan (Info):** Tinh gọn nhãn mô tả, loại bỏ các chú thích rườm rà trong ngoặc đơn (`(Healthy)`, `(PC Box)`, `(Tiếp: ...)`).
+  - **Tab Chỉ số (Stats):**
+    - Thiết kế lại layout 6 dòng chỉ số gồm HP, Attack, Defense, Sp. Atk, Sp. Def, Speed.
+    - Tích hợp Nature Modifier trực tiếp lên text mô tả: Thêm dấu `+` và đổi màu xanh lá (`#2ecc71`) cho stat được tăng; thêm dấu `-` và đổi màu đỏ (`#ff7675`) cho stat bị giảm; màu trung tính cho các chỉ số không đổi.
+    - Bổ sung 2 cột riêng biệt hiển thị đầy đủ `IV: xx` và `EV: xxx` căn chỉnh thẳng hàng, không bị tràn ra ngoài khung modal.
+  - **Tab Chiêu thức (Moves):**
+    - Sửa lỗi hiển thị `PP: undefined`: hỗ trợ fallback an toàn giữa `currentPp`, `pp` và `maxPp` (`mv.currentPp ?? mv.pp ?? mv.maxPp`).
+    - Nâng cấp layout 4 ô chiêu thức cân đối trong khung modal 500px.
+- **Tặng Pikachu cái (Timid) cho tài khoản `tienv2i` & Hỗ trợ Sprite Giới tính (Gender Battler):**
+  - Chạy script `apps/server/src/scripts/gift-pikachu-tienv2i.ts`: Khởi tạo thành công 1 Pikachu cái (`gender: female`) cấp độ 25, Bản tính **Timid** (+Speed, -Attack) với moveset chuẩn: *Electro Ball, Feint, Spark, Agility* lưu vào kho PC Box của người chơi `tienv2i`.
+  - Nâng cấp `PokemonSummaryModal.ts`: Tự động nhận diện giới tính `female` và trạng thái `shiny` để nạp đúng sprite battler riêng biệt (ví dụ `/assets/battlers/front/pikachu_female.png` với đuôi hình trái tim) thay vì sprite mặc định.
+- **Nâng cấp Responsive cho PlayerHud (User Info) & Tinh chỉnh InfoPanel (Time & Weather):**
+  - **Khắc phục lỗi mất Responsive:** Viết lại cơ chế co giãn cho cả `PlayerHud.ts` và `InfoPanel.ts`, hỗ trợ 2 chế độ `normal` và `mini` (tự động kích hoạt khi màn hình hẹp `< 640px` hoặc qua nút thu nhỏ). Override hàm `relayout()` và tự động co giãn toạ độ, font size của toàn bộ các phần tử bên trong theo kích thước thực tế.
+  - **PlayerHud:** Thu gọn kích thước từ 180×68 xuống 168×62 (normal) và 115×44 (mini), ẩn bớt realMoney ở màn hình nhỏ, tiết kiệm hơn 60px chiều rộng cho thanh menu ở giữa.
+  - **InfoPanel (Đồng hồ & Thời tiết):**
+    - Bỏ hoàn toàn ngày, tháng, năm.
+    - Hiển thị 2 dòng thời gian riêng biệt:
+      - **Poke Time:** `Poke: HH:MM` (chạy chu kỳ ngày đêm Pokémon, nhanh gấp 6 lần thời gian thực).
+      - **Real Time:** `Real: HH:MM` (giờ máy tính thực tế).
+    - **Thời tiết:** Chỉ hiển thị biểu tượng icon đồ hoạ lớn (22px), loại bỏ toàn bộ chữ tên thời tiết ("Nắng", "Mưa"...) để giao diện cực kỳ tinh gọn, hiện đại và không bị tràn.
+- **Nâng ngưỡng kích hoạt Mini Mode lên một bậc (Breakpoint 800×600):**
+  - Chuyển ngưỡng tự động chuyển sang chế độ Mini của toàn bộ hệ thống giao diện (`WorldScene`, `TopMenu`, `PlayerHud`, `InfoPanel`, `UiZoomManager`) từ `< 640×500` lên **`< 800×600`** (bậc Tablet / Split-screen Compact).
+  - Giúp giao diện trên các màn hình có chiều rộng dưới 800px tự động chuyển sang layout tinh gọn, tránh tình trạng TopBar bị chèn ép khi chia đôi cửa sổ hoặc trên tablet.
+- **Tái cấu trúc PartyStrip dạng Thẻ ngang Mini Card rộng rãi (72×38px, Panel 86px):**
+  - Mở rộng thêm chiều ngang thanh Party lên `PANEL_W = 86px`, ô slot `72×38px`:
+    - **Cột trái (x: 0..34):** Dành riêng cho Icon Pokémon 28×28 đặt tại tâm `startX + 18, sy + 19`.
+    - **Cột phải (x: 36..68):** Rộng rãi 32px, hiển thị Level `Lv.xx` (font 10px bold) ở trên và thanh máu HP dài 30px ở dưới.
+  - Tuyệt đối không có bất kỳ điểm chạm hay che khuất nào giữa hình ảnh Pokémon và số cấp độ.
+- **Kiểm tra chất lượng:**
+  - `pnpm run typecheck`: 4/4 packages pass trơn tru không lỗi.
+  - Cả Server (:2567) và Client (:5173) đã restart và hoạt động ổn định.
 
 

@@ -1,0 +1,34 @@
+# Ripgrep / Search tool ignore file
+# Used by ripgrep (rg), ag, OpenCode, Cursor, and other AI coding assistants
+
+# Large media assets (audio, battlers, battlebacks, characters, etc.)
+packages/shared/assets/audio/
+packages/shared/assets/battlers/
+packages/shared/assets/battlebacks/
+packages/shared/assets/characters/
+packages/shared/assets/autotiles/
+packages/shared/assets/weather/
+packages/shared/assets/fogs/
+packages/shared/assets/trainers/
+packages/shared/assets/animations/
+packages/shared/assets/maps/
+packages/shared/assets/ui/
+packages/shared/assets/icons/
+
+# Raw PBS data archive
+packages/shared/data/pbs/
+
+# Media file extensions
+*.ogg
+*.mid
+*.wav
+*.mp3
+
+# Build & temp
+node_modules/
+dist/
+.turbo/
+.pm/logs/
+.playwright-mcp/
+.venv/
+temp/

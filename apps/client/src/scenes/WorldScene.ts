@@ -13,6 +13,8 @@ import { ChatLog } from '../ui/ChatLog';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { HelpModal } from '../ui/HelpModal';
+import { PcBoxModal } from '../ui/PcBoxModal';
+import { PokemonSummaryModal, type PokemonData } from '../ui/PokemonSummaryModal';
 import { TopMenu } from '../ui/TopMenu';
 import { InfoPanel } from '../ui/InfoPanel';
 import { UiZoomManager } from '../ui/UiZoomManager';
@@ -70,6 +72,10 @@ export class WorldScene extends Phaser.Scene {
   private settingsPanel!: SettingsPanel;
   private confirmModal!: ConfirmModal;
   private helpModal!: HelpModal;
+  private pcBoxModal!: PcBoxModal;
+  private pokemonSummaryModal!: PokemonSummaryModal;
+  private playerPokemonParty: PokemonData[] = [];
+  private playerPokemonBox: PokemonData[] = [];
   private moveButton: 'left' | 'right' = 'left';
   private manualMiniMode?: boolean;
   private playerSheetKey: string = TEX.hero;
@@ -351,6 +357,8 @@ export class WorldScene extends Phaser.Scene {
       ...this.settingsPanel.getGameObjects(),
       ...this.confirmModal.getGameObjects(),
       ...(this.helpModal ? this.helpModal.getGameObjects() : []),
+      ...(this.pcBoxModal ? this.pcBoxModal.getGameObjects() : []),
+      ...(this.pokemonSummaryModal ? this.pokemonSummaryModal.getGameObjects() : []),
     ];
     if (this.debugText) objs.push(this.debugText);
     return objs;
@@ -440,6 +448,23 @@ export class WorldScene extends Phaser.Scene {
         this.helpModal?.toggle();
         this.topMenu?.setActive(this.helpModal?.isOpen() ? 'help' : '');
       });
+      // B → mở/đóng PC Box
+      this.input.keyboard.on('keydown-B', () => {
+        this.pcBoxModal?.toggle();
+        this.topMenu?.setActive(this.pcBoxModal?.isOpen() ? 'pc' : '');
+        if (this.pcBoxModal?.isOpen()) {
+          this.loadPlayerPokemon();
+        }
+      });
+      // P → mở/đóng Party
+      this.input.keyboard.on('keydown-P', () => {
+        this.partyStrip?.toggle();
+        this.topMenu?.setActive(this.partyStrip?.isOpen() ? 'team' : '');
+        this.settingsPanel?.setHudCheckbox('party', this.partyStrip?.isOpen());
+        if (this.partyStrip?.isOpen()) {
+          this.loadPlayerPokemon();
+        }
+      });
     }
 
     this.setupPointerInput();
@@ -462,7 +487,14 @@ export class WorldScene extends Phaser.Scene {
     this.input.on(
       'pointerdown',
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-        if (this.settingsPanel?.isOpen() || this.confirmModal?.isOpen() || this.helpModal?.isOpen()) return;
+        if (
+          this.settingsPanel?.isOpen() ||
+          this.confirmModal?.isOpen() ||
+          this.helpModal?.isOpen() ||
+          this.pcBoxModal?.isOpen() ||
+          this.pokemonSummaryModal?.isOpen()
+        )
+          return;
         if (over.length > 0) return;
 
         const wantPan = p.middleButtonDown() || (p.leftButtonDown() && p.event.shiftKey);
@@ -651,17 +683,14 @@ export class WorldScene extends Phaser.Scene {
     });
 
     // PartyStrip (trái, dọc) — neo ngay dưới PlayerHud
-    const mockParty: Array<PartyMember | null> = [
-      { name: 'Charmander', hp: 22, maxHp: 28, rarity: 'common' },
-      { name: 'Pikachu', hp: 18, maxHp: 22, rarity: 'uncommon' },
-      { name: 'Bulbasaur', hp: 15, maxHp: 20, rarity: 'common' },
-      null,
-      null,
-      null,
-    ];
     this.partyStrip = new PartyStrip(
       this,
-      mockParty,
+      [],
+      (member) => {
+        if (member.pokemonData) {
+          this.pokemonSummaryModal.showPokemon(member.pokemonData);
+        }
+      },
       () => {
         this.topMenu?.setActive('');
         this.settingsPanel?.setHudCheckbox('party', false);
@@ -670,6 +699,9 @@ export class WorldScene extends Phaser.Scene {
     this.partyStrip.setUiZoomManager(this.uiZoom);
     this.layoutLeftColumn();
     this.scale.on('ui-zoom-change', () => this.layoutLeftColumn());
+
+    // Nạp dữ liệu Pokémon của người chơi từ server
+    this.loadPlayerPokemon();
 
     // ChatLog (phải-dưới)
     this.chatLog = new ChatLog(
@@ -748,6 +780,19 @@ export class WorldScene extends Phaser.Scene {
     });
     this.helpModal.setUiZoomManager(this.uiZoom);
 
+    // PokemonSummaryModal — bảng thông tin chi tiết từng Pokémon
+    this.pokemonSummaryModal = new PokemonSummaryModal(this);
+    this.pokemonSummaryModal.setUiZoomManager(this.uiZoom);
+
+    // PcBoxModal — hộp lưu trữ Pokémon (PC Box)
+    this.pcBoxModal = new PcBoxModal(
+      this,
+      this.pokemonSummaryModal,
+      (newParty) => this.onPartyUpdated(newParty),
+      () => this.topMenu?.setActive(''),
+    );
+    this.pcBoxModal.setUiZoomManager(this.uiZoom);
+
     // Áp dụng responsive mode ban đầu và lắng nghe sự kiện
     this.relayoutAllPanels();
     this.scale.on('resize', () => this.relayoutAllPanels());
@@ -764,13 +809,70 @@ export class WorldScene extends Phaser.Scene {
     this.chatLog?.relayout();
     this.settingsPanel?.relayout();
     this.helpModal?.relayout();
+    this.pcBoxModal?.relayout();
+    this.pokemonSummaryModal?.relayout();
     if (this.minimap && this.player) {
       this.minimap.update(this.player.x, this.player.y, this.cameras.main);
     }
   }
 
+  /** Nạp dữ liệu Pokémon của người chơi (Party + PC Box) từ API */
+  private async loadPlayerPokemon(): Promise<void> {
+    try {
+      const token = localStorage.getItem('pixelmon.token');
+      if (!token) {
+        console.warn('[loadPlayerPokemon] no token in localStorage');
+        return;
+      }
+      const res = await fetch(`${SERVER_ORIGIN}/api/pokemon`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.ok) {
+        this.playerPokemonParty = data.party || [];
+        this.playerPokemonBox = data.box || [];
+        console.log(`[loadPlayerPokemon] loaded ${this.playerPokemonParty.length} party, ${this.playerPokemonBox.length} box`);
+        this.pcBoxModal?.setStorageData(this.playerPokemonParty, this.playerPokemonBox);
+        this.syncPartyStrip();
+      } else {
+        console.warn('[loadPlayerPokemon] API error:', data);
+      }
+    } catch (err) {
+      console.error('[loadPlayerPokemon]', err);
+    }
+  }
+
+  private syncPartyStrip(): void {
+    const members: Array<PartyMember | null> = [];
+    for (let i = 0; i < 6; i++) {
+      const pkm = this.playerPokemonParty[i];
+      if (pkm) {
+        const maxHp = pkm.stats?.hp || 100;
+        members.push({
+          id: pkm.id,
+          name: pkm.nickname || pkm.species_id,
+          species_id: pkm.species_id,
+          level: pkm.level,
+          hp: pkm.current_hp ?? maxHp,
+          maxHp,
+          rarity: pkm.shiny ? 'legendary' : 'common',
+          pokemonData: pkm,
+        });
+      } else {
+        members.push(null);
+      }
+    }
+    this.partyStrip?.setMembers(members);
+    this.scheduleCameraRefresh();
+  }
+
+  private onPartyUpdated(newParty: PokemonData[]): void {
+    this.playerPokemonParty = [...newParty];
+    this.syncPartyStrip();
+  }
+
   private isSmallViewport(): boolean {
-    return this.scale.width < 640 || this.scale.height < 500;
+    return this.scale.width < 800 || this.scale.height < 600;
   }
 
   private applyViewportHudMode(): void {
@@ -831,6 +933,17 @@ export class WorldScene extends Phaser.Scene {
         this.partyStrip.toggle();
         this.topMenu?.setActive(this.partyStrip.isOpen() ? 'team' : '');
         this.settingsPanel?.setHudCheckbox('party', this.partyStrip.isOpen());
+        if (this.partyStrip.isOpen()) {
+          this.loadPlayerPokemon();
+        }
+        break;
+      }
+      case 'pc': {
+        this.pcBoxModal.toggle();
+        this.topMenu?.setActive(this.pcBoxModal.isOpen() ? 'pc' : '');
+        if (this.pcBoxModal.isOpen()) {
+          this.loadPlayerPokemon();
+        }
         break;
       }
       case 'pokedex':

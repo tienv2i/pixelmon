@@ -50,8 +50,8 @@ export class UiZoomManager {
   getBreakpoint(): UiBreakpoint {
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
-    if (w < 640 || h < 500) return 'mini';
-    if (w < 800 || h < 640) return 'compact';
+    if (w < 800 || h < 600) return 'mini';
+    if (w < 1024 || h < 768) return 'compact';
     return 'normal';
   }
 

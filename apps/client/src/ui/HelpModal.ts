@@ -3,7 +3,7 @@ import { C, FONT, ts } from './theme';
 import { UiModal } from './UiModal';
 
 const MODAL_W = 440;
-const MODAL_H = 320;
+const MODAL_H = 360;
 const HEADER_H = 32;
 
 interface ShortcutItem {
@@ -55,6 +55,8 @@ export class HelpModal extends UiModal {
     const kbShortcuts: ShortcutItem[] = [
       { key: 'W, A, S, D / Arrows', desc: 'Di chuyển nhân vật trong thế giới' },
       { key: 'Enter', desc: 'Mở / Gửi tin nhắn vào khung chat' },
+      { key: 'P', desc: 'Ẩn / hiện Đội hình Pokémon (Party)' },
+      { key: 'B', desc: 'Mở / đóng Hộp lưu trữ Pokémon (PC Box)' },
       { key: 'M', desc: 'Bật / tắt bản đồ thu nhỏ (Minimap)' },
       { key: 'H  hoặc nút  ?', desc: 'Bật / tắt bảng hướng dẫn này' },
       { key: 'Esc  hoặc nút  ⚙', desc: 'Mở bảng Cài đặt hệ thống' },

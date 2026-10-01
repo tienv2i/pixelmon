@@ -55,6 +55,7 @@ export const C = {
 export const FONT = {
   mono: 'monospace',
   ui: 'system-ui, -apple-system, sans-serif',
+  sans: 'system-ui, -apple-system, sans-serif',
 } as const;
 
 // ── Phaser text‑style factories ──────────────────────────────────────────

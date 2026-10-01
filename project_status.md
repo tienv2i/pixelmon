@@ -746,6 +746,21 @@ apps/client/src/scenes/WorldScene.ts             (chọn sheet user → hero →
 apps/client/src/scenes/BootScene.ts              (bỏ @ts-ignore thừa)
 apps/client/src/world/TiledMapLoader.ts          (eslint-disable + @ts-ignore giữ TS6059)
 eslint.config.js                                 (+ ignores .venv, temp)
-docs/sprite-import-guide.md                      (mục 3b thư viện, flag --publish-name, file liên quan)
-project_status.md                                (Plan 20 + nhật ký)
 ```
+
+---
+
+## Nhật ký 2026-10-01 (3) — Sửa lỗi theo phản hồi
+
+### Lỗi 3a: Sprite không xoay mặt / không hoạt động đúng khi di chuyển bằng chuột phải
+
+- **Nguyên nhân:**
+  1. Trong `WorldScene.update()`, logic `if (this.moving)` xử lý di chuyển dùng chung cho cả phím lẫn chuột phải. Khi chuột phải di chuyển (`advanceAlongPath`), biến hướng phím mặc định `keyDirection = 'down'` (vì không bấm phím) lại bị gán đè vào `this.player.setDirection('down')` mỗi tick.
+  2. Việc gán đè này làm hướng liên tục bị reset về `down`, đồng thời reset `walkFrame` về 0 mỗi frame khiến animation bước đi bị giật/đứng yên và sprite luôn hướng mặt xuống dưới.
+  3. Xử lý chuột phải trong Phaser cần hỗ trợ cả `p.button === 2` và `p.rightButtonDown()`, đồng thời gọi `this.input.mouse?.disableContextMenu()` để tránh bị nuốt sự kiện.
+- **Khắc phục:**
+  - Tách rời nhánh phím (`isKeyboardMoving`) và nhánh chuột phải (`advanceAlongPath`). Nhánh phím chỉ chạy khi thực sự có phím bấm.
+  - Cập nhật hướng di chuyển theo vector (`dx, dy`) cho từng bước của path trong `advanceAlongPath`, giữ nguyên hướng hiện tại khi bước dừng.
+  - Hỗ trợ thêm cụm phím WASD song song với 4 phím mũi tên.
+- **File sửa:** `apps/client/src/scenes/WorldScene.ts`.
+

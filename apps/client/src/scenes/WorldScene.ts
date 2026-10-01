@@ -49,6 +49,7 @@ const SERVER_ORIGIN: string = (() => {
 export class WorldScene extends Phaser.Scene {
   private player!: PlayerSprite;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private wasd?: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
   private remotePlayers = new Map<string, PlayerSprite>();
   private canMove = true;
   private lastMoveSent = 0;
@@ -367,6 +368,7 @@ export class WorldScene extends Phaser.Scene {
   private createInput(): void {
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
+      this.wasd = this.input.keyboard.addKeys('W,A,S,D') as typeof this.wasd;
 
       // WASD/Arrows cũng cancel click-to-move
       const cancelMove = () => this.cancelAutoMove();
@@ -404,11 +406,13 @@ export class WorldScene extends Phaser.Scene {
    * Không vẽ path — chỉ làm viền sáng trên ô đích.
    */
   private setupPointerInput(): void {
+    this.input.mouse?.disableContextMenu();
+
     // Chuột phải → click-to-move
     this.input.on(
       'pointerdown',
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-        if (!p.rightButtonDown()) return;
+        if (!p.rightButtonDown() && p.button !== 2) return;
         if (over.length > 0) return;
         const wp = this.cameras.main.getWorldPoint(p.x, p.y);
         this.issueMoveTo(wp.x, wp.y);
@@ -830,8 +834,12 @@ export class WorldScene extends Phaser.Scene {
     const step = PLAYER_SPEED * TILE_SIZE * (delta / 1000);
 
     // Hướng di chuyển
-    const direction: Dir =
-      Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+    let direction: Dir = this.player.getDirection();
+    if (Math.abs(dx) > Math.abs(dy)) {
+      direction = dx > 0 ? 'right' : 'left';
+    } else if (Math.abs(dy) > 0.001) {
+      direction = dy > 0 ? 'down' : 'up';
+    }
 
     if (dist <= step) {
       // Đã tới ô này → nhảy tới ô tiếp theo
@@ -866,38 +874,36 @@ export class WorldScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     if (!this.cursors || !this.canMove) return;
 
+    const left = this.cursors.left.isDown || !!this.wasd?.A?.isDown;
+    const right = this.cursors.right.isDown || !!this.wasd?.D?.isDown;
+    const up = this.cursors.up.isDown || !!this.wasd?.W?.isDown;
+    const down = this.cursors.down.isDown || !!this.wasd?.S?.isDown;
+
     let vx = 0;
     let vy = 0;
-    let direction: Dir = 'down';
+    let keyDirection: Dir = 'down';
 
-    if (this.cursors.left.isDown) {
+    if (left) {
       vx = -1;
-      direction = 'left';
-    } else if (this.cursors.right.isDown) {
+      keyDirection = 'left';
+    } else if (right) {
       vx = 1;
-      direction = 'right';
-    } else if (this.cursors.up.isDown) {
+      keyDirection = 'right';
+    } else if (up) {
       vy = -1;
-      direction = 'up';
-    } else if (this.cursors.down.isDown) {
+      keyDirection = 'up';
+    } else if (down) {
       vy = 1;
-      direction = 'down';
+      keyDirection = 'down';
     }
 
-    this.moving = vx !== 0 || vy !== 0;
+    const isKeyboardMoving = vx !== 0 || vy !== 0;
 
-    // Click-to-move: chỉ chạy khi KHÔNG có phím đang giữ.
-    // Nếu người chơi bấm bàn phím → cancelAutoMove() đã được gọi ở createInput().
-    if (!this.moving && this.movePath.length > 0) {
-      this.moving = this.advanceAlongPath(delta);
-      // Đã tới đích → xoá marker
-      if (!this.moving && this.movePath.length === 0) {
-        this.pointerTarget = undefined;
-        this.destGfx?.clear();
+    if (isKeyboardMoving) {
+      if (this.movePath.length > 0) {
+        this.cancelAutoMove();
       }
-    }
-
-    if (this.moving) {
+      this.moving = true;
       const speed = PLAYER_SPEED * TILE_SIZE;
       const nextX = this.player.x + vx * speed * (delta / 1000);
       const nextY = this.player.y + vy * speed * (delta / 1000);
@@ -906,13 +912,22 @@ export class WorldScene extends Phaser.Scene {
       const maxY = this.mapHeight - TILE_SIZE;
 
       this.player.setPosition(Phaser.Math.Clamp(nextX, 0, maxX), Phaser.Math.Clamp(nextY, 0, maxY));
-      this.player.setDirection(direction);
+      this.player.setDirection(keyDirection);
 
       // throttle ~10/s
       if (time - this.lastMoveSent > 100) {
         this.lastMoveSent = time;
-        ColyseusManager.getInstance().sendMove(this.player.x, this.player.y, direction);
+        ColyseusManager.getInstance().sendMove(this.player.x, this.player.y, keyDirection);
       }
+    } else if (this.movePath.length > 0) {
+      this.moving = this.advanceAlongPath(delta);
+      // Đã tới đích → xoá marker
+      if (!this.moving && this.movePath.length === 0) {
+        this.pointerTarget = undefined;
+        this.destGfx?.clear();
+      }
+    } else {
+      this.moving = false;
     }
 
     this.player.animateWalk(delta, this.moving);

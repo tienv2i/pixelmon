@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 24: Nâng cấp Tabbed Settings Panel & Khung Chat Draggable)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 25: Chuẩn hoá Tỷ lệ HUD, Draggable Settings, Overlay Khóa UI, Cài đặt Ngôn ngữ & Nút Logout trên Toolbar)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -53,6 +53,7 @@
 | Plan 22 — Chuẩn hoá giao diện Client ở màn hình nhỏ (Responsive Mobile & Small Viewport)             | ✅           |
 | Plan 23 — Tinh gọn UI, Profile Mini, Toolbar thu gọn & Settings Panel đa năng                        | ✅           |
 | Plan 24 — Nâng cấp Tabbed Settings Panel & Khung Chat Draggable                                      | ✅           |
+| Plan 25 — Chuẩn hoá Tỷ lệ HUD, Draggable Settings, Overlay Khóa UI, Ngôn ngữ & Logout trên Toolbar    | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -637,6 +638,44 @@ quay hướng âm thầm. Chi tiết: `docs/sprite-import-guide.md` mục 3b.
 8. **Bước 8 — Kiểm tra typecheck và cập nhật status:**
    - [x] Chạy `pnpm --filter client typecheck` pass 100%.
    - [x] Cập nhật kết quả vào `project_status.md` và git commit.
+
+---
+
+## Kế hoạch hiện tại: Plan 25 — Chuẩn hoá Tỷ lệ HUD, Draggable Settings, Overlay Khóa UI, Cài đặt Ngôn ngữ & Nút Logout trên Toolbar
+
+> Bắt đầu 2026-10-01. Hoàn thành 2026-10-01. Mục tiêu: Khắc phục lỗi kích thước HUD không chuẩn khi phóng to/thu nhỏ màn hình; Thêm tuỳ chọn ngôn ngữ trực quan trong Settings; Khung Settings có thể kéo thả di chuyển; Bổ sung Overlay chặn toàn bộ thao tác UI/game khi mở Settings; Đưa nút Logout lên thanh Toolbar.
+
+1. **Bước 1 — Chuẩn hoá Tỷ lệ HUD & Cơ chế Relayout tập trung (`UiZoomManager.ts`, `WorldScene.ts`):**
+   - [x] Bỏ cơ chế `autoFactor` co rút làm nhảy tỷ lệ HUD khi resize; giữ giá trị `uiZoom` chuẩn do người dùng điều khiển và phân bổ chế độ `mini` đồng bộ.
+   - [x] Thống nhất ngưỡng chuyển đổi `mini` trên toàn bộ các panel (`< 640px` chiều rộng hoặc `< 500px` chiều cao).
+   - [x] Xây dựng hàm `relayoutAllPanels()` trong `WorldScene.ts` để cập nhật đồng loạt mọi panel khi resize màn hình, đảm bảo không panel nào bị kẹt kích thước cũ.
+2. **Bước 2 — Khung Settings Draggable & Overlay Khóa UI (`SettingsPanel.ts`):**
+   - [x] Bổ sung cơ chế kéo thả di chuyển (Draggable) modal Settings bằng thanh tiêu đề Header.
+   - [x] Cải tiến Overlay mờ tối toàn màn hình (`depth = 200`) có khả năng khóa và chặn đứng toàn bộ tương tác chuột xuống các panel HUD và world gameplay bên dưới.
+3. **Bước 3 — Cải tiến Cài đặt Ngôn ngữ trong Settings (`SettingsPanel.ts`):**
+   - [x] Thiết kế khu vực chọn Ngôn ngữ trực quan: Nút chuyển đổi Tiếng Việt / English có đánh dấu trạng thái Active rõ ràng, lưu cấu hình vào `localStorage`.
+4. **Bước 4 — Đưa nút Logout ra thanh Toolbar (`TopMenu.ts`, `WorldScene.ts`):**
+   - [x] Bổ sung icon `🚪` Đăng xuất trực tiếp lên thanh công cụ `TopMenu` (cả ở chế độ dàn ngang lẫn pop-up mini).
+   - [x] Bấm vào nút Đăng xuất trên Toolbar sẽ lập tức ngắt kết nối và quay về màn hình Login.
+5. **Bước 5 — Typecheck, kiểm tra toàn bộ & Git commit:**
+   - [x] Chạy typecheck kiểm tra không còn lỗi (100% pass toàn monorepo).
+   - [x] Cập nhật `project_status.md` và tạo git commit.
+
+---
+
+### Nhật ký 2026-10-01 (9) — Plan 25: Ổn định Tỷ lệ HUD, Draggable Settings, Overlay Khóa UI & Logout Toolbar
+
+- **Khắc phục lỗi kích thước HUD không chuẩn khi phóng to/thu nhỏ:**
+  - Bỏ công thức co rút tự động `autoFactor` trong `UiZoomManager`: HUD giữ tỷ lệ pixel-perfect sắc nét theo đúng tỷ lệ người dùng chọn trong Settings (100%, 110%, v.v.), không còn bị biến dạng méo mó khi resize hay browser zoom.
+  - Đồng bộ ngưỡng chuyển đổi chế độ tối giản (`mini mode`) thống nhất trên toàn bộ các thành phần: `viewport.width < 640 || viewport.height < 500`.
+  - Bổ sung hàm điều phối tập trung `relayoutAllPanels()` trong `WorldScene.ts`: cập nhật đồng loạt `PlayerHud`, `InfoPanel`, `PartyStrip`, `TopMenu`, `ChatLog` và `Minimap` trên mọi sự kiện resize / breakpoint-change / ui-zoom-change.
+- **Khung Settings Draggable & Khóa UI:**
+  - Thanh tiêu đề modal Settings hỗ trợ nhấn giữ chuột trái và kéo thả di chuyển tự do trên màn hình (kèm nút `⚓` để căn giữa lại tức thì).
+  - Overlay phủ toàn màn hình (`depth = 200`) nuốt trọn mọi tương tác click chuột, chặn hoàn toàn click-to-move, pan camera và tương tác các panel phía sau khi đang mở Settings.
+- **Cài đặt Ngôn ngữ hoàn thiện:**
+  - Giao diện chọn ngôn ngữ trực quan với 2 nút `🇻🇳 Tiếng Việt` và `🇺🇸 English`, hiển thị highlight viền cyan cho ngôn ngữ đang chọn và lưu trạng thái vào `localStorage` (`pixelmon.lang`).
+- **Nút Logout trên Toolbar:**
+  - Đưa trực tiếp icon `🚪` Đăng xuất lên thanh công cụ `TopMenu` (dàn ngang desktop & pop-up mini), giúp người chơi đăng xuất nhanh chóng tiện lợi chỉ với 1 click.
 
 ---
 

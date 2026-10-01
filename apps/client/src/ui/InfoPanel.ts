@@ -117,7 +117,7 @@ export class InfoPanel {
   }
 
   private isMiniMode(): boolean {
-    return this._hudMode === 'mini' || this.scene.scale.width < 640;
+    return this._hudMode === 'mini' || this.scene.scale.width < 640 || this.scene.scale.height < 500;
   }
 
   /**
@@ -127,7 +127,7 @@ export class InfoPanel {
     return this.baseY + this.currentH;
   }
 
-  private relayout(): void {
+  relayout(): void {
     const z = this._uiZoomManager?.uiZoom ?? 1;
     const isMini = this.isMiniMode();
     const w = (isMini ? MINI_W : PANEL_W) * z;

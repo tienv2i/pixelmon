@@ -446,6 +446,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.on(
       'pointerdown',
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+        if (this.settingsPanel?.isOpen()) return;
         if (!p.rightButtonDown() && p.button !== 2) return;
         if (over.length > 0) return;
         const wp = this.cameras.main.getWorldPoint(p.x, p.y);
@@ -457,6 +458,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.on(
       'pointerdown',
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+        if (this.settingsPanel?.isOpen()) return;
         const wantPan = p.middleButtonDown() || (p.leftButtonDown() && p.event.shiftKey);
         if (!wantPan) return;
         if (over.length > 0) return; // đang click lên UI → bỏ qua
@@ -477,6 +479,7 @@ export class WorldScene extends Phaser.Scene {
 
     // Hover → highlight ô đích
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (this.settingsPanel?.isOpen()) return;
       if (this.camDrag && this.camDrag.pointerId === p.id) {
         // Đang pan camera — update scroll
         const cam = this.cameras.main;
@@ -690,17 +693,22 @@ export class WorldScene extends Phaser.Scene {
     this.createHintPanel();
 
     // Áp dụng responsive mode ban đầu và lắng nghe sự kiện
+    this.relayoutAllPanels();
+    this.scale.on('resize', () => this.relayoutAllPanels());
+    this.scale.on('breakpoint-change', () => this.relayoutAllPanels());
+    this.scale.on('ui-zoom-change', () => this.relayoutAllPanels());
+  }
+
+  private relayoutAllPanels(): void {
     this.applyViewportHudMode();
-    this.scale.on('resize', () => {
-      this.applyViewportHudMode();
-      this.layoutLeftColumn();
-      this.topMenu.relayout();
-    });
-    this.scale.on('breakpoint-change', () => {
-      this.applyViewportHudMode();
-      this.layoutLeftColumn();
-      this.topMenu.relayout();
-    });
+    this.hud?.relayout();
+    this.infoPanel?.relayout();
+    this.layoutLeftColumn();
+    this.topMenu?.relayout();
+    this.chatLog?.relayout();
+    if (this.minimap && this.player) {
+      this.minimap.update(this.player.x, this.player.y, this.cameras.main);
+    }
   }
 
   private isSmallViewport(): boolean {
@@ -710,12 +718,12 @@ export class WorldScene extends Phaser.Scene {
   private applyViewportHudMode(): void {
     const isMini = this.manualMiniMode !== undefined ? this.manualMiniMode : this.isSmallViewport();
     const mode = isMini ? 'mini' : 'normal';
-    this.hud.setHudMode(mode);
-    this.partyStrip.setHudMode(mode);
-    this.infoPanel.setHudMode(mode);
-    this.chatLog.setHudMode(mode);
-    this.minimap.setHudMode(mode);
-    this.topMenu.setHudMode(mode);
+    this.hud?.setHudMode(mode);
+    this.partyStrip?.setHudMode(mode);
+    this.infoPanel?.setHudMode(mode);
+    this.chatLog?.setHudMode(mode);
+    this.minimap?.setHudMode(mode);
+    this.topMenu?.setHudMode(mode);
   }
 
   /**
@@ -813,6 +821,10 @@ export class WorldScene extends Phaser.Scene {
         break;
       case 'help':
         this.toggleHint();
+        break;
+      case 'logout':
+        ColyseusManager.getInstance().disconnect();
+        this.scene.start('Login');
         break;
       case 'pokedex':
       case 'bag':

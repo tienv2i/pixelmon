@@ -131,6 +131,7 @@ const ICONS: MenuIconDef[] = [
   { key: 'gps', glyph: '📍', label: 'GPS / Minimap' },
   { key: 'settings', glyph: '⚙', label: 'Cài đặt' },
   { key: 'help', glyph: '?', label: 'Hướng dẫn' },
+  { key: 'logout', glyph: '🚪', label: 'Đăng xuất' },
 ];
 
 /**

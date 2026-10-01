@@ -49,19 +49,17 @@ export class UiZoomManager {
   getBreakpoint(): UiBreakpoint {
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
-    if (w < 560 || h < 480) return 'mini';
-    if (w < 768 || h < 600) return 'compact';
+    if (w < 640 || h < 500) return 'mini';
+    if (w < 800 || h < 640) return 'compact';
     return 'normal';
   }
 
   /**
-   * Giá trị UI zoom thực tế: kết hợp giữa zoom người dùng chọn
-   * và hệ số co giãn tự động thích ứng khi viewport nhỏ (< 640px).
+   * Giá trị UI zoom người dùng chọn (mặc định 1.0 = 100%).
+   * Ổn định và đồng nhất, không tự động biến dạng theo kích thước cửa sổ.
    */
   get uiZoom(): number {
-    const w = this.scene.scale.width;
-    const autoFactor = w < 640 ? Math.max(0.7, Math.min(1.0, w / 640)) : 1.0;
-    return Math.round(this._uiZoom * autoFactor * 100) / 100;
+    return this._uiZoom;
   }
 
   /** Giá trị zoom gốc người dùng đặt (chưa nhân hệ số thích ứng). */

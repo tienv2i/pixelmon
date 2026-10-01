@@ -84,7 +84,7 @@ export class ChatLog {
     return (
       this._hudMode === 'mini' ||
       this.scene.scale.height < 500 ||
-      this.scene.scale.width < 560
+      this.scene.scale.width < 640
     );
   }
 
@@ -220,7 +220,7 @@ export class ChatLog {
     this.scene.input.on('pointerupoutside', endDrag);
   }
 
-  private relayout(): void {
+  relayout(): void {
     if (!this.isVisible) return;
     const z = this._uiZoomManager?.uiZoom ?? 1;
     const maxLines = this.maxLines();

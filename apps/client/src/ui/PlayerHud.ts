@@ -108,7 +108,7 @@ export class PlayerHud {
     this.scene.scale.on('ui-zoom-change', () => this.relayout());
   }
 
-  private relayout(): void {
+  relayout(): void {
     const z = this._uiZoomManager?.uiZoom ?? 1;
     const isMini = this._hudMode === 'mini';
     const P = (isMini ? 4 : PAD) * z;

@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin — Pixelmon</title>
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/admin.css" />
+    <script src="/js/i18n.js"></script>
+  </head>
+  <body class="admin-body">
+    <!-- ═══ LOGIN OVERLAY (hiện khi chưa đăng nhập) ═══ -->
+    <div id="admin-login" class="admin-login hidden">
+      <div class="admin-login-box">
+        <div class="brand" style="text-align: center; margin-bottom: 24px">
+          <span class="brand-mark">◈</span>
+          <span class="brand-name" style="font-size: 22px" data-i18n="login.title"
+            >Pixelmon Admin</span
+          >
+          <p class="dim" style="margin-top: 6px; font-size: 13px" data-i18n="login.subtitle">
+            Đăng nhập bằng tài khoản quản trị viên
+          </p>
+        </div>
+
+        <form id="login-form">
+          <label class="form-field">
+            <span class="form-label">Tên đăng nhập</span>
+            <input
+              name="username"
+              type="text"
+              placeholder="admin"
+              autocomplete="username"
+              required
+            />
+          </label>
+          <label class="form-field">
+            <span class="form-label" data-i18n="login.password">Mật khẩu</span>
+            <input
+              name="password"
+              type="password"
+              placeholder="••••••"
+              autocomplete="current-password"
+              required
+            />
+          </label>
+          <div id="login-msg" class="msg hidden"></div>
+          <button
+            type="submit"
+            id="login-btn"
+            class="btn btn-primary"
+            style="width: 100%; justify-content: center"
+            data-i18n="login.submit"
+          >
+            Đăng nhập
+          </button>
+        </form>
+        <p style="text-align: center; margin-top: 16px; font-size: 13px" class="dim">
+          <a href="/" data-i18n="btn.backHome">← Về trang chủ</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- ═══ ACCESS DENIED (đã đăng nhập nhưng không phải admin) ═══ -->
+    <div id="admin-denied" class="admin-login hidden">
+      <div class="admin-login-box" style="text-align: center">
+        <div style="font-size: 48px; margin-bottom: 16px">⛔</div>
+        <h2 style="font-size: 20px; margin-bottom: 10px" data-i18n="denied.title">
+          Không có quyền truy cập
+        </h2>
+        <p class="dim" style="margin-bottom: 24px" data-i18n="denied.body">
+          Chỉ tài khoản có quyền <strong>Admin</strong> mới vào được trang quản trị.
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center">
+          <a class="btn btn-ghost" href="/">← Trang chủ</a>
+          <button class="btn" id="denied-logout-btn">Đăng xuất</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ADMIN APP (ẩn khi chưa đăng nhập) ═══ -->
+    <div id="admin-app" class="admin-shell hidden">
+      <!-- ── Sidebar ── -->
+      <aside class="sidebar">
+        <a class="brand sidebar-brand" href="/">
+          <span class="brand-mark">◈</span>
+          <span class="brand-name">Pixelmon</span>
+        </a>
+
+        <nav class="side-nav">
+          <button class="nav-item active" data-view="overview">
+            <span class="nav-icon">▦</span>
+            <span data-i18n="view.overview">Tổng quan</span>
+          </button>
+          <button class="nav-item" data-view="users">
+            <span class="nav-icon">◉</span>
+            <span data-i18n="view.users">Người chơi</span>
+          </button>
+          <button class="nav-item" data-view="pokemon">
+            <span class="nav-icon">◈</span>
+            <span data-i18n="view.pokemon">Pokémon</span>
+          </button>
+          <button class="nav-item" data-view="players">
+            <span class="nav-icon">◇</span>
+            <span data-i18n="view.players">Vị trí</span>
+          </button>
+          <button class="nav-item" data-view="sprites">
+            <span class="nav-icon">▩</span>
+            <span data-i18n="view.sprites">Thư viện Sprite</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <a class="btn btn-ghost btn-sm" href="/" style="width: 100%" data-i18n="btn.backHome"
+            >← Trang chủ</a
+          >
+          <button
+            class="btn btn-ghost btn-sm"
+            id="logout-btn"
+            style="width: 100%; margin-top: 8px"
+            data-i18n="btn.logout"
+          >
+            Đăng xuất
+          </button>
+          <p class="dim" style="margin-top: 12px; font-size: 12px">
+            <span id="admin-user-display"></span>
+          </p>
+        </div>
+      </aside>
+
+      <!-- ── Main ── -->
+      <div class="admin-main">
+        <header class="admin-header">
+          <div class="admin-header-left">
+            <h1 class="admin-title" id="view-title">Tổng quan</h1>
+            <p class="dim" id="view-sub">Tình trạng hệ thống hiện tại</p>
+          </div>
+          <div class="admin-header-right">
+            <div class="lang-toggle" id="lang-toggle">
+              <button class="lang-btn" data-lang-toggle="en">EN</button>
+              <button class="lang-btn" data-lang-toggle="vi">VI</button>
+            </div>
+            <span class="badge badge-off" id="server-status" data-i18n="ov.noData">kiểm tra…</span>
+            <button class="btn btn-sm" id="refresh-btn" data-i18n="btn.refresh">Làm mới</button>
+          </div>
+        </header>
+
+        <main class="admin-content">
+          <!-- ═══ OVERVIEW ═══ -->
+          <section class="view active" id="view-overview">
+            <div class="kpi-grid">
+              <div class="card kpi">
+                <div class="kpi-label">Server uptime</div>
+                <div class="kpi-value mono" id="kpi-uptime">—</div>
+              </div>
+              <div class="card kpi">
+                <div class="kpi-label">Tổng người chơi</div>
+                <div class="kpi-value" id="kpi-users">—</div>
+              </div>
+              <div class="card kpi">
+                <div class="kpi-label">Đang online</div>
+                <div class="kpi-value" id="kpi-online">—</div>
+              </div>
+              <div class="card kpi">
+                <div class="kpi-label">Tổng Pokémon</div>
+                <div class="kpi-value" id="kpi-pokemon">—</div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top: 20px">
+              <h2 class="panel-title">Phân quyền</h2>
+              <div class="user-stats" id="role-stats">
+                <span class="stat-item dim">Đang tải…</span>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top: 20px">
+              <h2 class="panel-title">Trạng thái hệ thống</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Thành phần</th>
+                    <th>Trạng thái</th>
+                    <th>Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Colyseus / Express</td>
+                    <td><span class="badge" id="badge-http">—</span></td>
+                    <td class="dim mono" id="detail-http">—</td>
+                  </tr>
+                  <tr>
+                    <td>PostgreSQL</td>
+                    <td><span class="badge" id="badge-db">—</span></td>
+                    <td class="dim mono" id="detail-db">—</td>
+                  </tr>
+                  <tr>
+                    <td>Redis</td>
+                    <td><span class="badge" id="badge-redis">—</span></td>
+                    <td class="dim mono" id="detail-redis">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="card" style="margin-top: 20px">
+              <h2 class="panel-title">Người chơi mới nhất</h2>
+              <div class="table-wrap">
+                <table id="recent-users-table">
+                  <thead>
+                    <tr>
+                      <th>Tên hiển thị</th>
+                      <th>Tài khoản</th>
+                      <th>Role</th>
+                      <th>Cấp</th>
+                      <th>Đăng nhập gần nhất</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="empty hidden" id="recent-users-empty">Chưa có dữ liệu.</div>
+            </div>
+          </section>
+
+          <!-- ═══ USERS ═══ -->
+          <section class="view" id="view-users">
+            <div class="card">
+              <div class="panel-head">
+                <h2 class="panel-title" data-i18n="u.title">Quản lý người chơi</h2>
+                <div style="display: flex; gap: 8px; align-items: center">
+                  <select id="users-role-filter" class="input-search" style="width: 140px">
+                    <option value="" data-i18n="u.allRoles">Tất cả quyền</option>
+                    <option value="player" data-i18n="role.player">Player</option>
+                    <option value="moderator" data-i18n="role.moderator">Moderator</option>
+                    <option value="admin" data-i18n="role.admin">Admin</option>
+                    <option value="banned" data-i18n="role.banned">Banned</option>
+                  </select>
+                  <input
+                    type="text"
+                    id="users-search"
+                    class="input-search"
+                    data-i18n-ph="u.searchPlaceholder"
+                    placeholder="Tìm theo tên, username…"
+                  />
+                  <button
+                    class="btn btn-primary btn-sm"
+                    id="user-create-btn"
+                    data-i18n="u.createNew"
+                  >
+                    + Tạo mới
+                  </button>
+                </div>
+              </div>
+
+              <!-- Thống kê -->
+              <div class="user-stats" id="users-stats">
+                <span class="stat-item"
+                  ><span data-i18n="u.total">Tổng</span>: <strong id="users-total">0</strong></span
+                >
+                <span class="stat-item"
+                  ><span data-i18n="u.page">Trang</span>:
+                  <strong id="users-page-info">1/1</strong></span
+                >
+              </div>
+
+              <div class="table-wrap">
+                <table id="users-table">
+                  <thead>
+                    <tr>
+                      <th data-i18n="u.colId">ID</th>
+                      <th data-i18n="u.colUsername">Tài khoản</th>
+                      <th data-i18n="u.colDisplayName">Tên hiển thị</th>
+                      <th data-i18n="u.colRole">Role</th>
+                      <th data-i18n="u.colLanguage">Ngôn ngữ</th>
+                      <th data-i18n="u.colLevel">Cấp</th>
+                      <th data-i18n="u.colMoney">Tiền</th>
+                      <th data-i18n="u.colLastLogin">Đăng nhập gần nhất</th>
+                      <th data-i18n="u.colActions">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="empty hidden" id="users-empty" data-i18n="u.empty">
+                Không tìm thấy user nào.
+              </div>
+
+              <!-- Pagination -->
+              <div class="pagination" id="users-pagination">
+                <button class="btn btn-sm" id="users-prev" disabled data-i18n="u.prev">
+                  « Trước
+                </button>
+                <div class="page-numbers" id="users-page-numbers"></div>
+                <button class="btn btn-sm" id="users-next" disabled data-i18n="u.next">
+                  Tiếp »
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ═══ POKEMON ═══ -->
+          <section class="view" id="view-pokemon">
+            <div class="card">
+              <div class="panel-head">
+                <h2 class="panel-title">Pokémon đã bắt</h2>
+                <span class="dim" id="pokemon-count">0</span>
+              </div>
+              <div class="table-wrap">
+                <table id="pokemon-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Chủ nhân</th>
+                      <th>Species</th>
+                      <th>Cấp</th>
+                      <th>Hệ</th>
+                      <th>Party slot</th>
+                      <th>Shiny</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="empty hidden" id="pokemon-empty">Chưa có dữ liệu.</div>
+            </div>
+          </section>
+
+          <!-- ═══ PLAYERS (vị trí) ═══ -->
+          <section class="view" id="view-players">
+            <div class="card">
+              <div class="panel-head">
+                <h2 class="panel-title">Vị trí người chơi</h2>
+                <span class="dim" id="players-count">0</span>
+              </div>
+              <div class="table-wrap">
+                <table id="players-table">
+                  <thead>
+                    <tr>
+                      <th>Tài khoản</th>
+                      <th>Map</th>
+                      <th>X</th>
+                      <th>Y</th>
+                      <th>Hướng</th>
+                      <th>Cấp</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="empty hidden" id="players-empty">Chưa có dữ liệu.</div>
+            </div>
+          </section>
+
+          <!-- ═══ SPRITES (thư viện sprite nhân vật) ═══ -->
+          <section class="view" id="view-sprites">
+            <div class="card">
+              <div class="panel-head">
+                <h2 class="panel-title" data-i18n="sp.title">Thư viện Sprite nhân vật</h2>
+                <button class="btn btn-primary btn-sm" id="sprite-create-btn" data-i18n="sp.create">
+                  + Tạo sprite mới
+                </button>
+              </div>
+              <p class="dim" style="margin-bottom: 16px; font-size: 13px">
+                <span data-i18n="sp.hint"
+                  >Upload sheet hoàn chỉnh (12 frame: 4 hướng × 3 frame) hoặc upload từng lát,
+                  điều chỉnh vào khung sẵn rồi xuất ra sheet 384×32 cho game.</span
+                >
+              </p>
+              <div class="table-wrap">
+                <table id="sprites-table">
+                  <thead>
+                    <tr>
+                      <th data-i18n="sp.colPreview">Xem trước</th>
+                      <th data-i18n="sp.colName">Tên</th>
+                      <th data-i18n="sp.colMode">Loại</th>
+                      <th data-i18n="sp.colSize">Khung</th>
+                      <th data-i18n="sp.colCreated">Ngày tạo</th>
+                      <th data-i18n="sp.colActions"></th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="empty hidden" id="sprites-empty">Chưa có sprite nào.</div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <!-- ═══ USER CREATE/EDIT MODAL ═══ -->
+    <div id="user-modal" class="modal hidden">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 id="modal-title">Tạo người chơi mới</h3>
+          <button class="modal-close" id="modal-close">×</button>
+        </div>
+        <form id="user-form">
+          <input type="hidden" name="id" id="user-id" />
+          <label class="form-field">
+            <span class="form-label" data-i18n="m.username">Tên đăng nhập</span>
+            <input
+              name="username"
+              type="text"
+              data-i18n-ph="m.hintUsername"
+              placeholder="3-20 ký tự, chữ/số/_"
+              required
+            />
+          </label>
+          <label class="form-field">
+            <span class="form-label" data-i18n="m.displayName">Tên hiển thị</span>
+            <input
+              name="displayName"
+              type="text"
+              data-i18n-ph="m.hintDisplayName"
+              placeholder="Tên nhân vật"
+              required
+            />
+          </label>
+          <label class="form-field" id="password-field">
+            <span class="form-label" data-i18n="m.password">Mật khẩu</span>
+            <input
+              name="password"
+              type="password"
+              data-i18n-ph="m.hintPassword"
+              placeholder="Tối thiểu 6 ký tự"
+            />
+          </label>
+          <div class="form-row">
+            <label class="form-field">
+              <span class="form-label" data-i18n="m.level">Cấp</span>
+              <input name="level" type="number" min="1" max="100" value="5" />
+            </label>
+            <label class="form-field">
+              <span class="form-label" data-i18n="m.money">Tiền</span>
+              <input name="money" type="number" min="0" value="5000" />
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="form-field">
+              <span class="form-label" data-i18n="m.role">Quyền</span>
+              <select name="role" class="input-search" style="width: 100%; padding: 10px 12px">
+                <option value="player" data-i18n="m.rolePlayerHint">
+                  Player — người chơi bình thường
+                </option>
+                <option value="moderator" data-i18n="m.roleModHint">
+                  Moderator — quản trị viên nhỏ
+                </option>
+                <option value="admin" data-i18n="m.roleAdminHint">Admin — quản trị cao nhất</option>
+                <option value="banned" data-i18n="m.roleBannedHint">
+                  Banned — bị khóa tài khoản
+                </option>
+              </select>
+            </label>
+            <label class="form-field">
+              <span class="form-label" data-i18n="m.language">Ngôn ngữ</span>
+              <select name="language" class="input-search" style="width: 100%; padding: 10px 12px">
+                <option value="en" data-i18n="lang.en">English</option>
+                <option value="vi" data-i18n="lang.vi">Vietnamese</option>
+              </select>
+            </label>
+          </div>
+          <label class="form-field">
+            <span class="form-label" data-i18n="m.birthday">Ngày sinh</span>
+            <input name="birthday" type="date" />
+          </label>
+          <label class="form-field">
+            <span class="form-label" data-i18n="m.bio">Giới thiệu</span>
+            <textarea name="bio" rows="2" placeholder="Giới thiệu bản thân…"></textarea>
+          </label>
+          <label class="form-field">
+            <span class="form-label" data-i18n="m.notes">Ghi chú (admin)</span>
+            <textarea name="notes" rows="2" placeholder="Ghi chú nội bộ…"></textarea>
+          </label>
+          <div id="modal-msg" class="msg hidden"></div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="modal-cancel" data-i18n="btn.cancel">
+              Hủy
+            </button>
+            <button type="submit" class="btn btn-primary" id="modal-submit" data-i18n="btn.create">
+              Tạo
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ═══ CONFIRM DELETE MODAL ═══ -->
+    <div id="confirm-modal" class="modal hidden">
+      <div class="modal-box" style="max-width: 400px">
+        <div class="modal-header">
+          <h3 data-i18n="c.deleteTitle">Xác nhận xóa</h3>
+          <button class="modal-close" id="confirm-close">×</button>
+        </div>
+        <p id="confirm-text" style="margin-bottom: 20px" data-i18n="c.deleteText">
+          Bạn có chắc muốn xóa user này?
+        </p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="confirm-cancel" data-i18n="btn.cancel">Hủy</button>
+          <button class="btn btn-danger" id="confirm-delete" data-i18n="btn.delete">Xóa</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SPRITE EDITOR MODAL ═══ -->
+    <div id="sprite-modal" class="modal hidden">
+      <div class="modal-box sprite-modal-box">
+        <div class="modal-header">
+          <h3 id="sprite-modal-title" data-i18n="sp.create">Tạo sprite mới</h3>
+          <button class="modal-close" id="sprite-modal-close">×</button>
+        </div>
+
+        <div class="sprite-editor-grid">
+          <!-- ── Cột trái: canvas khung + preview ── -->
+          <div class="sprite-editor-canvas-col">
+            <div class="sprite-canvas-wrap">
+              <canvas id="sprite-canvas" width="384" height="96"></canvas>
+            </div>
+
+            <div class="sprite-preview-bar">
+              <button class="btn btn-sm" id="sprite-play-btn" data-i18n="sp.play">▶ Xem trước</button>
+              <select id="sprite-preview-dir" class="input-search" style="width: 110px; padding: 6px 8px">
+                <option value="down" data-i18n="sp.dirDown">↓ Xuống</option>
+                <option value="up" data-i18n="sp.dirUp">↑ Lên</option>
+                <option value="left" data-i18n="sp.dirLeft">← Trái</option>
+                <option value="right" data-i18n="sp.dirRight">→ Phải</option>
+                <option value="all" data-i18n="sp.dirAll">Tất cả</option>
+              </select>
+              <span class="dim" id="sprite-frame-label" style="font-size: 12px">—</span>
+            </div>
+            <div class="sprite-preview-canvas-wrap">
+              <canvas id="sprite-preview-canvas" width="64" height="64"></canvas>
+            </div>
+          </div>
+
+          <!-- ── Cột phải: form + bảng frame ── -->
+          <div class="sprite-editor-form-col">
+            <label class="form-field">
+              <span class="form-label" data-i18n="sp.name">Tên sprite</span>
+              <input
+                name="name"
+                id="sprite-name"
+                type="text"
+                placeholder="trainer_red"
+                maxlength="64"
+                required
+              />
+            </label>
+
+            <label class="form-field">
+              <span class="form-label" data-i18n="sp.mode">Loại đầu ra</span>
+              <select id="sprite-mode" class="input-search" style="width: 100%; padding: 8px 10px">
+                <option value="baked" data-i18n="sp.modeBaked">
+                  Baked — xuất sheet PNG 384×32
+                </option>
+                <option value="atlas" data-i18n="sp.modeAtlas">
+                  Atlas — giữ ảnh gốc + file toạ độ
+                </option>
+              </select>
+            </label>
+
+            <div class="form-row">
+              <label class="form-field">
+                <span class="form-label" data-i18n="sp.frameW">Chiều rộng khung</span>
+                <input id="sprite-frame-w" type="number" min="8" max="256" value="32" />
+              </label>
+              <label class="form-field">
+                <span class="form-label" data-i18n="sp.frameH">Chiều cao khung</span>
+                <input id="sprite-frame-h" type="number" min="8" max="256" value="32" />
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label class="form-field">
+                <span class="form-label" data-i18n="sp.upload">Upload ảnh gốc</span>
+                <input id="sprite-file" type="file" accept="image/png" />
+              </label>
+              <label class="form-field">
+                <span class="form-label" data-i18n="sp.uploadMode">Cách đọc file</span>
+                <select id="sprite-read-mode" class="input-search" style="width: 100%; padding: 8px 10px">
+                  <option value="sheet" data-i18n="sp.readSheet">
+                    Sheet hoàn chỉnh (12 frame ngang)
+                  </option>
+                  <option value="slices" data-i18n="sp.readSlices">
+                    Từng lát (mỗi file 1 frame)
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <!-- Nơi thả file khi mode "từng lát" -->
+            <div id="sprite-slice-drop" class="sprite-slice-drop hidden">
+              <p class="dim" data-i18n="sp.dropHint">
+                Kéo-thả 12 file PNG vào ô bên dưới (4 hướng × 3 frame), hoặc bấm từng ô để chọn
+                file. Thứ tự: Down×3 → Up×3 → Left×3 → Right×3.
+              </p>
+              <div id="sprite-slice-grid" class="sprite-slice-grid"></div>
+              <button class="btn btn-ghost btn-sm" id="sprite-slice-clear" data-i18n="sp.clearSlices">
+                Xoá tất cả lát
+              </button>
+            </div>
+
+            <!-- Bảng toạ độ 12 frame -->
+            <div style="margin-top: 14px">
+              <div class="panel-head" style="margin-bottom: 6px">
+                <h3 class="panel-title" style="font-size: 13px" data-i18n="sp.frames">Toạ độ 12 frame</h3>
+                <button class="btn btn-ghost btn-sm" id="sprite-frames-reset" data-i18n="sp.resetFrames">
+                  Đặt lại
+                </button>
+              </div>
+              <div class="table-wrap" style="max-height: 190px">
+                <table id="sprite-frames-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th data-i18n="sp.colDir">Hướng</th>
+                      <th data-i18n="sp.colX">X</th>
+                      <th data-i18n="sp.colY">Y</th>
+                      <th data-i18n="sp.colW">W</th>
+                      <th data-i18n="sp.colH">H</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="sprite-modal-msg" class="msg hidden"></div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-ghost" id="sprite-modal-cancel" data-i18n="btn.cancel">
+                Hủy
+              </button>
+              <button type="button" class="btn" id="sprite-export-btn" data-i18n="sp.export">
+                Xuất sheet PNG
+              </button>
+              <button type="submit" class="btn btn-primary" id="sprite-modal-submit" data-i18n="btn.save">
+                Lưu vào thư viện
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/js/admin.js"></script>
+  </body>
+</html>

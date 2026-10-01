@@ -1,0 +1,224 @@
+﻿# See the documentation on the wiki to learn how to edit this file.
+#-------------------------------
+# New Bark Town (79) - Route 29 (104)
+79,West,13,104,East,0
+# Route 46 (140) - Route 29 (104)
+140,South,0,104,North,14
+# Route 45 (138) - Blackthorn City (88)
+138,North,0,88,South,6
+# New Bark Town (79) - Route 27 (99)
+79,East,0,99,West,0
+# Route 26 (98) - Route 27 (99)
+98,West,70,99,East,0
+# Route 46 (140) - Route 45 (138)
+140,East,0,138,West,53
+# Route 31 (106) - Route 30 (105)
+106,South,22,105,North,0
+# Cherrygrove City (80) - Route 30 (105)
+80,North,21,105,South,0
+# Route 33 (109) - Azalea Town (82)
+109,West,8,82,East,0
+# Route 32 (108) - Whiteport Town (97)
+108,South,0,97,North,0
+# Route 33 (109) - Whiteport Town (97)
+109,East,0,97,West,0
+# Violet City (81) - Route 32 (108)
+81,South,0,108,North,0
+# Route 33 (109) - Route 32 (108)
+109,North,60,108,South,0
+# Route 33 (109) - Violet City (81)
+109,East,0,81,West,124
+# Cianwood City (86) - Route 41 (122)
+86,East,0,122,West,6
+# Route 40 (120) - Route 41 (122)
+120,South,0,122,North,21
+# Route 39 (119) - Route 38 (118)
+119,North,3,118,South,0
+# Route 39 (119) - Olivine City (85)
+119,South,0,85,North,0
+# Route 40 (120) - Olivine City (85)
+120,East,0,85,West,0
+# Route 40 (120) - Route 39 (119)
+120,North,48,119,South,0
+# Route 43 (131) - Lake of Rage (132)
+131,North,0,132,South,21
+# Route 43 (131) - Route 42 (127)
+131,West,48,127,East,0
+# Mahogany Town (87) - Route 42 (127)
+87,West,0,127,East,0
+# Route 43 (131) - Route 44 (133)
+131,East,56,133,West,0
+# Mahogany Town (87) - Route 44 (133)
+87,East,8,133,West,0
+# Mahogany Town (87) - Route 43 (131)
+87,North,0,131,South,0
+# Route 48 (142) - Peaceful Garden (143)
+142,North,4,143,South,0
+# Route 48 (142) - Route 47 (141)
+142,South,3,141,North,0
+# Mt. Silver (102) - Route 28 (101)
+102,East,0,101,West,0
+# Celadon City (4) - Route 7 (24)
+4,East,4,24,West,0
+# Celadon City (4) - Route 16 (37)
+4,West,4,37,East,0
+# Pewter City (57) - Route 3 (16)
+57,East,0,16,West,38
+# Route 2 (70) - Route 3 (16)
+70,North,54,16,South,0
+# Route 2 (70) - Pewter City (57)
+70,North,0,57,South,6
+# Route 18 (39) - Fuchsia City (5)
+39,East,0,5,West,5
+# Route 19 (40) - Fuchsia City (5)
+40,North,0,5,South,0
+# Route 15 (36) - Fuchsia City (5)
+36,West,17,5,East,0
+# Route 20 (42) - Fuchsia City (5)
+42,East,0,5,West,148
+# Route 21 (48) - Fuchsia City (5)
+48,North,146,5,South,0
+# Pallet Town (55) - Route 22 (49)
+55,West,0,49,East,80
+# Route 2 (11) - Route 22 (49)
+11,West,80,49,East,0
+# Route 23 (50) - Route 22 (49)
+50,South,0,49,North,0
+# Viridian City (56) - Route 22 (49)
+56,West,0,49,East,0
+# Route 21 (48) - Route 22 (49)
+48,West,0,49,East,100
+# Route 1 (10) - Route 22 (49)
+10,West,0,49,East,40
+# Lavender Town (3) - Route 10 (27)
+3,North,0,27,South,0
+# Route 8 (25) - Route 10 (27)
+25,North,69,27,South,0
+# Route 9 (26) - Route 10 (27)
+26,East,0,27,West,0
+# Route 4 (17) - Route 5 (22)
+17,East,48,22,West,0
+# Route 25 (52) - Route 5 (22)
+52,West,92,22,East,0
+# Cerulean City (58) - Route 5 (22)
+58,South,0,22,North,0
+# Route 8 (25) - Route 5 (22)
+25,West,0,22,East,46
+# Route 9 (26) - Route 5 (22)
+26,West,44,22,East,0
+# Route 14 (34) - Route 13 (33)
+34,East,0,33,West,0
+# Route 12 (32) - Route 13 (33)
+32,South,0,33,North,42
+# Route 19 (40) - Pallet Town (55)
+40,North,0,55,South,146
+# Route 21 (48) - Pallet Town (55)
+48,North,0,55,South,0
+# Route 1 (10) - Pallet Town (55)
+10,South,0,55,North,0
+# Viridian City (56) - Route 2 (11)
+56,North,0,11,South,0
+# Lavender Town (3) - Route 2 (11)
+3,South,0,11,North,338
+# Route 8 (25) - Route 2 (11)
+25,South,0,11,North,269
+# Viridian City (56) - Route 23 (50)
+56,North,0,50,South,58
+# Indigo Plateau (8) - Route 23 (50)
+8,South,0,50,North,4
+# Route 24 (51) - Route 4 (17)
+51,West,44,17,East,0
+# Cerulean City (58) - Route 4 (17)
+58,West,0,17,East,0
+# Route 19 (40) - Route 18 (39)
+40,West,0,39,East,43
+# Route 21 (48) - Route 18 (39)
+48,North,86,39,South,0
+# Route 1 (10) - Viridian City (56)
+10,North,0,56,South,0
+# Route 19 (40) - Route 14 (34)
+40,North,124,34,South,0
+# Route 15 (36) - Route 14 (34)
+36,East,0,34,West,2
+# Route 21 (48) - Route 14 (34)
+48,North,270,34,South,0
+# Route 12 (32) - Route 14 (34)
+32,South,0,34,North,68
+# Route 20 (42) - Cinnabar Island (7)
+42,West,0,7,East,0
+# Route 21 (48) - Cinnabar Island (7)
+48,South,0,7,North,24
+# Route 25 (52) - Route 24 (51)
+52,West,0,51,East,0
+# Cerulean City (58) - Route 24 (51)
+58,North,0,51,South,0
+# Route 8 (25) - Route 24 (51)
+25,West,0,51,East,138
+# Route 9 (26) - Route 24 (51)
+26,West,0,51,East,48
+# Route 15 (36) - Route 19 (40)
+36,West,65,40,East,0
+# Route 20 (42) - Route 19 (40)
+42,East,0,40,West,100
+# Cerulean City (58) - Route 25 (52)
+58,East,0,52,West,44
+# Route 21 (48) - Route 15 (36)
+48,North,198,36,South,0
+# Route 8 (25) - Lavender Town (3)
+25,East,0,3,West,0
+# Route 9 (26) - Lavender Town (3)
+26,East,90,3,West,0
+# Route 12 (32) - Lavender Town (3)
+32,North,0,3,South,0
+# Route 8 (25) - Cerulean City (58)
+25,West,0,58,East,94
+# Route 9 (26) - Cerulean City (58)
+26,West,0,58,East,4
+# Route 12 (32) - Route 8 (25)
+32,West,0,25,East,29
+# Route 21 (48) - Route 20 (42)
+48,East,100,42,West,0
+# Route 12 (32) - Route 9 (26)
+32,West,0,26,East,119
+# Route 11 (31) - Vermilion Port (28)
+31,West,48,28,East,0
+# Vermilion City (59) - Vermilion Port (28)
+59,South,0,28,North,0
+# Alyssum Island (21) - Vermilion Port (28)
+21,East,48,28,West,0
+# Route 11 (31) - Route 6 (23)
+31,North,0,23,South,53
+# Vermilion City (59) - Route 6 (23)
+59,North,0,23,South,0
+# Alyssum Island (21) - Route 6 (23)
+21,North,64,23,South,0
+# Vermilion City (59) - Route 11 (31)
+59,East,0,31,West,0
+# Alyssum Island (21) - Vermilion City (59)
+21,East,0,59,West,0
+# Ecruteak City (84) - Olivine Marina (94)
+84,South,0,94,North,278
+# Olivine Sea Path (145) - Olivine Marina (94)
+145,West,0,94,East,0
+# Goldenrod Sea Path (144) - Goldenrod City (83)
+144,East,0,83,West,0
+# Route 34 (113) - Goldenrod City (83)
+113,North,0,83,South,0
+# Route 35 (114) - Goldenrod City (83)
+114,South,0,83,North,10
+# Route 37 (117) - Route 36 (116)
+117,South,0,116,North,0
+# Route 35 (114) - Route 36 (116)
+114,North,26,116,South,0
+# Olivine Sea Path (145) - Goldenrod Sea Path (144)
+145,East,101,144,West,0
+# Route 34 (113) - Goldenrod Sea Path (144)
+113,West,0,144,East,47
+# Route 35 (114) - Goldenrod Sea Path (144)
+114,South,0,144,North,158
+# Ecruteak City (84) - Route 37 (117)
+84,South,10,117,North,0
+# Olivine Sea Path (145) - Ecruteak City (84)
+145,North,222,84,South,0
+# Route 34 (113) - Olivine Sea Path (145)
+113,North,0,145,South,196

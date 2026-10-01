@@ -1,0 +1,182 @@
+[
+  {
+    "id": 1,
+    "name": "Outside",
+    "tileset_graphic": "Outdoor",
+    "autotiles": [
+      "Sand",
+      "lake"
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Outside_winter",
+    "tileset_graphic": "Outdoor_winter",
+    "autotiles": [
+      "Sand",
+      "lake"
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Outside_spring",
+    "tileset_graphic": "Outdoor_spring",
+    "autotiles": [
+      "Sand",
+      "lake"
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Outside_summer",
+    "tileset_graphic": "Outdoor_summer",
+    "autotiles": [
+      "Sand",
+      "lake"
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Outside_autumn",
+    "tileset_graphic": "Outdoor_autumn",
+    "autotiles": [
+      "Sand",
+      "lake"
+    ]
+  },
+  {
+    "id": 6,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 7,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 8,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 9,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 10,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 11,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 12,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 13,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 14,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 15,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 16,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 17,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 18,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 19,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 20,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 21,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 22,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 23,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  },
+  {
+    "id": 24,
+    "name": "OutsideBW",
+    "tileset_graphic": "Outdoor",
+    "autotiles": [
+      "Sand",
+      "lake"
+    ]
+  },
+  {
+    "id": 25,
+    "name": "CaveBW",
+    "tileset_graphic": "Cave BW",
+    "autotiles": []
+  },
+  {
+    "id": 26,
+    "name": "IndoorBW",
+    "tileset_graphic": "Indoor",
+    "autotiles": []
+  },
+  {
+    "id": 27,
+    "name": "",
+    "tileset_graphic": "",
+    "autotiles": []
+  }
+]

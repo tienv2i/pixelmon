@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixelmon — Pokémon MMORPG</title>
+    <meta
+      name="description"
+      content="Pixelmon — Pokémon MMORPG trên web. 649 Pokémon, 559 moves, 18 hệ thuộc tính."
+    />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/home.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark">◈</span>
+          <span class="brand-name">Pixelmon</span>
+        </a>
+        <nav class="site-nav">
+          <a href="#features">Tính năng</a>
+          <a href="#data">Dữ liệu</a>
+          <a href="#auth-section">Đăng nhập</a>
+          <a href="/admin">Admin</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <!-- ── Hero ── -->
+      <section class="hero">
+        <div class="container hero-inner">
+          <div class="hero-text">
+            <p class="eyebrow">Pokémon MMORPG trên web</p>
+            <h1 class="hero-title">
+              Bắt đầu hành trình<br />
+              <span class="gradient-text">Pokémon của bạn</span>
+            </h1>
+            <p class="hero-desc">
+              Chơi online cùng những người chơi khác. Bắt Pokémon, chiến đấu huấn luyện, tiến hóa và
+              sưu tầm — tất cả ngay trong trình duyệt.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary btn-lg" id="play-btn" href="#auth-section">
+                <span>Đăng nhập &amp; chơi</span>
+                <span class="arrow">↓</span>
+              </a>
+              <a class="btn btn-ghost btn-lg" href="/admin">Trang quản trị</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Auth Section ── -->
+      <section class="section auth-section" id="auth-section">
+        <div class="container auth-grid">
+          <div class="auth-card card" id="login-card">
+            <h2 class="auth-title">Đăng nhập</h2>
+            <p class="dim auth-sub">Đã có tài khoản? Đăng nhập để vào game.</p>
+            <form id="home-login-form" autocomplete="on">
+              <label class="field">
+                <span class="field-label">Tên đăng nhập</span>
+                <input
+                  name="username"
+                  type="text"
+                  placeholder="username"
+                  autocomplete="username"
+                  required
+                />
+              </label>
+              <label class="field">
+                <span class="field-label">Mật khẩu</span>
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="••••••"
+                  autocomplete="current-password"
+                  required
+                />
+              </label>
+              <div class="form-msg" id="home-login-msg"></div>
+              <button type="submit" class="btn btn-primary btn-full">Vào game</button>
+            </form>
+          </div>
+
+          <div class="auth-card card" id="register-card">
+            <h2 class="auth-title">Tạo tài khoản mới</h2>
+            <p class="dim auth-sub">Chưa có tài khoản? Đăng ký miễn phí.</p>
+            <form id="home-register-form" autocomplete="on">
+              <label class="field">
+                <span class="field-label">Tên đăng nhập</span>
+                <input
+                  name="username"
+                  type="text"
+                  placeholder="3-20 ký tự, chữ/số/_"
+                  autocomplete="username"
+                  required
+                />
+              </label>
+              <label class="field">
+                <span class="field-label">Tên hiển thị</span>
+                <input
+                  name="displayName"
+                  type="text"
+                  placeholder="tên nhân vật trong game"
+                  autocomplete="name"
+                  required
+                />
+              </label>
+              <label class="field">
+                <span class="field-label">Mật khẩu</span>
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="tối thiểu 6 ký tự"
+                  autocomplete="new-password"
+                  required
+                />
+              </label>
+              <label class="field">
+                <span class="field-label">Xác nhận mật khẩu</span>
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="nhập lại mật khẩu"
+                  autocomplete="new-password"
+                  required
+                />
+              </label>
+              <div class="form-msg" id="home-register-msg"></div>
+              <button
+                type="submit"
+                class="btn btn-primary btn-full"
+                style="background: linear-gradient(90deg, #00b894, #00cec9); border-color: #00b894"
+              >
+                Tạo tài khoản
+              </button>
+            </form>
+          </div>
+        </div>
+        <p class="dim auth-note" style="text-align: center; margin-top: 16px; font-size: 13px">
+          Guest? Bấm "Vào game" ở trên để chơi offline không cần tài khoản.
+        </p>
+      </section>
+
+      <!-- ── Stats ── -->
+      <section class="stats-strip">
+        <div class="container stats-grid">
+          <div class="stat">
+            <div class="stat-value" data-count="649">649</div>
+            <div class="stat-label">Pokémon</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" data-count="559">559</div>
+            <div class="stat-label">Đòn thức</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" data-count="526">526</div>
+            <div class="stat-label">Vật phẩm</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" data-count="18">18</div>
+            <div class="stat-label">Hệ thuộc tính</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Features ── -->
+      <section class="section" id="features">
+        <div class="container">
+          <h2 class="section-title">Tính năng</h2>
+          <div class="feature-grid">
+            <article class="card feature">
+              <div class="feature-icon">⚔</div>
+              <h3>Chiến đấu theo lượt</h3>
+              <p>
+                Hệ thống chiến đấu turn-based với công thức sát thương Gen 5, hiệu quả hệ, STAB, chí
+                mạng và buff/debuff đầy đủ.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <div class="feature-icon">◈</div>
+              <h3>Pokémon phong phú</h3>
+              <p>
+                649 species với chỉ số gốc, bảng tiến hóa, bộ kỹ năng học theo cấp độ, mỗi cá nhân
+                có IV, EV và tính cách riêng.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <div class="feature-icon">◉</div>
+              <h3>Thế giới mở rộng</h3>
+              <p>
+                Nhiều bản đồ với va chạm thật, vùng cỏ gặp Pokémon hoang dã, cổng dịch chuyển và NPC
+                huấn luyện.
+              </p>
+            </article>
+
+            <article class="card feature">
+              <div class="feature-icon">◆</div>
+              <h3>Chơi cùng nhau</h3>
+              <p>
+                50 người chơi cùng lúc. Thế giới trực tiếp, nhìn thấy người chơi khác di chuyển và
+                trò chuyện cùng bạn.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Data ── -->
+      <section class="section" id="data">
+        <div class="container">
+          <h2 class="section-title">Dữ liệu trong game</h2>
+          <div class="card table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Loại dữ liệu</th>
+                  <th>Số lượng</th>
+                  <th>Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Pokémon (species)</td>
+                  <td class="mono">649</td>
+                  <td class="dim">Chỉ số gốc, tiến hóa, bộ kỹ năng</td>
+                </tr>
+                <tr>
+                  <td>Đòn thức (moves)</td>
+                  <td class="mono">559</td>
+                  <td class="dim">Sát thương, độ chính xác, PP, hiệu ứng</td>
+                </tr>
+                <tr>
+                  <td>Vật phẩm (items)</td>
+                  <td class="mono">526</td>
+                  <td class="dim">Poké Ball, thuốc, vật phẩm tiến hóa</td>
+                </tr>
+                <tr>
+                  <td>Bản đồ (maps)</td>
+                  <td class="mono">16</td>
+                  <td class="dim">Lớp va chạm + object (warp, NPC, vùng cỏ)</td>
+                </tr>
+                <tr>
+                  <td>Người chơi đã seed</td>
+                  <td class="mono">11</td>
+                  <td class="dim">admin + 10 user thường (user01..10)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p class="dim">Pixelmon — dự án học tập. Không liên kết với Nintendo.</p>
+        <p class="dim"><a href="/admin">Admin</a> · <a href="/health">Health</a></p>
+      </div>
+    </footer>
+
+    <script src="/js/home.js"></script>
+  </body>
+</html>

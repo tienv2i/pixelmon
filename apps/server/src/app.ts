@@ -1,0 +1,109 @@
+import express, { type Express } from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { config } from './config/index.js';
+import { authRouter } from './modules/auth/index.js';
+import { getPlayer, listOnlinePlayers } from './modules/player/index.js';
+import { getPokemonByUser } from './modules/pokemon/index.js';
+import {
+  getAdminStatus,
+  listAdminUsers,
+  createAdminUser,
+  updateAdminUser,
+  resetAdminUserPassword,
+  deleteAdminUser,
+  banAdminUser,
+  unbanAdminUser,
+  listAdminPokemon,
+  listAdminPlayers,
+} from './modules/admin/index.js';
+import {
+  listAdminSprites,
+  createAdminSprite,
+  updateAdminSprite,
+  deleteAdminSprite,
+  spriteUploadMiddleware,
+} from './modules/admin/sprite.js';
+import { requireAuth, requireAdmin } from './middleware/auth.js';
+import { getUserInfo, updateUserInfo } from './modules/user/index.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export function createApp(): Express {
+  const app = express();
+
+  app.use(
+    cors({
+      origin: config.clientOrigin,
+      credentials: true,
+    }),
+  );
+  app.use(express.json());
+
+  // ── Health ──
+  app.get('/health', (_req, res) => {
+    res.json({ ok: true, uptime: process.uptime() });
+  });
+
+  // ── Static pages (landing + admin) ──
+  app.use(express.static(path.join(__dirname, '..', 'public')));
+
+  // ── Auth ──
+  app.use('/api/auth', authRouter);
+
+  // ── Admin API (chỉ role=admin) ──
+  app.get('/api/admin/status', requireAuth, requireAdmin, getAdminStatus);
+  app.get('/api/admin/users', requireAuth, requireAdmin, listAdminUsers);
+  app.post('/api/admin/users', requireAuth, requireAdmin, createAdminUser);
+  app.patch('/api/admin/users/:id', requireAuth, requireAdmin, updateAdminUser);
+  app.post('/api/admin/users/:id/password', requireAuth, requireAdmin, resetAdminUserPassword);
+  app.post('/api/admin/users/:id/ban', requireAuth, requireAdmin, banAdminUser);
+  app.post('/api/admin/users/:id/unban', requireAuth, requireAdmin, unbanAdminUser);
+  app.delete('/api/admin/users/:id', requireAuth, requireAdmin, deleteAdminUser);
+  app.get('/api/admin/pokemon', requireAuth, requireAdmin, listAdminPokemon);
+  app.get('/api/admin/players', requireAuth, requireAdmin, listAdminPlayers);
+
+  // ── Thư viện sprite nhân vật ──
+  // Upload dùng multipart; các route JSON vẫn đi qua cùng handler (multer bỏ qua khi
+  // không có Content-Type multipart).
+  app.post(
+    '/api/admin/sprites',
+    requireAuth,
+    requireAdmin,
+    spriteUploadMiddleware,
+    createAdminSprite,
+  );
+  app.get('/api/admin/sprites', requireAuth, requireAdmin, listAdminSprites);
+  app.patch('/api/admin/sprites/:id', requireAuth, requireAdmin, updateAdminSprite);
+  app.delete('/api/admin/sprites/:id', requireAuth, requireAdmin, deleteAdminSprite);
+
+  // ── User profile API (cùng mình hoặc admin) ──
+  app.get('/api/users/:id/info', requireAuth, getUserInfo);
+  app.put('/api/users/:id/info', requireAuth, updateUserInfo);
+
+  // ── Game API (bảo vệ bằng JWT) ──
+  app.get('/api/players/:userId', requireAuth, getPlayer);
+  app.get('/api/players', requireAuth, listOnlinePlayers);
+  app.get('/api/pokemon/:userId', requireAuth, getPokemonByUser);
+
+  // ── Serve admin.html (chỉ admin vào được — client-side check role) ──
+  app.get('/admin', (_req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
+  });
+
+  // ── 404 handler ──
+  app.use((_req, res) => {
+    res.status(404).json({ ok: false, code: 'NOT_FOUND', message: 'Endpoint not found' });
+  });
+
+  // ── Central error handler ──
+  app.use(
+    (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      console.error('[server:error]', err);
+      res.status(500).json({ ok: false, code: 'INTERNAL', message: 'Internal server error' });
+    },
+  );
+
+  return app;
+}

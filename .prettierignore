@@ -1,0 +1,6 @@
+dist
+node_modules
+.turbo
+packages/shared/data
+packages/shared/assets
+pnpm-lock.yaml

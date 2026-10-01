@@ -1,0 +1,354 @@
+import Phaser from 'phaser';
+import { ColyseusManager } from '../network/ColyseusManager';
+
+declare global {
+  interface Window {
+    __API_BASE__?: string;
+  }
+}
+
+/**
+ * LoginScene — HTML overlay login/register.
+ * Không dùng Phaser DOM element, tạo overlay HTML trực tiếp.
+ * Tab 1: Login (username + password + nút "Vào game")
+ * Tab 2: Register (username + password + display name + nút "Tạo tài khoản")
+ */
+
+type AuthResponse = {
+  ok: boolean;
+  token?: string;
+  userId?: string;
+  displayName?: string;
+  code?: string;
+  message?: string;
+};
+
+export class LoginScene extends Phaser.Scene {
+  private overlayEl: HTMLDivElement | null = null;
+
+  constructor() {
+    super('Login');
+  }
+
+  create() {
+    // Xoá overlay cũ nếu replay scene
+    this.destroyOverlay();
+    this.createOverlay();
+  }
+
+  private createOverlay(): void {
+    const overlay = document.createElement('div');
+    overlay.id = 'login-overlay';
+    overlay.style.cssText = `
+      position:fixed; inset:0; z-index:1000;
+      display:flex; align-items:center; justify-content:center;
+      background: linear-gradient(135deg, #0f1020 0%, #161830 50%, #1c1f3a 100%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #e8eaf6;
+      overflow-y:auto; padding:16px 0;
+    `;
+
+    overlay.innerHTML = `
+      <div style="
+        width:380px; max-width:92vw;
+        max-height:calc(100vh - 32px); overflow-y:auto;
+        background: #1c1f3a;
+        border:1px solid #2e3358;
+        border-radius:12px;
+        padding:clamp(16px, 4vh, 36px) 32px clamp(14px, 3vh, 28px);
+        box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+        box-sizing:border-box;
+      ">
+        <!-- Brand -->
+        <div style="text-align:center; margin-bottom:28px;">
+          <div style="font-size:28px; color:#00cec9; margin-bottom:4px;">◈</div>
+          <h1 style="margin:0; font-size:26px; font-weight:700; color:#e8eaf6;">Pixelmon</h1>
+          <p style="margin:6px 0 0; font-size:13px; color:#9aa0c3;">Pokémon MMORPG trên web</p>
+        </div>
+
+        <!-- Tabs -->
+        <div id="auth-tabs" style="
+          display:flex; gap:0; margin-bottom:24px;
+          background:#161830; border-radius:8px; padding:3px;
+        ">
+          <button class="auth-tab active" data-tab="login"
+            style="flex:1; padding:9px 0; border:none; border-radius:6px;
+            background:#2e3358; color:#fff; font-size:14px; font-weight:600; cursor:pointer;">
+            Đăng nhập
+          </button>
+          <button class="auth-tab" data-tab="register"
+            style="flex:1; padding:9px 0; border:none; border-radius:6px;
+            background:transparent; color:#9aa0c3; font-size:14px; font-weight:500; cursor:pointer;">
+            Đăng ký
+          </button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" autocomplete="on">
+          <label style="display:block; margin-bottom:14px;">
+            <span style="display:block; font-size:12px; color:#9aa0c3; margin-bottom:5px; font-weight:500;">Tên đăng nhập</span>
+            <input name="username" type="text" placeholder="username"
+              autocomplete="username"
+              style="width:100%; padding:10px 12px; font-size:14px;
+              background:#0f1020; border:1px solid #2e3358; border-radius:6px;
+              color:#e8eaf6; outline:none; box-sizing:border-box;"
+              required />
+          </label>
+          <label style="display:block; margin-bottom:18px;">
+            <span style="display:block; font-size:12px; color:#9aa0c3; margin-bottom:5px; font-weight:500;">Mật khẩu</span>
+            <input name="password" type="password" placeholder="••••••"
+              autocomplete="current-password"
+              style="width:100%; padding:10px 12px; font-size:14px;
+              background:#0f1020; border:1px solid #2e3358; border-radius:6px;
+              color:#e8eaf6; outline:none; box-sizing:border-box;"
+              required />
+          </label>
+          <div id="login-msg" style="display:none; padding:8px 12px; border-radius:6px;
+            font-size:13px; margin-bottom:14px;"></div>
+          <button type="submit" id="login-btn"
+            style="width:100%; padding:11px 0; border:none; border-radius:8px;
+            background:linear-gradient(90deg,#6c5ce7,#00cec9); color:#fff;
+            font-size:15px; font-weight:600; cursor:pointer;">
+            Vào game
+          </button>
+        </form>
+
+        <!-- Register Form (hidden) -->
+        <form id="register-form" style="display:none;" autocomplete="on">
+          <label style="display:block; margin-bottom:14px;">
+            <span style="display:block; font-size:12px; color:#9aa0c3; margin-bottom:5px; font-weight:500;">Tên đăng nhập</span>
+            <input name="username" type="text" placeholder="3-20 ký tự, chữ/số/_"
+              autocomplete="username"
+              style="width:100%; padding:10px 12px; font-size:14px;
+              background:#0f1020; border:1px solid #2e3358; border-radius:6px;
+              color:#e8eaf6; outline:none; box-sizing:border-box;"
+              required />
+          </label>
+          <label style="display:block; margin-bottom:14px;">
+            <span style="display:block; font-size:12px; color:#9aa0c3; margin-bottom:5px; font-weight:500;">Tên hiển thị</span>
+            <input name="displayName" type="text" placeholder="tên nhân vật"
+              autocomplete="name"
+              style="width:100%; padding:10px 12px; font-size:14px;
+              background:#0f1020; border:1px solid #2e3358; border-radius:6px;
+              color:#e8eaf6; outline:none; box-sizing:border-box;"
+              required />
+          </label>
+          <label style="display:block; margin-bottom:18px;">
+            <span style="display:block; font-size:12px; color:#9aa0c3; margin-bottom:5px; font-weight:500;">Mật khẩu</span>
+            <input name="password" type="password" placeholder="tối thiểu 6 ký tự"
+              autocomplete="new-password"
+              style="width:100%; padding:10px 12px; font-size:14px;
+              background:#0f1020; border:1px solid #2e3358; border-radius:6px;
+              color:#e8eaf6; outline:none; box-sizing:border-box;"
+              required />
+          </label>
+          <label style="display:block; margin-bottom:18px;">
+            <span style="display:block; font-size:12px; color:#9aa0c3; margin-bottom:5px; font-weight:500;">Xác nhận mật khẩu</span>
+            <input name="confirmPassword" type="password" placeholder="nhập lại mật khẩu"
+              autocomplete="new-password"
+              style="width:100%; padding:10px 12px; font-size:14px;
+              background:#0f1020; border:1px solid #2e3358; border-radius:6px;
+              color:#e8eaf6; outline:none; box-sizing:border-box;"
+              required />
+          </label>
+          <div id="register-msg" style="display:none; padding:8px 12px; border-radius:6px;
+            font-size:13px; margin-bottom:14px;"></div>
+          <button type="submit" id="register-btn"
+            style="width:100%; padding:11px 0; border:none; border-radius:8px;
+            background:linear-gradient(90deg,#00b894,#00cec9); color:#fff;
+            font-size:15px; font-weight:600; cursor:pointer;">
+            Tạo tài khoản
+          </button>
+        </form>
+
+        <p style="text-align:center; margin-top:18px; font-size:12px; color:#9aa0c3;">
+          Guest? Nhập bất kỳ username + bấm "Vào game" để chơi offline.
+        </p>
+
+        <!-- DEV: vào thẳng game bằng admin (không cần nhập) -->
+        <button id="dev-admin-btn"
+          style="width:100%; margin-top:12px; padding:9px 0;
+            border:1px dashed #6c5ce7; border-radius:8px;
+            background:rgba(108,92,231,0.12); color:#6c5ce7;
+            font-size:13px; font-weight:600; cursor:pointer;">
+          ⚡ DEV: Vào ngay bằng admin/admin123
+        </button>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    this.overlayEl = overlay;
+
+    // Wire events
+    this.wireTabs(overlay);
+    this.wireLogin(overlay);
+    this.wireRegister(overlay);
+    this.wireDevQuickLogin(overlay);
+  }
+
+  /** DEV: 1 cú bấm vào thẳng World bằng admin. */
+  private wireDevQuickLogin(root: HTMLElement): void {
+    const btn = root.querySelector<HTMLButtonElement>('#dev-admin-btn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Đang vào...';
+      try {
+        await ColyseusManager.getInstance().connect('admin', 'admin123');
+        this.destroyOverlay();
+        this.scene.start('World');
+      } catch (err) {
+        console.warn('[dev] admin quick login failed (offline?):', err);
+        // vẫn vào World ở chế độ offline
+        this.destroyOverlay();
+        this.scene.start('World');
+      }
+    });
+  }
+
+  private wireTabs(root: HTMLElement): void {
+    const tabs = root.querySelectorAll<HTMLElement>('.auth-tab');
+    const loginForm = root.querySelector<HTMLFormElement>('#login-form')!;
+    const registerForm = root.querySelector<HTMLFormElement>('#register-form')!;
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab!;
+        tabs.forEach((t) => {
+          const isActive = t.dataset.tab === target;
+          t.classList.toggle('active', isActive);
+          t.style.background = isActive ? '#2e3358' : 'transparent';
+          t.style.color = isActive ? '#fff' : '#9aa0c3';
+        });
+        loginForm.style.display = target === 'login' ? '' : 'none';
+        registerForm.style.display = target === 'register' ? '' : 'none';
+        // Clear old messages
+        this.hideMsg(root, 'login-msg');
+        this.hideMsg(root, 'register-msg');
+      });
+    });
+  }
+
+  private wireLogin(root: HTMLElement): void {
+    const form = root.querySelector<HTMLFormElement>('#login-form')!;
+    const msgEl = root.querySelector<HTMLDivElement>('#login-msg')!;
+    const btn = root.querySelector<HTMLButtonElement>('#login-btn')!;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const username = String(fd.get('username') ?? '').trim();
+      const password = String(fd.get('password') ?? '').trim();
+      if (!username || !password) {
+        this.showMsg(msgEl, 'Vui lòng nhập đầy đủ thông tin.', 'warn');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Đang đăng nhập…';
+      this.hideMsg(root, 'login-msg');
+
+      try {
+        await ColyseusManager.getInstance().connect(username, password);
+        this.destroyOverlay();
+        this.scene.start('World');
+      } catch (err: any) {
+        const msg = err?.message || 'Không thể kết nối server.';
+        this.showMsg(msgEl, msg, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Vào game';
+      }
+    });
+  }
+
+  private wireRegister(root: HTMLElement): void {
+    const form = root.querySelector<HTMLFormElement>('#register-form')!;
+    const msgEl = root.querySelector<HTMLDivElement>('#register-msg')!;
+    const btn = root.querySelector<HTMLButtonElement>('#register-btn')!;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const username = String(fd.get('username') ?? '').trim();
+      const displayName = String(fd.get('displayName') ?? '').trim();
+      const password = String(fd.get('password') ?? '').trim();
+      const confirmPassword = String(fd.get('confirmPassword') ?? '').trim();
+
+      if (!username || !displayName || !password || !confirmPassword) {
+        this.showMsg(msgEl, 'Vui lòng nhập đầy đủ thông tin.', 'warn');
+        return;
+      }
+      if (username.length < 3) {
+        this.showMsg(msgEl, 'Tên đăng nhập tối thiểu 3 ký tự.', 'warn');
+        return;
+      }
+      if (password.length < 6) {
+        this.showMsg(msgEl, 'Mật khẩu tối thiểu 6 ký tự.', 'warn');
+        return;
+      }
+      if (password !== confirmPassword) {
+        this.showMsg(msgEl, 'Mật khẩu xác nhận không khớp.', 'warn');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Đang tạo tài khoản…';
+      this.hideMsg(root, 'register-msg');
+
+      try {
+        const API_BASE =
+          window.__API_BASE__ ||
+          (window.location.port === '5173' ? 'http://localhost:2567' : window.location.origin);
+        const res = await fetch(API_BASE + '/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, displayName }),
+        });
+        const data: AuthResponse = await res.json();
+        if (!data.ok) {
+          this.showMsg(msgEl, data.message || 'Đăng ký thất bại.', 'error');
+          btn.disabled = false;
+          btn.textContent = 'Tạo tài khoản';
+          return;
+        }
+        // Thành công → tự đăng nhập
+        await ColyseusManager.getInstance().connect(username, password);
+        this.destroyOverlay();
+        this.scene.start('World');
+      } catch {
+        this.showMsg(msgEl, 'Không thể kết nối server. Thử lại sau.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Tạo tài khoản';
+      }
+    });
+  }
+
+  private showMsg(el: HTMLElement, text: string, type: 'error' | 'warn' | 'ok'): void {
+    const colors: Record<string, { bg: string; color: string }> = {
+      error: { bg: 'rgba(255,118,117,0.15)', color: '#ff7675' },
+      warn: { bg: 'rgba(253,203,110,0.15)', color: '#fdcb6e' },
+      ok: { bg: 'rgba(0,184,148,0.15)', color: '#00b894' },
+    };
+    const c = colors[type] ?? colors.error;
+    el.style.display = 'block';
+    el.style.background = c.bg;
+    el.style.color = c.color;
+    el.textContent = text;
+  }
+
+  private hideMsg(root: HTMLElement, id: string): void {
+    const el = root.querySelector<HTMLDivElement>(`#${id}`);
+    if (el) el.style.display = 'none';
+  }
+
+  private destroyOverlay(): void {
+    if (this.overlayEl) {
+      this.overlayEl.remove();
+      this.overlayEl = null;
+    }
+  }
+
+  shutdown(): void {
+    this.destroyOverlay();
+  }
+}

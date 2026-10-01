@@ -1,0 +1,124 @@
+{
+  "version": "1.10",
+  "tiledversion": "1.10.2",
+  "type": "map",
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "infinite": false,
+  "width": 8,
+  "height": 8,
+  "tilewidth": 16,
+  "tileheight": 16,
+  "nextlayerid": 5,
+  "nextobjectid": 3,
+  "tilesets": [
+    {
+      "firstgid": 384,
+      "name": "outdoor",
+      "image": "assets/tilesets/Outdoor.png",
+      "imagewidth": 256,
+      "imageheight": 22080,
+      "tilewidth": 16,
+      "tileheight": 16,
+      "columns": 16,
+      "tilecount": 22080
+    }
+  ],
+  "layers": [
+    {
+      "id": 1,
+      "name": "Ground",
+      "type": "tilelayer",
+      "width": 8,
+      "height": 8,
+      "visible": true,
+      "data": [
+        441,442,442,443,443,442,442,444,
+        505,410,411,410,411,410,411,508,
+        505,411,409,412,409,412,410,508,
+        505,410,412,411,412,411,409,508,
+        505,411,409,410,411,410,412,508,
+        505,410,412,411,409,412,411,508,
+        505,411,410,409,412,411,410,508,
+        505,410,411,412,0,411,410,508
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Decoration",
+      "type": "tilelayer",
+      "width": 8,
+      "height": 8,
+      "visible": true,
+      "data": [
+        0,0,0,0,0,0,0,0,
+        0,0,514,0,0,515,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,513,513,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,514,0,0,0,0,515,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Overhead",
+      "type": "tilelayer",
+      "width": 8,
+      "height": 8,
+      "visible": true,
+      "data": [
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Objects",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "id": 1,
+          "name": "DoorOut",
+          "type": "warp",
+          "x": 4,
+          "y": 7,
+          "width": 1,
+          "height": 1,
+          "visible": true,
+          "toMap": "pallet-town",
+          "toX": 13,
+          "toY": 5
+        },
+        {
+          "id": 2,
+          "name": "HomeSign",
+          "type": "sign",
+          "x": 1,
+          "y": 1,
+          "width": 1,
+          "height": 1,
+          "visible": true,
+          "text": "Your cozy home."
+        }
+      ]
+    }
+  ],
+  "properties": [
+    { "name": "mapId", "type": "string", "value": "interior-player-house" },
+    { "name": "name", "type": "string", "value": "Player's House" },
+    { "name": "mapType", "type": "string", "value": "interior" },
+    { "name": "description", "type": "string", "value": "A small house where your journey begins." },
+    { "name": "music", "type": "string", "value": "pallet-town" },
+    { "name": "weather", "type": "string", "value": "sunny" },
+    { "name": "requiredBadges", "type": "string", "value": "" }
+  ],
+  "encounters": []
+}

@@ -1,0 +1,366 @@
+[
+  {
+    "mapId": "map-2",
+    "mapName": "PhenomenoTest",
+    "terrain": "Land",
+    "spawns": [
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "bulbasaur",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 25,
+        "rarity": "common"
+      }
+    ]
+  },
+  {
+    "mapId": "map-8",
+    "mapName": "Route 2",
+    "terrain": "Land",
+    "spawns": [
+      {
+        "species": "patrat",
+        "minLevel": 9,
+        "maxLevel": 14,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "lillipup",
+        "minLevel": 8,
+        "maxLevel": 11,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "pikachu",
+        "minLevel": 9,
+        "maxLevel": 13,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "minccino",
+        "minLevel": 9,
+        "maxLevel": 12,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "deerling",
+        "minLevel": 8,
+        "maxLevel": 12,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "pidove",
+        "minLevel": 9,
+        "maxLevel": 13,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "gothita",
+        "minLevel": 7,
+        "maxLevel": 11,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "emolga",
+        "minLevel": 9,
+        "maxLevel": 12,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "axew",
+        "minLevel": 9,
+        "maxLevel": 9,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "axew",
+        "minLevel": 10,
+        "maxLevel": 11,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "mienfoo",
+        "minLevel": 8,
+        "maxLevel": 10,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "munna",
+        "minLevel": 13,
+        "maxLevel": 13,
+        "weight": 25,
+        "rarity": "common"
+      }
+    ]
+  },
+  {
+    "mapId": "map-9",
+    "mapName": "Kipik Cave",
+    "terrain": "Cave",
+    "spawns": [
+      {
+        "species": "roggenrola",
+        "minLevel": 6,
+        "maxLevel": 8,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      },
+      {
+        "species": "roggenrola",
+        "minLevel": 5,
+        "maxLevel": 5,
+        "weight": 10,
+        "rarity": "common"
+      }
+    ]
+  },
+  {
+    "mapId": "map-43",
+    "mapName": "Route 1",
+    "terrain": "Land",
+    "spawns": [
+      {
+        "species": "patrat",
+        "minLevel": 9,
+        "maxLevel": 14,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "lillipup",
+        "minLevel": 8,
+        "maxLevel": 11,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "pikachu",
+        "minLevel": 9,
+        "maxLevel": 13,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "minccino",
+        "minLevel": 9,
+        "maxLevel": 12,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "deerling",
+        "minLevel": 8,
+        "maxLevel": 12,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "pidove",
+        "minLevel": 9,
+        "maxLevel": 13,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "gothita",
+        "minLevel": 7,
+        "maxLevel": 11,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "emolga",
+        "minLevel": 9,
+        "maxLevel": 12,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "axew",
+        "minLevel": 9,
+        "maxLevel": 9,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "axew",
+        "minLevel": 10,
+        "maxLevel": 11,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "mienfoo",
+        "minLevel": 8,
+        "maxLevel": 10,
+        "weight": 25,
+        "rarity": "common"
+      },
+      {
+        "species": "munna",
+        "minLevel": 13,
+        "maxLevel": 13,
+        "weight": 25,
+        "rarity": "common"
+      }
+    ]
+  }
+]

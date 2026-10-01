@@ -1,0 +1,133 @@
+[
+  {
+    "trainerType": "LEADER_Cheren",
+    "name": "Cheren",
+    "items": [
+      "FULLRESTORE",
+      "FULLRESTORE"
+    ],
+    "party": [
+      {
+        "species": "geodude",
+        "level": 12
+      },
+      {
+        "species": "onix",
+        "level": 14
+      }
+    ]
+  },
+  {
+    "trainerType": "RIVAL1",
+    "name": "Hugh",
+    "items": [],
+    "party": [
+      {
+        "species": "pidove",
+        "level": 15
+      },
+      {
+        "species": "herdier",
+        "level": 17
+      }
+    ]
+  },
+  {
+    "trainerType": "RIVAL1",
+    "name": "Hugh,1",
+    "items": [],
+    "party": [
+      {
+        "species": "pidove",
+        "level": 15
+      },
+      {
+        "species": "herdier",
+        "level": 17
+      }
+    ]
+  },
+  {
+    "trainerType": "RIVAL1",
+    "name": "Hugh,2",
+    "items": [],
+    "party": [
+      {
+        "species": "pidgeotto",
+        "level": 17
+      },
+      {
+        "species": "rattata",
+        "level": 15
+      },
+      {
+        "species": "squirtle",
+        "level": 18
+      }
+    ]
+  },
+  {
+    "trainerType": "CHAMPION",
+    "name": "Blue",
+    "items": [],
+    "party": [
+      {
+        "species": "venusaur",
+        "level": 63
+      },
+      {
+        "species": "charizard",
+        "level": 63
+      },
+      {
+        "species": "blastoise",
+        "level": 63
+      }
+    ]
+  },
+  {
+    "trainerType": "YOUNGSTER",
+    "name": "Fran",
+    "items": [],
+    "party": [
+      {
+        "species": "emolga",
+        "level": 18
+      }
+    ]
+  },
+  {
+    "trainerType": "LEADER_Cheren",
+    "name": "Cheren,1",
+    "items": [],
+    "party": [
+      {
+        "species": "patrat",
+        "level": 18
+      },
+      {
+        "species": "cinccino",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "trainerType": "YOUNGSTER",
+    "name": "Klein",
+    "items": [],
+    "party": [
+      {
+        "species": "articuno",
+        "level": 10
+      },
+      {
+        "species": "zapdos",
+        "level": 10
+      },
+      {
+        "species": "moltres",
+        "level": 10
+      }
+    ]
+  }
+]

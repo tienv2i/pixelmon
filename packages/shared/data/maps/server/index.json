@@ -1,0 +1,92 @@
+[
+  {
+    "mapId": "interior-lab",
+    "file": "interior-lab.json",
+    "width": 12,
+    "height": 10
+  },
+  {
+    "mapId": "interior-player-house",
+    "file": "interior-player-house.json",
+    "width": 8,
+    "height": 8
+  },
+  {
+    "mapId": "interior-rival-house",
+    "file": "interior-rival-house.json",
+    "width": 8,
+    "height": 8
+  },
+  {
+    "mapId": "map-1",
+    "file": "map-1.json",
+    "width": 20,
+    "height": 15
+  },
+  {
+    "mapId": "map-10",
+    "file": "map-10.json",
+    "width": 20,
+    "height": 15
+  },
+  {
+    "mapId": "map-3",
+    "file": "map-3.json",
+    "width": 24,
+    "height": 15
+  },
+  {
+    "mapId": "map-33",
+    "file": "map-33.json",
+    "width": 46,
+    "height": 40
+  },
+  {
+    "mapId": "map-4",
+    "file": "map-4.json",
+    "width": 36,
+    "height": 39
+  },
+  {
+    "mapId": "map-43",
+    "file": "map-43.json",
+    "width": 39,
+    "height": 55
+  },
+  {
+    "mapId": "map-5",
+    "file": "map-5.json",
+    "width": 20,
+    "height": 15
+  },
+  {
+    "mapId": "map-6",
+    "file": "map-6.json",
+    "width": 20,
+    "height": 30
+  },
+  {
+    "mapId": "map-7",
+    "file": "map-7.json",
+    "width": 20,
+    "height": 15
+  },
+  {
+    "mapId": "map-8",
+    "file": "map-8.json",
+    "width": 44,
+    "height": 39
+  },
+  {
+    "mapId": "map-9",
+    "file": "map-9.json",
+    "width": 30,
+    "height": 30
+  },
+  {
+    "mapId": "pallet-town",
+    "file": "pallet-town.json",
+    "width": 20,
+    "height": 18
+  }
+]

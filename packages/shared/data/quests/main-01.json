@@ -1,0 +1,23 @@
+[
+  {
+    "questId": "main-01",
+    "title": "Begin Your Journey",
+    "description": "Choose your first creature and defeat the trainer on Route 1.",
+    "objectives": [
+      { "type": "catch", "target": "sproutling", "count": 1 },
+      { "type": "defeat", "target": "trainer_jesse", "count": 1 }
+    ],
+    "rewards": { "experience": 100, "coins": 500, "items": ["pokeball"] },
+    "prerequisites": []
+  },
+  {
+    "questId": "main-02",
+    "title": "Conquer the Ember Gym",
+    "description": "Defeat Gym Leader Blaze to earn the Flame Badge.",
+    "objectives": [
+      { "type": "badge", "target": "flame-badge", "count": 1 }
+    ],
+    "rewards": { "experience": 500, "coins": 2000, "badges": ["flame-badge"] },
+    "prerequisites": ["main-01"]
+  }
+]

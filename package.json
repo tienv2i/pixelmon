@@ -1,0 +1,35 @@
+{
+  "name": "pixelmon",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pokemon MMORPG - Phaser 3 + Colyseus Monorepo",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:server": "turbo run dev --filter=server",
+    "dev:client": "turbo run dev --filter=client",
+    "pm": "bash scripts/pm.sh",
+    "pm:start": "bash scripts/pm.sh start",
+    "pm:stop": "bash scripts/pm.sh stop",
+    "pm:restart": "bash scripts/pm.sh restart",
+    "pm:status": "bash scripts/pm.sh status",
+    "pm:logs": "bash scripts/pm.sh logs",
+    "pm:watch": "bash scripts/pm.sh watch",
+    "build": "turbo run build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.0.0",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.71.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

@@ -5,6 +5,7 @@ const ZOOM_MIN = 0.7;
 const ZOOM_MAX = 1.5;
 const ZOOM_STEP = 0.1;
 const ZOOM_DEFAULT = 1.0;
+const BASE_UI_SCALE = 1.25;
 
 /**
  * Quản lý **UI zoom** — scale thống nhất cho toàn bộ HUD panels.
@@ -55,11 +56,11 @@ export class UiZoomManager {
   }
 
   /**
-   * Giá trị UI zoom người dùng chọn (mặc định 1.0 = 100%).
-   * Ổn định và đồng nhất, không tự động biến dạng theo kích thước cửa sổ.
+   * Giá trị UI zoom thực tế: nhân tỉ lệ baseline 1.25x so với gốc.
+   * Người dùng nhìn nhận mức này là 100% chuẩn.
    */
   get uiZoom(): number {
-    return this._uiZoom;
+    return Math.round(this._uiZoom * BASE_UI_SCALE * 100) / 100;
   }
 
   /** Giá trị zoom gốc người dùng đặt (chưa nhân hệ số thích ứng). */

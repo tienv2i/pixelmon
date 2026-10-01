@@ -11,6 +11,7 @@ import { PartyStrip, type PartyMember } from '../ui/PartyStrip';
 import { Minimap } from '../ui/Minimap';
 import { ChatLog } from '../ui/ChatLog';
 import { SettingsPanel } from '../ui/SettingsPanel';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { TopMenu } from '../ui/TopMenu';
 import { InfoPanel } from '../ui/InfoPanel';
 import { UiZoomManager } from '../ui/UiZoomManager';
@@ -66,6 +67,8 @@ export class WorldScene extends Phaser.Scene {
   private minimap!: Minimap;
   private chatLog!: ChatLog;
   private settingsPanel!: SettingsPanel;
+  private confirmModal!: ConfirmModal;
+  private moveButton: 'left' | 'right' = 'left';
   private manualMiniMode?: boolean;
   private playerSheetKey: string = TEX.hero;
   private playerFrameCount = 16;
@@ -336,6 +339,7 @@ export class WorldScene extends Phaser.Scene {
       ...this.topMenu.getGameObjects(),
       ...this.infoPanel.getGameObjects(),
       ...this.settingsPanel.getGameObjects(),
+      ...this.confirmModal.getGameObjects(),
     ];
     if (this.hintGfx) objs.push(this.hintGfx);
     if (this.hintText) objs.push(this.hintText);
@@ -442,13 +446,22 @@ export class WorldScene extends Phaser.Scene {
   private setupPointerInput(): void {
     this.input.mouse?.disableContextMenu();
 
-    // Chuột phải → click-to-move
+    // Click-to-move (mặc định Chuột trái / Touch, hoặc Chuột phải theo cài đặt)
     this.input.on(
       'pointerdown',
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-        if (this.settingsPanel?.isOpen()) return;
-        if (!p.rightButtonDown() && p.button !== 2) return;
+        if (this.settingsPanel?.isOpen() || this.confirmModal?.isOpen()) return;
         if (over.length > 0) return;
+
+        const wantPan = p.middleButtonDown() || (p.leftButtonDown() && p.event.shiftKey);
+        if (wantPan) return;
+
+        const isMove =
+          this.moveButton === 'left'
+            ? p.leftButtonDown() || p.button === 0
+            : p.rightButtonDown() || p.button === 2;
+
+        if (!isMove) return;
         const wp = this.cameras.main.getWorldPoint(p.x, p.y);
         this.issueMoveTo(wp.x, wp.y);
       },
@@ -665,6 +678,9 @@ export class WorldScene extends Phaser.Scene {
         this.layoutLeftColumn();
         this.topMenu.relayout();
       },
+      onMoveButtonChange: (btn) => {
+        this.moveButton = btn;
+      },
       onUiZoomIn: () => this.uiZoom.zoomIn(),
       onUiZoomOut: () => this.uiZoom.zoomOut(),
       onUiZoomReset: () => this.uiZoom.reset(),
@@ -672,16 +688,17 @@ export class WorldScene extends Phaser.Scene {
       onGameZoomOut: () => this.zoomGameBy(-0.2),
       onGameZoomReset: () => this.setGameZoom(1.0),
       getGameZoom: () => this.getGameZoom(),
-      onLogout: () => {
-        ColyseusManager.getInstance().disconnect();
-        this.scene.start('Login');
-      },
+      onLogout: () => this.confirmLogout(),
       onClose: () => undefined,
     });
     this.settingsPanel.setUiZoomManager(this.uiZoom);
 
+    // Confirm Modal — hộp thoại xác nhận đăng xuất
+    this.confirmModal = new ConfirmModal(this);
+
     // TopMenu — dãy icon nhỏ neo giữa cạnh trên
     this.topMenu = new TopMenu(this, (key) => this.onTopMenuIcon(key));
+    this.topMenu.setUiZoomManager(this.uiZoom);
     this.topMenu.setBoundsConstraints(
       () => this.hud.getSize().w + (this.isSmallViewport() ? 6 : 8) * (this.uiZoom?.uiZoom ?? 1),
       () =>
@@ -823,8 +840,7 @@ export class WorldScene extends Phaser.Scene {
         this.toggleHint();
         break;
       case 'logout':
-        ColyseusManager.getInstance().disconnect();
-        this.scene.start('Login');
+        this.confirmLogout();
         break;
       case 'pokedex':
       case 'bag':
@@ -835,6 +851,20 @@ export class WorldScene extends Phaser.Scene {
         this.chatLog?.addLine(`[${key}] chưa implement`);
         break;
     }
+  }
+
+  private confirmLogout(): void {
+    this.confirmModal.show({
+      title: '⚠ XÁC NHẬN ĐĂNG XUẤT',
+      message: 'Bạn có chắc chắn muốn đăng xuất tài khoản và quay trở lại màn hình đăng nhập không?',
+      confirmText: 'Đăng xuất',
+      cancelText: 'Huỷ bỏ',
+      confirmColor: 0xc0392b,
+      onConfirm: () => {
+        ColyseusManager.getInstance().disconnect();
+        this.scene.start('Login');
+      },
+    });
   }
 
   private setupDebug(): void {

@@ -12,10 +12,10 @@ export interface PlayerHudData {
   realMoney: number;
 }
 
-/** Kích thước panel chuẩn và mini. */
-const PANEL_W = 210;
-const PANEL_H = 72;
-const MINI_W = 146;
+/** Kích thước panel chuẩn và mini (đã cắt bỏ padding thừa bên phải). */
+const PANEL_W = 158;
+const PANEL_H = 70;
+const MINI_W = 138;
 const MINI_H = 36;
 const PAD = 6;
 
@@ -143,21 +143,21 @@ export class PlayerHud {
 
       this.realMoneyText.setVisible(false);
     } else {
-      // Chế độ Normal gọn gàng
-      const avatarSize = h - 10 * z;
+      // Chế độ Normal gọn gàng, không thừa viền phải
+      const avatarSize = h - 12 * z;
       this.avatar
         .setPosition(x + avatarSize / 2 + 6 * z, y + h / 2)
         .setScale(avatarSize / (this._avatarFrameSize || 32));
 
-      const colX = x + avatarSize + 12 * z;
+      const colX = x + avatarSize + 10 * z;
       this.nameText
-        .setPosition(colX, y + 8 * z)
-        .setFontSize(Math.max(11, Math.round(13 * z)));
+        .setPosition(colX, y + 6 * z)
+        .setFontSize(Math.max(11, Math.round(12 * z)));
       this.moneyText
-        .setPosition(colX, y + 28 * z)
-        .setFontSize(Math.max(10, Math.round(12 * z)));
+        .setPosition(colX, y + 26 * z)
+        .setFontSize(Math.max(10, Math.round(11 * z)));
       this.realMoneyText
-        .setPosition(colX, y + 48 * z)
+        .setPosition(colX, y + 46 * z)
         .setFontSize(Math.max(10, Math.round(11 * z)))
         .setVisible(true);
     }

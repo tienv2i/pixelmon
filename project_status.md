@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 25: Chuẩn hoá Tỷ lệ HUD, Draggable Settings, Overlay Khóa UI, Cài đặt Ngôn ngữ & Nút Logout trên Toolbar)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 26: Tăng baseline scale 1.25x, Toolbar Pixel Art, Cắt padding thừa Info, Modal Xác nhận Logout, Sửa Settings & Di chuyển Chuột trái)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -54,6 +54,7 @@
 | Plan 23 — Tinh gọn UI, Profile Mini, Toolbar thu gọn & Settings Panel đa năng                        | ✅           |
 | Plan 24 — Nâng cấp Tabbed Settings Panel & Khung Chat Draggable                                      | ✅           |
 | Plan 25 — Chuẩn hoá Tỷ lệ HUD, Draggable Settings, Overlay Khóa UI, Ngôn ngữ & Logout trên Toolbar    | ✅           |
+| Plan 26 — Baseline scale 1.25x, Toolbar Pixel Art, Cắt padding Info, Confirm Modal, Fix Settings & Move LMB | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -638,6 +639,57 @@ quay hướng âm thầm. Chi tiết: `docs/sprite-import-guide.md` mục 3b.
 8. **Bước 8 — Kiểm tra typecheck và cập nhật status:**
    - [x] Chạy `pnpm --filter client typecheck` pass 100%.
    - [x] Cập nhật kết quả vào `project_status.md` và git commit.
+
+---
+
+## Kế hoạch hiện tại: Plan 26 — Tăng baseline scale 1.25x, Toolbar Pixel Art, Cắt padding thừa Info, Modal Xác nhận Logout, Sửa Settings & Di chuyển Chuột trái
+
+> Bắt đầu 2026-10-01. Hoàn thành 2026-10-01. Mục tiêu:
+> 1. Tăng tổng thể giao diện 1.25 lần (xem đó là chuẩn 100%).
+> 2. Chuyển icon thanh Toolbar phía trên thành dạng pixel art và cùng hưởng zoom chung với HUD.
+> 3. Cắt bỏ khoảng trống thừa ở phần padding phải của khung info bên trái (`PlayerHud`).
+> 4. Tạo modal popup xác nhận trước khi đăng xuất (`ConfirmModal`).
+> 5. Cài đặt bảng Settings chỉ đóng khi nhấn nút ✕ (click overlay không tự đóng).
+> 6. Mặc định di chuyển bằng chuột trái/touch và có thể tuỳ chỉnh chuột trái/chuột phải trong Settings.
+> 7. Sửa lỗi text "Thu phóng thế giới game" bị đè lên các nút trong bảng Settings.
+
+1. **Bước 1 — Tăng baseline scale UI 1.25x & Kết nối Toolbar với Zoom (`UiZoomManager.ts`, `TopMenu.ts`):**
+   - [x] Đặt `BASE_UI_SCALE = 1.25` trong `UiZoomManager` làm chuẩn 100% cho mọi panel HUD.
+   - [x] Nối `UiZoomManager` vào `TopMenu`: icon toolbar phóng to theo tỷ lệ UI zoom của toàn hệ thống.
+   - [x] Vẽ các biểu tượng thanh công cụ bằng phong cách pixel art sắc nét thay cho ký tự unicode.
+2. **Bước 2 — Cắt bỏ khoảng trống thừa bên phải khung Info (`PlayerHud.ts`):**
+   - [x] Giảm `PANEL_W` từ 210px xuống 158px, tối ưu không gian hiển thị tên và tiền tệ, vừa vặn không thừa viền phải.
+3. **Bước 3 — Modal Popup Xác nhận Đăng xuất (`ConfirmModal.ts`, `WorldScene.ts`):**
+   - [x] Xây dựng modal popup hỏi xác nhận khi bấm Logout với 2 lựa chọn: `Đăng xuất` (đỏ) và `Huỷ bỏ` (xám).
+4. **Bước 4 — Nâng cấp Settings Panel (`SettingsPanel.ts`):**
+   - [x] Đổi hành vi overlay: Chỉ đóng modal khi bấm nút `✕`, click bên ngoài không đóng.
+   - [x] Sắp xếp lại layout dòng Thu phóng (UI Zoom & Game Zoom) chống chồng chéo text và nút bấm.
+   - [x] Thêm tuỳ chọn Cơ chế di chuyển: `Chuột trái / Touch (LMB)` [Mặc định] vs `Chuột phải (RMB)`.
+5. **Bước 5 — Cập nhật Cơ chế di chuyển trong `WorldScene.ts`:**
+   - [x] Mặc định di chuyển bằng chuột trái / touch khi click vào thế giới (ngoài UI), hỗ trợ chuyển đổi linh hoạt theo cấu hình Settings.
+6. **Bước 6 — Typecheck, kiểm tra toàn bộ & Git commit:**
+   - [x] Chạy typecheck kiểm tra không còn lỗi (`pnpm run typecheck` pass).
+   - [x] Cập nhật `project_status.md` và tạo git commit.
+
+---
+
+### Nhật ký 2026-10-01 (10) — Plan 26: Baseline scale 1.25x, Toolbar Pixel Art, Cắt padding Info, Confirm Modal, Sửa Settings & Di chuyển Chuột trái
+
+- **Tăng baseline scale toàn bộ UI lên 1.25x (`BASE_UI_SCALE = 1.25`):**
+  - Mọi panel HUD hiển thị lớn hơn 1.25 lần rõ ràng, dễ nhìn nhưng người chơi vẫn thấy tỷ lệ chuẩn là 100% trong Settings.
+- **Thanh Toolbar phong cách Pixel Art & co giãn theo UI Zoom:**
+  - Thay thế toàn bộ ký tự unicode bằng các icon pixel art sắc nét tự vẽ qua canvas graphics (`drawPixelIcon`): Pokéball, Balo, Nhóm, Bản đồ, La bàn, Bánh răng cài đặt, Trợ giúp, Cửa đăng xuất.
+  - Kết nối `TopMenu` với `UiZoomManager`: thanh toolbar tự động co giãn đồng bộ với tỷ lệ phóng to HUD của toàn hệ thống.
+- **Cắt bỏ khoảng trống thừa ở khung Info (`PlayerHud`):**
+  - Giảm chiều rộng `PANEL_W` từ 210px xuống **158px**, tái cấu trúc vị trí cột tên và tiền tệ, viền phải ôm khít nội dung gọn gàng, tăng không gian thoáng đãng cho thế giới game.
+- **Modal Popup Xác nhận Đăng xuất (`ConfirmModal`):**
+  - Tạo hộp thoại xác nhận độc lập (`ConfirmModal`) với overlay tối bảo vệ (`depth = 250`), chặn click nhầm khi đăng xuất từ Toolbar hoặc Settings. Cung cấp hai nút `[ Xác nhận ]` (đỏ) và `[ Huỷ ]` (xám).
+- **Hoàn thiện bảng Cài đặt (Settings):**
+  - Đổi cơ chế đóng: Bảng cài đặt **chỉ đóng khi bấm nút ✕**, không tự đóng khi bấm vào khoảng trống overlay bên ngoài.
+  - Sửa lỗi chồng lấn hiển thị: Dịch chuyển các nút tăng/giảm thu phóng game sang phải, đảm bảo text nhãn không bao giờ bị đè.
+  - Bổ sung cấu hình Cơ chế di chuyển: Người chơi có thể tuỳ chọn giữa `Chuột trái / Touch (LMB)` [Mặc định] và `Chuột phải (RMB)`.
+- **Cập nhật Cơ chế di chuyển trong game (`WorldScene`):**
+  - Hỗ trợ di chuyển mặc định bằng click chuột trái / chạm màn hình (touch), kiểm tra chuẩn xác không trúng UI và không xung đột với thao tác Pan camera (Shift + Drag / MMB).
 
 ---
 

@@ -29,6 +29,7 @@ export interface SettingsPanelOptions {
   onToggleTargetMarker?: (enabled: boolean) => void;
   onToggleGrid?: (enabled: boolean) => void;
   onToggleAutoRun?: (enabled: boolean) => void;
+  onMoveButtonChange?: (button: 'left' | 'right') => void;
 
   // Audio & System
   onToggleBgm?: (enabled: boolean) => void;
@@ -85,6 +86,7 @@ export class SettingsPanel {
     targetMarker: true,
     showGrid: false,
     autoRun: false,
+    moveButton: 'left' as 'left' | 'right',
   };
 
   // Trạng thái âm thanh & hệ thống
@@ -123,6 +125,8 @@ export class SettingsPanel {
   private gameZoomValText?: Phaser.GameObjects.Text;
   private langBtnVi?: { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone };
   private langBtnEn?: { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone };
+  private moveBtnLeft?: { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone };
+  private moveBtnRight?: { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone };
 
   private allObjects: Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> = [];
 
@@ -130,11 +134,15 @@ export class SettingsPanel {
     this.scene = scene;
     this.opts = opts;
 
-    // Load ngôn ngữ đã lưu
+    // Load ngôn ngữ và cơ chế di chuyển đã lưu
     try {
       const savedLang = localStorage.getItem('pixelmon.lang');
       if (savedLang === 'vi' || savedLang === 'en') {
         this.systemState.lang = savedLang;
+      }
+      const savedMoveBtn = localStorage.getItem('pixelmon.moveButton');
+      if (savedMoveBtn === 'left' || savedMoveBtn === 'right') {
+        this.gameplayState.moveButton = savedMoveBtn;
       }
     } catch {
       // ignore
@@ -164,7 +172,7 @@ export class SettingsPanel {
 
     this.overlayBlocker.on('pointerdown', (p: Phaser.Input.Pointer) => {
       p.event?.stopPropagation();
-      this.close();
+      // Bảng cài đặt chỉ đóng khi bấm nút ✕ theo yêu cầu
     });
     this.allObjects.push(this.overlayBlocker);
 
@@ -479,11 +487,61 @@ export class SettingsPanel {
     });
     list.push(...chkAutoRun);
 
+    // Tuỳ chọn phím di chuyển
+    const lblMove = this.scene.add
+      .text(0, 0, 'CƠ CHẾ DI CHUYỂN (CLICK-TO-MOVE):', ts(11, '#6c5ce7', FONT.ui))
+      .setDepth(203).setScrollFactor(0).setVisible(false);
+    list.push(lblMove);
+
+    const bgLeft = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
+    const txtLeft = this.scene.add
+      .text(0, 0, '👈 Chuột trái / Touch (LMB)', ts(12, '#ffffff', FONT.ui))
+      .setOrigin(0.5)
+      .setDepth(204)
+      .setScrollFactor(0)
+      .setVisible(false);
+    const zoneLeft = this.scene.add
+      .zone(0, 0, 10, 10)
+      .setOrigin(0.5)
+      .setDepth(205)
+      .setScrollFactor(0)
+      .setVisible(false)
+      .setInteractive({ useHandCursor: true });
+
+    zoneLeft.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      p.event?.stopPropagation();
+      this.setMoveButton('left');
+    });
+    this.moveBtnLeft = { bg: bgLeft, txt: txtLeft, zone: zoneLeft };
+    list.push(bgLeft, txtLeft, zoneLeft);
+
+    const bgRight = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
+    const txtRight = this.scene.add
+      .text(0, 0, '👉 Chuột phải (RMB)', ts(12, C.muted, FONT.ui))
+      .setOrigin(0.5)
+      .setDepth(204)
+      .setScrollFactor(0)
+      .setVisible(false);
+    const zoneRight = this.scene.add
+      .zone(0, 0, 10, 10)
+      .setOrigin(0.5)
+      .setDepth(205)
+      .setScrollFactor(0)
+      .setVisible(false)
+      .setInteractive({ useHandCursor: true });
+
+    zoneRight.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      p.event?.stopPropagation();
+      this.setMoveButton('right');
+    });
+    this.moveBtnRight = { bg: bgRight, txt: txtRight, zone: zoneRight };
+    list.push(bgRight, txtRight, zoneRight);
+
     const hint = this.scene.add
       .text(
         0,
         0,
-        '💡 Mẹo: Nhấp chuột phải (RMB) vào bản đồ để tự động tìm đường đi tới ô đích.\nGiữ chuột giữa (MMB) hoặc Shift + Chuột trái để kéo camera di chuyển.',
+        '💡 Mẹo: Nhấp chuột vào bản đồ để tự động tìm đường đi tới ô đích.\nGiữ chuột giữa (MMB) hoặc Shift + Chuột trái để kéo camera di chuyển.',
         ts(11, C.muted, FONT.ui),
       )
       .setDepth(203).setScrollFactor(0).setVisible(false);
@@ -916,12 +974,11 @@ export class SettingsPanel {
     const lblUiZ = list[26] as Phaser.GameObjects.Text;
     lblUiZ.setPosition(x, curY);
 
+    this.positionButton(list[28], list[29], list[30], x + 240, curY + 6, 26, 20); // -
     const uiVal = list[27] as Phaser.GameObjects.Text;
-    uiVal.setPosition(x + 220, curY + 6);
-
-    this.positionButton(list[28], list[29], list[30], x + 160, curY + 6, 26, 20); // -
-    this.positionButton(list[31], list[32], list[33], x + 270, curY + 6, 26, 20); // +
-    this.positionButton(list[34], list[35], list[36], x + 310, curY + 6, 44, 20); // 100%
+    uiVal.setPosition(x + 285, curY + 6);
+    this.positionButton(list[31], list[32], list[33], x + 330, curY + 6, 26, 20); // +
+    this.positionButton(list[34], list[35], list[36], x + 380, curY + 6, 44, 20); // 100%
 
     curY += 32;
 
@@ -929,12 +986,22 @@ export class SettingsPanel {
     const lblGameZ = list[37] as Phaser.GameObjects.Text;
     lblGameZ.setPosition(x, curY);
 
+    this.positionButton(list[39], list[40], list[41], x + 240, curY + 6, 26, 20); // -
     const gameVal = list[38] as Phaser.GameObjects.Text;
-    gameVal.setPosition(x + 220, curY + 6);
+    gameVal.setPosition(x + 285, curY + 6);
+    this.positionButton(list[42], list[43], list[44], x + 330, curY + 6, 26, 20); // +
+    this.positionButton(list[45], list[46], list[47], x + 380, curY + 6, 44, 20); // 1.0x
+  }
 
-    this.positionButton(list[39], list[40], list[41], x + 160, curY + 6, 26, 20); // -
-    this.positionButton(list[42], list[43], list[44], x + 270, curY + 6, 26, 20); // +
-    this.positionButton(list[45], list[46], list[47], x + 310, curY + 6, 44, 20); // 1.0x
+  private setMoveButton(btn: 'left' | 'right'): void {
+    this.gameplayState.moveButton = btn;
+    try {
+      localStorage.setItem('pixelmon.moveButton', btn);
+    } catch {
+      // ignore
+    }
+    this.opts.onMoveButtonChange?.(btn);
+    this.relayout();
   }
 
   private layoutGameplayTab(x: number, y: number, _w: number): void {
@@ -946,18 +1013,56 @@ export class SettingsPanel {
     curY += 24;
 
     this.positionCheckbox(list, 1, x, curY, 360);
-    curY += 28;
+    curY += 26;
 
     this.positionCheckbox(list, 5, x, curY, 440);
-    curY += 28;
+    curY += 26;
 
     this.positionCheckbox(list, 9, x, curY, 360);
-    curY += 28;
+    curY += 26;
 
     this.positionCheckbox(list, 13, x, curY, 360);
-    curY += 36;
+    curY += 30;
 
-    const hint = list[17] as Phaser.GameObjects.Text;
+    // Cơ chế di chuyển
+    const lblMove = list[17] as Phaser.GameObjects.Text;
+    lblMove.setPosition(x, curY);
+    curY += 20;
+
+    const isLeft = this.gameplayState.moveButton === 'left';
+    const isRight = this.gameplayState.moveButton === 'right';
+
+    if (this.moveBtnLeft) {
+      const cx = x + 110;
+      const cy = curY + 12;
+      this.moveBtnLeft.bg.clear();
+      this.moveBtnLeft.bg.fillStyle(isLeft ? 0x24284d : 0x13152c, 0.95);
+      this.moveBtnLeft.bg.fillRoundedRect(cx - 100, cy - 13, 200, 26, 4);
+      this.moveBtnLeft.bg.lineStyle(isLeft ? 2 : 1, isLeft ? 0x00cec9 : 0x2e3358, 1);
+      this.moveBtnLeft.bg.strokeRoundedRect(cx - 100, cy - 13, 200, 26, 4);
+
+      this.moveBtnLeft.txt.setPosition(cx, cy);
+      this.moveBtnLeft.txt.setColor(isLeft ? '#00cec9' : C.muted);
+      this.moveBtnLeft.zone.setPosition(cx, cy).setSize(200, 26);
+    }
+
+    if (this.moveBtnRight) {
+      const cx = x + 300;
+      const cy = curY + 12;
+      this.moveBtnRight.bg.clear();
+      this.moveBtnRight.bg.fillStyle(isRight ? 0x24284d : 0x13152c, 0.95);
+      this.moveBtnRight.bg.fillRoundedRect(cx - 75, cy - 13, 150, 26, 4);
+      this.moveBtnRight.bg.lineStyle(isRight ? 2 : 1, isRight ? 0x00cec9 : 0x2e3358, 1);
+      this.moveBtnRight.bg.strokeRoundedRect(cx - 75, cy - 13, 150, 26, 4);
+
+      this.moveBtnRight.txt.setPosition(cx, cy);
+      this.moveBtnRight.txt.setColor(isRight ? '#00cec9' : C.muted);
+      this.moveBtnRight.zone.setPosition(cx, cy).setSize(150, 26);
+    }
+
+    curY += 34;
+
+    const hint = list[24] as Phaser.GameObjects.Text;
     hint.setPosition(x, curY);
   }
 

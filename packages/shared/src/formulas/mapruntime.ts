@@ -11,11 +11,23 @@ export function getCollisionFlag(map: ServerMap, x: number, y: number): number {
   return flags[y * width + x] ?? 0;
 }
 
+/** Tùy chọn cho isWalkable. */
+export interface WalkableOptions {
+  /** Player có HM Surf → đi vào ô WATER (sóng yên) được. */
+  canSurf?: boolean;
+}
+
 /** Tile có thể đi vào không? */
-export function isWalkable(map: ServerMap, x: number, y: number): boolean {
+export function isWalkable(
+  map: ServerMap,
+  x: number,
+  y: number,
+  opts: WalkableOptions = {},
+): boolean {
   const flag = getCollisionFlag(map, x, y);
   if (flag & CollisionFlag.BLOCKED) return false;
-  if (flag & CollisionFlag.WATER) return false; // cần surf
+  // Nước: chỉ qua khi surf. WATER|BLOCKED (nước sâu/thác) đã bị chặn ở trên.
+  if (flag & CollisionFlag.WATER) return !!opts.canSurf;
   if (flag & CollisionFlag.WARP) return true; // warp tile walkable (trigger portal)
   return !!(flag & CollisionFlag.WALKABLE);
 }
@@ -32,7 +44,36 @@ export function isWater(map: ServerMap, x: number, y: number): boolean {
 
 /** Có phải ledge (leo — chỉ 1 chiều)? */
 export function isLedge(map: ServerMap, x: number, y: number): boolean {
-  return !!(getCollisionFlag(map, x, y) & CollisionFlag.LEDGE_ANY);
+  return !!(getCollisionFlag(map, x, y) & CollisionFlag.LEDGE);
+}
+
+/** Hướng rơi của ledge: 'down' = +y, 'up' = -y, 'left' = -x, 'right' = +x.
+ *  null nếu ô không phải ledge. */
+export function getLedgeDirection(
+  map: ServerMap,
+  x: number,
+  y: number,
+): 'down' | 'up' | 'left' | 'right' | null {
+  const flag = getCollisionFlag(map, x, y);
+  if (!(flag & CollisionFlag.LEDGE)) return null;
+  const dir = (flag & CollisionFlag.LEDGE_DIR_MASK) >> 5;
+  switch (dir) {
+    case 0: return 'down';   // LEDGE_SOUTH
+    case 1: return 'up';     // LEDGE_NORTH
+    case 2: return 'left';   // LEDGE_WEST
+    case 3: return 'right';  // LEDGE_EAST
+    default: return null;
+  }
+}
+
+/** Ô ledge có cho phép nhảy theo `dir` không? */
+export function canJumpLedge(
+  map: ServerMap,
+  x: number,
+  y: number,
+  dir: 'down' | 'up' | 'left' | 'right',
+): boolean {
+  return getLedgeDirection(map, x, y) === dir;
 }
 
 export type MapObjectType = MapObject['type'];

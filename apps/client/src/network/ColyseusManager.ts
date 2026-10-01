@@ -202,7 +202,7 @@ export class ColyseusManager {
     }
   }
 
-  async joinWorld(mapId: string = 'pallet-town'): Promise<void> {
+  async joinWorld(mapId: string = 'lappet-town'): Promise<void> {
     if (this.worldRoom) {
       this.worldRoom.leave();
     }
@@ -240,6 +240,29 @@ export class ColyseusManager {
 
   sendMove(x: number, y: number, direction: string): void {
     this.worldRoom?.send('move', { x, y, direction });
+  }
+
+  /**
+   * Yêu cầu server chuyển map (warp). Server validate warp tại ô hiện tại rồi
+   * broadcast `player_moved_map`; client rejoin room của map mới.
+   */
+  sendChangeMap(toMap: string, toX: number, toY: number): void {
+    this.worldRoom?.send('change_map', { toMap, toX, toY });
+  }
+
+  /**
+   * Đăng ký handler cho các message server→client của world room.
+   * Trả về hàm huỷ đăng ký.
+   */
+  onWorldMessage(type: string, handler: (data: any) => void): () => void {
+    if (!this.worldRoom) return () => undefined;
+    this.worldRoom.onMessage(type, handler);
+    return () => this.worldRoom?.onMessage(type, handler); // best-effort
+  }
+
+  /** Xoá toàn bộ handler của một message type (dùng trước khi rejoin). */
+  offWorldMessage(type: string): void {
+    this.worldRoom?.onMessage(type, () => undefined);
   }
 
   sendChat(message: string): void {

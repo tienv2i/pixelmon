@@ -1,68 +1,32 @@
 [
   {
-    "id": "map-1",
-    "name": "Intro",
+    "id": "lappet-town",
+    "name": "Lappet Town",
     "parentId": null,
     "order": 1
   },
   {
-    "id": "map-3",
-    "name": "Juniper Lab",
-    "parentId": "map-33",
-    "order": 4
-  },
-  {
-    "id": "map-4",
-    "name": "Lila City",
-    "parentId": null,
-    "order": 7
-  },
-  {
-    "id": "map-5",
-    "name": "\\PN's House",
-    "parentId": "map-33",
-    "order": 3
-  },
-  {
-    "id": "map-6",
-    "name": "Pokémon Center",
-    "parentId": "map-4",
-    "order": 8
-  },
-  {
-    "id": "map-7",
-    "name": "Lila City Gym",
-    "parentId": "map-4",
-    "order": 9
-  },
-  {
-    "id": "map-8",
-    "name": "Route 2",
-    "parentId": null,
-    "order": 10
-  },
-  {
-    "id": "map-9",
-    "name": "Kipik Cave",
-    "parentId": "map-8",
-    "order": 11
-  },
-  {
-    "id": "map-10",
-    "name": "Klein's House",
-    "parentId": "map-33",
-    "order": 5
-  },
-  {
-    "id": "map-33",
-    "name": "Kleini Town",
-    "parentId": null,
+    "id": "players-house",
+    "name": "Player's house",
+    "parentId": "lappet-town",
     "order": 2
   },
   {
-    "id": "map-43",
+    "id": "daisys-house",
+    "name": "Daisy's house",
+    "parentId": "lappet-town",
+    "order": 3
+  },
+  {
+    "id": "pokemon-lab",
+    "name": "Pokémon Lab",
+    "parentId": "lappet-town",
+    "order": 4
+  },
+  {
+    "id": "route-1",
     "name": "Route 1",
     "parentId": null,
-    "order": 6
+    "order": 5
   }
 ]

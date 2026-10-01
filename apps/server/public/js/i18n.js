@@ -66,6 +66,11 @@
       'Imported data from Pokémon Essentials v21.1: Species, Moves, Items, Abilities, Types',
       'Dữ liệu đã nạp từ Pokémon Essentials v21.1: Loài, Chiêu thức, Vật phẩm, Đặc tính, Hệ',
     ],
+    'view.maps': ['World Maps Management', 'Quản lý Bản đồ'],
+    'view.maps.sub': [
+      'Interactive map viewer, collision layers, warps & spawn points',
+      'Xem bản đồ trực quan, lớp va chạm, cổng dịch chuyển & điểm hồi sinh',
+    ],
 
     // ── Sprites ──
     'sp.title': ['Character sprite library', 'Thư viện Sprite nhân vật'],

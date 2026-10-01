@@ -57,6 +57,8 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
   private hue: number;
   /** Sheet nào đang dùng: 'legacy' (12 frame) hay 'hero' (16 frame). */
   private sheet: keyof typeof FRAMES_PER_DIR;
+  /** Đang lướt nước (Surf)? */
+  private surfing = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -139,6 +141,49 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
   applyHue(hue: number): void {
     this.hue = hue;
     this.setTint(hue);
+  }
+
+  /**
+   * Bật/tắt trạng thái lướt nước (Surf).
+   * Hiện dùng tint xanh nhạt làm dấu hiệu trực quan; khi có sprite surf riêng
+   * chỉ cần `swapSheet()` sang sheet đó.
+   */
+  setSurfing(on: boolean): void {
+    if (this.surfing === on) return;
+    this.surfing = on;
+    if (on) {
+      this.setTint(0x9ecbff);
+    } else {
+      this.clearTint();
+    }
+  }
+
+  isSurfing(): boolean {
+    return this.surfing;
+  }
+
+  /**
+   * Nhảy ledge: chạy tween 1 hop (2 ô) rồi snap về đích. Trong lúc nhảy không
+   * xử lý input (WorldScene đặt `isJumping`).
+   */
+  jumpTo(targetX: number, targetY: number, dir: Dir, durationMs = 220, onDone?: () => void): void {
+    this.setDirection(dir);
+    this.walkFrame = 0;
+    this.scene.tweens.add({
+      targets: this,
+      x: targetX,
+      y: targetY,
+      duration: durationMs,
+      ease: 'Quad.easeOut',
+      onUpdate: () => {
+        this.nameText?.setPosition(this.x, this.y - this.getNameOffsetY());
+        this.shadow?.setPosition(this.x, this.y + 2);
+      },
+      onComplete: () => {
+        this.setPosition(targetX, targetY);
+        onDone?.();
+      },
+    });
   }
 
   /** Bước chân animation (gọi mỗi frame trong update). */

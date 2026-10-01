@@ -1,25 +1,38 @@
-import { MAP_COLS, MAP_ROWS, isWalkableTile, pixelToTile, tileToPixel } from './PlaceholderMap';
+import { pixelToTile, tileToPixel } from './PlaceholderMap';
 
 interface Pt {
   col: number;
   row: number;
 }
 
+/** Hàm kiểm tra 1 ô có đi được không (thường là `CollisionGrid.isWalkable`). */
+export type TileCollider = (col: number, row: number) => boolean;
+
 /**
- * A* pathfinding trên grid walkable của map placeholder.
- * Trả về danh sách ô đích → gốc (đã loại ô đầu, vì đó là vị trí hiện tại).
+ * A* pathfinding trên grid walkable của map hiện tại.
+ *
+ * `isWalkable` phải là collider thật của map (Client `CollisionGrid`); nếu không
+ * truyền, dùng mặc định "luôn đi được" để giữ tương thích ngược.
+ *
+ * Trả về danh sách ô đích → gốc (**đã loại ô xuất phát**, vì đó là vị trí hiện tại).
  */
-export function findPath(fromX: number, fromY: number, toX: number, toY: number): Pt[] {
+export function findPath(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  isWalkable: TileCollider = () => true,
+): Pt[] {
   const start = pixelToTile(fromX, fromY);
   const goal = pixelToTile(toX, toY);
 
   // Nếu đích đứng trên ô bị chặn → tìm ô đi được gần nhất
-  const target = isWalkableTile(goal.col, goal.row) ? goal : nearestWalkable(goal);
+  const target = isWalkable(goal.col, goal.row) ? goal : nearestWalkable(goal, isWalkable);
   if (!target || (target.col === start.col && target.row === start.row)) return [];
 
   const open = new Map<number, Node>();
   const closed = new Set<number>();
-  const key = (c: number, r: number) => r * MAP_COLS + c;
+  const key = (c: number, r: number) => r * 100000 + c;
 
   const h = (a: Pt, b: Pt) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
   const startNode: Node = {
@@ -32,7 +45,7 @@ export function findPath(fromX: number, fromY: number, toX: number, toY: number)
   open.set(key(start.col, start.row), startNode);
 
   let guard = 0;
-  const MAX_NODES = MAP_COLS * MAP_ROWS;
+  const MAX_NODES = 100000;
 
   while (open.size > 0 && guard++ < MAX_NODES) {
     // Chọn node f nhỏ nhất
@@ -56,11 +69,11 @@ export function findPath(fromX: number, fromY: number, toX: number, toY: number)
     for (const [dc, dr] of NEIGHBORS) {
       const nc = current.col + dc;
       const nr = current.row + dr;
-      if (!isWalkableTile(nc, nr)) continue;
+      if (!isWalkable(nc, nr)) continue;
       const nk = key(nc, nr);
       if (closed.has(nk)) continue;
 
-      const moveCost = dc !== 0 && dr !== 0 ? 1.4 : 1;
+      const moveCost = 1;
       const g = current.g + moveCost;
       const existing = open.get(nk);
       if (existing && g >= existing.g) continue;
@@ -83,10 +96,6 @@ const NEIGHBORS: Array<[number, number]> = [
   [-1, 0],
   [0, 1],
   [0, -1],
-  [1, 1],
-  [1, -1],
-  [-1, 1],
-  [-1, -1],
 ];
 
 interface Node extends Pt {
@@ -106,15 +115,15 @@ function reconstruct(node: Node): Pt[] {
   return path;
 }
 
-/** Tìm ô đi được gần nhất trong bán kính 6 ô. */
-function nearestWalkable(p: Pt): Pt | null {
+/** Tìm ô đi được gần nhất trong bán kính 6 ô (dùng collider). */
+function nearestWalkable(p: Pt, isWalkable: TileCollider): Pt | null {
   for (let r = 1; r <= 6; r++) {
     for (let dr = -r; dr <= r; dr++) {
       for (let dc = -r; dc <= r; dc++) {
         if (Math.max(Math.abs(dc), Math.abs(dr)) !== r) continue;
         const c = p.col + dc;
         const row = p.row + dr;
-        if (isWalkableTile(c, row)) return { col: c, row };
+        if (isWalkable(c, row)) return { col: c, row: row };
       }
     }
   }

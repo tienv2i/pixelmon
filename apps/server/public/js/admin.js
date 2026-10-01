@@ -54,6 +54,7 @@
     players: { titleKey: 'view.players', subKey: 'view.players.sub' },
     sprites: { titleKey: 'view.sprites', subKey: 'view.sprites.sub' },
     gamedata: { titleKey: 'view.gamedata', subKey: 'view.gamedata.sub' },
+    maps: { titleKey: 'view.maps', subKey: 'view.maps.sub' },
   };
 
   // ── Sprite editor state ──
@@ -278,6 +279,7 @@
     if (name === 'players') loadPlayers();
     if (name === 'sprites') loadSprites();
     if (name === 'gamedata') loadGameData();
+    if (name === 'maps') loadMaps();
     if (name === 'overview') loadOverview();
   }
 
@@ -2319,12 +2321,469 @@
       });
     }
 
-    if ($('gd-species-modal')) {
-      $('gd-species-modal').addEventListener('click', function (e) {
-        if (e.target === this) {
-          this.classList.add('hidden');
+    // ── Maps Management ──
+    var mapState = {
+      maps: [],
+      currentId: null,
+      currentDetail: null,
+      currentLayer: 'composite',
+      zoom: 1.0,
+      showGrid: true,
+      showCollision: true,
+      showWarps: true,
+      pickSpawnMode: false,
+      tilesetImg: null,
+    };
+
+    window.loadMaps = function () {
+      getJSON('/api/admin/maps')
+        .then(function (d) {
+          mapState.maps = d.maps || [];
+          renderMapSelect();
+          if (mapState.maps.length > 0) {
+            var targetId = mapState.currentId || mapState.maps[0].mapId;
+            if (!mapState.maps.some(function (m) { return m.mapId === targetId; })) {
+              targetId = mapState.maps[0].mapId;
+            }
+            selectMap(targetId);
+          }
+        })
+        .catch(function (err) {
+          console.error('Failed to load maps:', err);
+        });
+    };
+
+    function renderMapSelect() {
+      var sel = $('map-select');
+      if (!sel) return;
+      sel.innerHTML = '';
+      mapState.maps.forEach(function (m) {
+        var opt = document.createElement('option');
+        opt.value = m.mapId;
+        opt.textContent = m.name + ' (' + m.width + '×' + m.height + ')';
+        sel.appendChild(opt);
+      });
+      if (mapState.currentId) sel.value = mapState.currentId;
+    }
+
+    function selectMap(id) {
+      mapState.currentId = id;
+      var sel = $('map-select');
+      if (sel && sel.value !== id) sel.value = id;
+
+      getJSON('/api/admin/maps/' + id)
+        .then(function (d) {
+          mapState.currentDetail = d;
+          populateMapSidebar(d);
+          renderMapCanvas();
+        })
+        .catch(function (err) {
+          console.error('Failed to get map details:', err);
+        });
+    }
+
+    function populateMapSidebar(d) {
+      var m = d.map;
+      var sc = d.sharedConfig || {};
+      $('map-info-name').textContent = m.name || m.mapId;
+      $('map-info-id').textContent = '#' + m.mapId;
+      $('map-info-size').textContent = m.width + ' × ' + m.height + ' tiles (' + (m.width * 32) + '×' + (m.height * 32) + ' px)';
+      $('map-info-type').textContent = m.mapType || 'town';
+      $('map-info-env').textContent = (m.weather || 'sunny') + ' / ' + (m.music || 'none');
+
+      var spawn = sc.spawn || (m.objects && m.objects.find(function (o) { return o.type === 'player_spawn' || o.type === 'npc_spawn'; })) || { x: 0, y: 0 };
+      $('map-input-spawn-x').value = spawn.x !== undefined ? spawn.x : 0;
+      $('map-input-spawn-y').value = spawn.y !== undefined ? spawn.y : 0;
+      $('map-input-pvp').checked = Boolean(sc.pvp);
+      $('map-input-encounter').value = sc.encounterRate !== undefined ? sc.encounterRate : 0;
+
+      // Render warps
+      var warps = (m.objects || []).filter(function (o) { return o.type === 'warp'; });
+      $('map-warps-count').textContent = warps.length;
+      var warpsList = $('map-warps-list');
+      warpsList.innerHTML = '';
+      if (warps.length === 0) {
+        warpsList.innerHTML = '<div style="font-size: 11px; color: var(--text-dim);">Chưa có cổng warp nào</div>';
+      } else {
+        warps.forEach(function (w) {
+          var el = document.createElement('div');
+          el.className = 'item-row';
+          el.style.padding = '6px 8px';
+          el.style.fontSize = '12px';
+          el.innerHTML = '<div style="font-weight: 500; color: var(--accent);">🚪 ' + (w.name || 'Warp') + ' <span style="font-family: monospace; color: var(--text-dim);">(' + w.x + ', ' + w.y + ')</span></div>' +
+            '<div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">→ <strong>' + (w.toMap || '--') + '</strong> (' + w.toX + ', ' + w.toY + ')</div>';
+          warpsList.appendChild(el);
+        });
+      }
+    }
+
+    var tilesetCache = {};
+    function ensureTilesetImage(tsPath, cb) {
+      var src = '/assets/tilesets/Outdoor.png';
+      if (tsPath && (tsPath.includes('Interior') || tsPath.includes('interior'))) {
+        src = '/assets/tilesets/Interior general.png';
+      }
+      if (tilesetCache[src] && tilesetCache[src].complete) {
+        cb(tilesetCache[src]);
+        return;
+      }
+      var img = new Image();
+      img.src = src;
+      img.onload = function () {
+        tilesetCache[src] = img;
+        cb(img);
+      };
+      img.onerror = function () {
+        console.error('Failed to load tileset image:', src);
+      };
+    }
+
+    function renderMapCanvas() {
+      var detail = mapState.currentDetail;
+      if (!detail) return;
+
+      var m = detail.map;
+      var tiled = detail.tiled;
+      var w = m.width;
+      var h = m.height;
+      var wPx = w * 32;
+      var hPx = h * 32;
+
+      var baseCanvas = $('map-base-canvas');
+      var overlayCanvas = $('map-overlay-canvas');
+      var container = $('map-canvas-container');
+
+      baseCanvas.width = wPx;
+      baseCanvas.height = hPx;
+      overlayCanvas.width = wPx;
+      overlayCanvas.height = hPx;
+      container.style.width = wPx + 'px';
+      container.style.height = hPx + 'px';
+
+      applyMapZoom();
+
+      var tsPath = (tiled && tiled.tilesets && tiled.tilesets[0]) ? tiled.tilesets[0].image : '';
+      ensureTilesetImage(tsPath, function (tsImg) {
+        var ctx = baseCanvas.getContext('2d');
+        ctx.clearRect(0, 0, wPx, hPx);
+
+        if (tiled && Array.isArray(tiled.layers)) {
+          var layersToDraw = [];
+          if (mapState.currentLayer === 'composite') {
+            layersToDraw = tiled.layers.filter(function (l) { return l.type === 'tilelayer'; });
+          } else {
+            var idx = parseInt(mapState.currentLayer, 10);
+            var tl = tiled.layers.filter(function (l) { return l.type === 'tilelayer'; });
+            if (tl[idx]) layersToDraw = [tl[idx]];
+          }
+
+          layersToDraw.forEach(function (layer) {
+            if (!layer.data) return;
+            for (var i = 0; i < layer.data.length; i++) {
+              var gid = layer.data[i];
+              if (!gid || gid < 1) continue;
+              var tileIdx = gid - 1;
+              var col = tileIdx % 8;
+              var row = Math.floor(tileIdx / 8);
+              var sx = col * 32;
+              var sy = row * 32;
+              var dx = (i % w) * 32;
+              var dy = Math.floor(i / w) * 32;
+              if (sy + 32 <= tsImg.height) {
+                ctx.drawImage(tsImg, sx, sy, 32, 32, dx, dy, 32, 32);
+              }
+            }
+          });
+        } else {
+          ctx.fillStyle = '#223322';
+          ctx.fillRect(0, 0, wPx, hPx);
         }
+
+        renderMapOverlay();
+      });
+    }
+
+    function renderMapOverlay() {
+      var detail = mapState.currentDetail;
+      if (!detail) return;
+
+      var m = detail.map;
+      var w = m.width;
+      var h = m.height;
+      var wPx = w * 32;
+      var hPx = h * 32;
+
+      var overlayCanvas = $('map-overlay-canvas');
+      var ctx = overlayCanvas.getContext('2d');
+      ctx.clearRect(0, 0, wPx, hPx);
+
+      // Collision
+      if (mapState.showCollision && m.collision && Array.isArray(m.collision.flags)) {
+        for (var y = 0; y < h; y++) {
+          for (var x = 0; x < w; x++) {
+            var flag = m.collision.flags[y * w + x];
+            if (flag !== 1) {
+              ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
+              ctx.fillRect(x * 32, y * 32, 32, 32);
+              ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(x * 32 + 0.5, y * 32 + 0.5, 31, 31);
+              ctx.beginPath();
+              ctx.moveTo(x * 32 + 8, y * 32 + 8);
+              ctx.lineTo(x * 32 + 24, y * 32 + 24);
+              ctx.moveTo(x * 32 + 24, y * 32 + 8);
+              ctx.lineTo(x * 32 + 8, y * 32 + 24);
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      // Grid
+      if (mapState.showGrid) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1;
+        for (var gx = 0; gx <= w; gx++) {
+          ctx.beginPath();
+          ctx.moveTo(gx * 32 + 0.5, 0);
+          ctx.lineTo(gx * 32 + 0.5, hPx);
+          ctx.stroke();
+        }
+        for (var gy = 0; gy <= h; gy++) {
+          ctx.beginPath();
+          ctx.moveTo(0, gy * 32 + 0.5);
+          ctx.lineTo(wPx, gy * 32 + 0.5);
+          ctx.stroke();
+        }
+      }
+
+      // Warps
+      var interactiveLayer = $('map-interactive-layer');
+      interactiveLayer.innerHTML = '';
+      if (mapState.showWarps && Array.isArray(m.objects)) {
+        m.objects.forEach(function (obj) {
+          if (obj.type === 'warp') {
+            var pin = document.createElement('div');
+            pin.style.position = 'absolute';
+            pin.style.left = (obj.x * 32) + 'px';
+            pin.style.top = (obj.y * 32) + 'px';
+            pin.style.width = '32px';
+            pin.style.height = '32px';
+            pin.style.background = 'rgba(16, 185, 129, 0.5)';
+            pin.style.border = '2px solid #10b981';
+            pin.style.borderRadius = '4px';
+            pin.style.cursor = 'pointer';
+            pin.style.display = 'flex';
+            pin.style.alignItems = 'center';
+            pin.style.justifyContent = 'center';
+            pin.style.fontSize = '14px';
+            pin.title = (obj.name || 'Warp') + ' → ' + (obj.toMap || '--') + ' (' + obj.toX + ', ' + obj.toY + ')';
+            pin.innerHTML = '🚪';
+            interactiveLayer.appendChild(pin);
+          }
+        });
+      }
+    }
+
+    function applyMapZoom() {
+      var container = $('map-canvas-container');
+      if (!container) return;
+      container.style.transform = 'scale(' + mapState.zoom + ')';
+      container.style.transformOrigin = 'center center';
+      var resetBtn = $('map-btn-zoom-reset');
+      if (resetBtn) resetBtn.textContent = Math.round(mapState.zoom * 100) + '%';
+    }
+
+    // Map Event listeners
+    if ($('map-select')) {
+      $('map-select').addEventListener('change', function (e) {
+        selectMap(e.target.value);
+      });
+    }
+
+    if ($('map-layer-select')) {
+      $('map-layer-select').addEventListener('change', function (e) {
+        mapState.currentLayer = e.target.value;
+        renderMapCanvas();
+      });
+    }
+
+    if ($('map-btn-grid')) {
+      $('map-btn-grid').addEventListener('click', function (e) {
+        mapState.showGrid = !mapState.showGrid;
+        e.target.classList.toggle('active', mapState.showGrid);
+        renderMapOverlay();
+      });
+    }
+
+    if ($('map-btn-col')) {
+      $('map-btn-col').addEventListener('click', function (e) {
+        mapState.showCollision = !mapState.showCollision;
+        e.target.classList.toggle('active', mapState.showCollision);
+        renderMapOverlay();
+      });
+    }
+
+    if ($('map-btn-warps')) {
+      $('map-btn-warps').addEventListener('click', function (e) {
+        mapState.showWarps = !mapState.showWarps;
+        e.target.classList.toggle('active', mapState.showWarps);
+        renderMapOverlay();
+      });
+    }
+
+    if ($('map-btn-zoom-in')) {
+      $('map-btn-zoom-in').addEventListener('click', function () {
+        mapState.zoom = Math.min(mapState.zoom + 0.25, 3.0);
+        applyMapZoom();
+      });
+    }
+
+    if ($('map-btn-zoom-out')) {
+      $('map-btn-zoom-out').addEventListener('click', function () {
+        mapState.zoom = Math.max(mapState.zoom - 0.25, 0.5);
+        applyMapZoom();
+      });
+    }
+
+    if ($('map-btn-zoom-reset')) {
+      $('map-btn-zoom-reset').addEventListener('click', function () {
+        mapState.zoom = 1.0;
+        applyMapZoom();
+      });
+    }
+
+    if ($('map-btn-pick-spawn')) {
+      $('map-btn-pick-spawn').addEventListener('click', function (e) {
+        mapState.pickSpawnMode = !mapState.pickSpawnMode;
+        e.target.classList.toggle('active', mapState.pickSpawnMode);
+        e.target.textContent = mapState.pickSpawnMode ? '📍 Click Map...' : '📍 Pick';
+      });
+    }
+
+    var viewport = $('map-viewport');
+    if (viewport) {
+      viewport.addEventListener('mousemove', function (e) {
+        var container = $('map-canvas-container');
+        if (!container || !mapState.currentDetail) return;
+        var rect = container.getBoundingClientRect();
+        var mouseX = (e.clientX - rect.left) / mapState.zoom;
+        var mouseY = (e.clientY - rect.top) / mapState.zoom;
+        var tileX = Math.floor(mouseX / 32);
+        var tileY = Math.floor(mouseY / 32);
+        var m = mapState.currentDetail.map;
+        if (tileX >= 0 && tileX < m.width && tileY >= 0 && tileY < m.height) {
+          var isBlocked = m.collision && m.collision.flags && m.collision.flags[tileY * m.width + tileX] !== 1;
+          $('map-hud').textContent = 'Tile: (' + tileX + ', ' + tileY + ') | Đi được: ' + (isBlocked ? 'KHÔNG (Cản trở)' : 'CÓ');
+        } else {
+          $('map-hud').textContent = 'Tile: --, -- | Đi được: --';
+        }
+      });
+
+      viewport.addEventListener('click', function (e) {
+        if (!mapState.pickSpawnMode || !mapState.currentDetail) return;
+        var container = $('map-canvas-container');
+        var rect = container.getBoundingClientRect();
+        var mouseX = (e.clientX - rect.left) / mapState.zoom;
+        var mouseY = (e.clientY - rect.top) / mapState.zoom;
+        var tileX = Math.floor(mouseX / 32);
+        var tileY = Math.floor(mouseY / 32);
+        var m = mapState.currentDetail.map;
+        if (tileX >= 0 && tileX < m.width && tileY >= 0 && tileY < m.height) {
+          $('map-input-spawn-x').value = tileX;
+          $('map-input-spawn-y').value = tileY;
+          mapState.pickSpawnMode = false;
+          var btn = $('map-btn-pick-spawn');
+          if (btn) {
+            btn.classList.remove('active');
+            btn.textContent = '📍 Pick';
+          }
+        }
+      });
+    }
+
+    if ($('map-config-form')) {
+      $('map-config-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!mapState.currentId) return;
+        var body = {
+          name: $('map-info-name').textContent,
+          pvp: $('map-input-pvp').checked,
+          encounterRate: parseInt($('map-input-encounter').value, 10) || 0,
+        };
+        postJSON('/api/admin/maps/' + mapState.currentId, body, 'PATCH')
+          .then(function () {
+            alert('Đã lưu cấu hình map thành công!');
+          })
+          .catch(function (err) {
+            alert('Lỗi lưu cấu hình: ' + err.message);
+          });
+      });
+    }
+
+    // Import modal handlers
+    if ($('map-btn-import')) {
+      $('map-btn-import').addEventListener('click', function () {
+        $('map-import-modal').classList.remove('hidden');
+      });
+    }
+
+    if ($('map-import-close')) {
+      $('map-import-close').addEventListener('click', function () {
+        $('map-import-modal').classList.add('hidden');
+      });
+    }
+
+    if ($('map-import-cancel')) {
+      $('map-import-cancel').addEventListener('click', function () {
+        $('map-import-modal').classList.add('hidden');
+      });
+    }
+
+    if ($('import-preset-select')) {
+      $('import-preset-select').addEventListener('change', function (e) {
+        var parts = e.target.value.split('|');
+        if (parts.length === 4) {
+          $('import-map-id').value = parts[0];
+          $('import-slug').value = parts[1];
+          $('import-name').value = parts[2];
+          $('import-map-type').value = parts[3];
+        }
+      });
+      // Trigger once for initial values
+      $('import-preset-select').dispatchEvent(new Event('change'));
+    }
+
+    if ($('map-import-form')) {
+      $('map-import-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var submitBtn = $('map-import-submit');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Đang import...';
+
+        var body = {
+          mapId: parseInt($('import-map-id').value, 10),
+          slug: $('import-slug').value.trim(),
+          name: $('import-name').value.trim(),
+          mapType: $('import-map-type').value,
+        };
+
+        postJSON('/api/admin/maps/import', body, 'POST')
+          .then(function (res) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Bắt đầu Import';
+            $('map-import-modal').classList.add('hidden');
+            alert(res.message || 'Import bản đồ thành công!');
+            mapState.currentId = body.slug;
+            loadMaps();
+          })
+          .catch(function (err) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Bắt đầu Import';
+            alert('Lỗi import: ' + err.message);
+          });
       });
     }
   });
 })();
+

@@ -1,68 +1,37 @@
 [
   {
-    "id": 3,
-    "file": "map-3.tmj",
-    "width": 24,
-    "height": 15
+    "id": 1,
+    "mapId": "lappet-town",
+    "file": "lappet-town.tmj",
+    "width": 32,
+    "height": 21
   },
   {
-    "id": 1,
-    "file": "map-1.tmj",
-    "width": 20,
+    "id": 2,
+    "mapId": "route-1",
+    "file": "route-1.tmj",
+    "width": 36,
+    "height": 24
+  },
+  {
+    "id": 3,
+    "mapId": "players-house",
+    "file": "players-house.tmj",
+    "width": 31,
     "height": 15
   },
   {
     "id": 4,
-    "file": "map-4.tmj",
-    "width": 36,
-    "height": 39
+    "mapId": "pokemon-lab",
+    "file": "pokemon-lab.tmj",
+    "width": 20,
+    "height": 15
   },
   {
     "id": 5,
-    "file": "map-5.tmj",
+    "mapId": "daisys-house",
+    "file": "daisys-house.tmj",
     "width": 20,
     "height": 15
-  },
-  {
-    "id": 6,
-    "file": "map-6.tmj",
-    "width": 20,
-    "height": 30
-  },
-  {
-    "id": 7,
-    "file": "map-7.tmj",
-    "width": 20,
-    "height": 15
-  },
-  {
-    "id": 8,
-    "file": "map-8.tmj",
-    "width": 44,
-    "height": 39
-  },
-  {
-    "id": 9,
-    "file": "map-9.tmj",
-    "width": 30,
-    "height": 30
-  },
-  {
-    "id": 10,
-    "file": "map-10.tmj",
-    "width": 20,
-    "height": 15
-  },
-  {
-    "id": 33,
-    "file": "map-33.tmj",
-    "width": 46,
-    "height": 40
-  },
-  {
-    "id": 43,
-    "file": "map-43.tmj",
-    "width": 39,
-    "height": 55
   }
 ]

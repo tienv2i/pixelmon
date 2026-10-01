@@ -37,7 +37,19 @@ export default defineConfig({
       '@pixelmon/shared': path.resolve(__dirname, '../../packages/shared'),
     },
   },
-  assetsInclude: ['**/*.tmj'], // Treat .tmj như JSON asset
+  plugins: [
+    {
+      name: 'vite-plugin-tmj-json',
+      transform(code, id) {
+        if (id.split('?')[0].endsWith('.tmj')) {
+          return {
+            code: `export default JSON.parse(${JSON.stringify(code)});`,
+            map: null,
+          };
+        }
+      },
+    },
+  ],
   optimizeDeps: {
     include: ['@pixelmon/shared'],
   },

@@ -223,11 +223,19 @@ export const CollisionFlag = {
   WATER: 0x02,
   BLOCKED: 0x04,
   GRASS: 0x08,
-  LEDGE_SOUTH: 0x10,
-  LEDGE_NORTH: 0x20,
-  LEDGE_WEST: 0x30,
-  LEDGE_EAST: 0x40,
-  LEDGE_ANY: 0x70,
+  /** Ledge huong duoc encode bang 2-bit field (bit 5-6) thay vi one-hot.
+   *  Mot o chi roi duoc 1 huong nen 2 bit la du, va giai phong 0x80 cho WARP.
+   *  LEDGE_ANY da duoc thay bang LEDGE (chi can kiem tra 1 bit de biet co phai ledge).
+   */
+  LEDGE: 0x10,
+  LEDGE_DIR_MASK: 0x60,
+  LEDGE_SOUTH: 0x10 | 0x00,
+  LEDGE_NORTH: 0x10 | 0x20,
+  LEDGE_WEST: 0x10 | 0x40,
+  LEDGE_EAST: 0x10 | 0x60,
+  /** O warp (trigger portal). Giu nguyen de tuong thich nguoc.
+   *  Du dung cho object loai "warp" trong ServerMap.objects.
+   */
   WARP: 0x80,
 } as const;
 
@@ -283,6 +291,10 @@ export const MapObjectSchema = z.discriminatedUnion('type', [
     type: z.literal('sign'),
     text: z.string().default(''),
   }),
+  MapObjectBase.extend({
+    type: z.literal('event'),
+    properties: z.array(z.record(z.unknown())).optional(),
+  }).passthrough(),
 ]);
 export type MapObject = z.infer<typeof MapObjectSchema>;
 

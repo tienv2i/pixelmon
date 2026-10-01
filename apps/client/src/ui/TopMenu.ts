@@ -15,6 +15,7 @@ const ICONS: MenuIconDef[] = [
   { key: 'pc', label: 'PC Box' },
   { key: 'map', label: 'Bản đồ' },
   { key: 'gps', label: 'GPS / Minimap' },
+  { key: 'debug', label: 'Debug (F3)' },
   { key: 'settings', label: 'Cài đặt' },
   { key: 'help', label: 'Hướng dẫn' },
   { key: 'logout', label: 'Đăng xuất' },
@@ -138,6 +139,23 @@ function drawPixelIcon(
       gfx.fillRect(cx + 1 * p, cy - 3 * p, 2 * p, 3 * p);
       gfx.fillRect(cx - 1 * p, cy, 2 * p, 2 * p);
       gfx.fillRect(cx - 1 * p, cy + 3 * p, 2 * p, 2 * p); // chấm dưới
+      break;
+    }
+    case 'debug': {
+      // Biểu tượng Bug / Terminal pixel: chip/bọ vi mạch màu xanh mint + anten đỏ
+      gfx.fillStyle(0x00b894, 1);
+      gfx.fillRect(cx - 3 * p, cy - 3 * p, 6 * p, 7 * p); // thân chip
+      gfx.fillStyle(0x55efc4, 1);
+      gfx.fillRect(cx - 2 * p, cy - 5 * p, 4 * p, 2 * p); // đầu
+      gfx.fillStyle(0xff7675, 1);
+      gfx.fillRect(cx - 3 * p, cy - 7 * p, 1 * p, 2 * p); // anten trái
+      gfx.fillRect(cx + 2 * p, cy - 7 * p, 1 * p, 2 * p); // anten phải
+      // Chân chip vi mạch
+      gfx.fillStyle(0x00cec9, 1);
+      gfx.fillRect(cx - 5 * p, cy - 2 * p, 2 * p, 1 * p);
+      gfx.fillRect(cx + 3 * p, cy - 2 * p, 2 * p, 1 * p);
+      gfx.fillRect(cx - 5 * p, cy + 2 * p, 2 * p, 1 * p);
+      gfx.fillRect(cx + 3 * p, cy + 2 * p, 2 * p, 1 * p);
       break;
     }
     case 'logout': {

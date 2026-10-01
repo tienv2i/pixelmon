@@ -6,6 +6,14 @@ export const PLAYER_SPEED = 6;
 /** Movement step size in px (used by Phaser tweens) */
 export const MOVE_STEP = TILE_SIZE;
 
+/**
+ * Nhịp giữa 2 bước đi tile-based (ms/ô).
+ * - Bấm phím một lần → 1 ô; giữ phím → lặp lại mỗi `MOVE_COOLDOWN_MS`.
+ * - Cũng dùng để throttle gửi `move` lên server (tránh spam).
+ * 150ms/ô ≈ 6.67 ô/s — mượt và khớp nhịp bước chân pixel-art.
+ */
+export const MOVE_COOLDOWN_MS = 150;
+
 /** Lerp factor for remote player interpolation */
 export const INTERPOLATION_LERP = 0.15;
 

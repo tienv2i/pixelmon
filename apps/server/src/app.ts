@@ -44,6 +44,12 @@ import {
   listGameDataAbilities,
   getGameDataTypes,
 } from './modules/admin/gamedata.js';
+import {
+  listAdminMaps,
+  getAdminMapDetail,
+  updateAdminMap,
+  importEssentialsMap,
+} from './modules/admin/maps.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -95,6 +101,12 @@ export function createApp(): Express {
   app.get('/api/admin/gamedata/items', requireAuth, requireAdmin, listGameDataItems);
   app.get('/api/admin/gamedata/abilities', requireAuth, requireAdmin, listGameDataAbilities);
   app.get('/api/admin/gamedata/types', requireAuth, requireAdmin, getGameDataTypes);
+
+  // ── Quản lý Maps ──
+  app.get('/api/admin/maps', requireAuth, requireAdmin, listAdminMaps);
+  app.get('/api/admin/maps/:id', requireAuth, requireAdmin, getAdminMapDetail);
+  app.patch('/api/admin/maps/:id', requireAuth, requireAdmin, updateAdminMap);
+  app.post('/api/admin/maps/import', requireAuth, requireAdmin, importEssentialsMap);
 
   // ── Thư viện sprite nhân vật ──
   app.get('/api/sprites', listPublicSprites);

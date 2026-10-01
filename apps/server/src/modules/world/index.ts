@@ -1,25 +1,59 @@
 import { Room, type Client } from '@colyseus/core';
 import { WorldState, PlayerState } from '@pixelmon/shared/schema';
-import { MAPS } from '@pixelmon/shared';
+import { MAPS, MOVE_COOLDOWN_MS } from '@pixelmon/shared';
+import { mapLoader } from '@pixelmon/shared/data';
 import { pool } from '../../config/index.js';
+import {
+  CollideGrid,
+  DEFAULT_WALK_OPTS,
+  isDir,
+  normalizeDir,
+  pixelToTile,
+  tileToPixel,
+  validateStep,
+} from './CollideGrid.js';
+
+/** mapId mặc định khi không có metadata nào. */
+const DEFAULT_MAP_ID = 'lappet-town';
+
+/** Nhịp tối thiểu giữa 2 bước server-side (ms). Chặn speed-hack. */
+const MIN_STEP_INTERVAL_MS = 100;
+
+/** Lệch cho phép khi so sánh tốc độ (ms) — tránh jitter mạng nhầm lẫn. */
+const STEP_TIME_SLACK_MS = 20;
+
+interface MoveSession {
+  /** Thời điểm server xử lý bước `move` gần nhất. */
+  lastMoveAt: number;
+  /** Bộ đếm chống spam (số message trong cửa sổ 1s). */
+  windowStart: number;
+  windowCount: number;
+}
 
 export class WorldRoom extends Room<WorldState> {
   maxClients = 50;
   private dirtyPlayerSessions = new Set<string>();
   private locationSyncTimer?: NodeJS.Timeout;
+  /** Grid va chạm của map mà room này phụ trách — nạp 1 lần lúc `onCreate`. */
+  private grid!: CollideGrid;
+  private moveSessions = new Map<string, MoveSession>();
 
-  onCreate(options: { mapId?: string } = {}) {
+  async onCreate(options: { mapId?: string } = {}) {
+    const mapId = normalizeMapId(options.mapId);
+    this.grid = await getGridFor(mapId);
+
     this.setState(new WorldState());
-    this.state.mapId = options.mapId ?? 'pallet-town';
+    this.state.mapId = mapId;
+    // `filterBy(['mapId'])` — matchmaker sẽ tách mapId thành field riêng trên
+    // room listing, nên joinOrCreate('world', { mapId }) chỉ vào đúng room map đó.
+    await this.setMetadata({ mapId, name: this.grid.map.name });
 
-    this.onMessage('move', (client, data: { x: number; y: number; direction: string }) => {
-      const player = this.state.players.get(client.sessionId);
-      if (!player) return;
-      player.x = data.x;
-      player.y = data.y;
-      player.direction = data.direction;
-      player.moving = 1;
-      this.dirtyPlayerSessions.add(client.sessionId);
+    this.onMessage('move', (client, data: any) => {
+      this.handleMove(client, data);
+    });
+
+    this.onMessage('change_map', (client, data: any) => {
+      this.handleChangeMap(client, data);
     });
 
     this.onMessage('chat', (client, data: { message: string }) => {
@@ -28,7 +62,7 @@ export class WorldRoom extends Room<WorldState> {
       this.broadcast('chat', {
         type: 'chat',
         from: player.displayName,
-        message: data.message.slice(0, 200),
+        message: String(data.message).slice(0, 200),
       });
     });
 
@@ -59,18 +93,191 @@ export class WorldRoom extends Room<WorldState> {
     this.locationSyncTimer = setInterval(() => {
       this.flushPlayerLocations();
     }, 5000);
+
+    console.log(`[world] room created for map "${mapId}" (${this.grid.width}x${this.grid.height})`);
   }
+
+  // ── 3b. move handler — validate từng ô + speed limit ────────────────────
+
+  private handleMove(client: Client, data: { x: number; y: number; direction: string }): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    // Chặn gửi junk data.
+    if (
+      !data ||
+      typeof data.x !== 'number' ||
+      typeof data.y !== 'number' ||
+      !isFinite(data.x) ||
+      !isFinite(data.y)
+    ) {
+      return;
+    }
+
+    const now = Date.now();
+    const session = this.getMoveSession(client.sessionId);
+
+    // 1. Rate limit: không quá 20 message/1s.
+    if (now - session.windowStart >= 1000) {
+      session.windowStart = now;
+      session.windowCount = 0;
+    }
+    session.windowCount++;
+    if (session.windowCount > 20) {
+      this.rejectMove(client, player, 'rate_limit');
+      return;
+    }
+
+    // 2. Speed limit: nhịp giữa 2 bước phải ≥ MIN_STEP_INTERVAL_MS.
+    if (now - session.lastMoveAt < MIN_STEP_INTERVAL_MS - STEP_TIME_SLACK_MS) {
+      this.rejectMove(client, player, 'too_fast');
+      return;
+    }
+
+    // 3. mapId phải khớp room.
+    if (player.mapId !== this.state.mapId) {
+      this.rejectMove(client, player, 'wrong_map');
+      return;
+    }
+
+    const direction = normalizeDir(data.direction, player.direction as any);
+    const from = pixelToTile(player.x, player.y);
+    const to = pixelToTile(data.x, data.y);
+
+    // 4. Validate ô đích: bước 1 ô, hoặc nhảy ledge 2 ô (đúng hướng).
+    const v = validateStep(this.grid, from, to, DEFAULT_WALK_OPTS);
+    if (!v.ok || !v.to) {
+      this.rejectMove(client, player, v.reason ?? 'blocked');
+      return;
+    }
+
+    // 5. Nhận — cập nhật state (snap tâm ô để client/server luôn đồng nhất).
+    const landed = tileToPixel(v.to.x, v.to.y);
+    player.x = landed.x;
+    player.y = landed.y;
+    player.direction = direction;
+    player.moving = 1;
+    session.lastMoveAt = now;
+    this.dirtyPlayerSessions.add(client.sessionId);
+  }
+
+  private rejectMove(client: Client, player: PlayerState, reason: string): void {
+    // Trả về vị trí authoritative của server để client snap về.
+    client.send('move_rejected', {
+      reason,
+      x: player.x,
+      y: player.y,
+      direction: player.direction,
+    });
+  }
+
+  private getMoveSession(sessionId: string): MoveSession {
+    let s = this.moveSessions.get(sessionId);
+    if (!s) {
+      s = { lastMoveAt: 0, windowStart: 0, windowCount: 0 };
+      this.moveSessions.set(sessionId, s);
+    }
+    return s;
+  }
+
+  // ── 3c. change_map handler — validate warp tại ô hiện tại ───────────────
+
+  private handleChangeMap(
+    client: Client,
+    data: { toMap: string; toX: number; toY: number },
+  ): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (!data || typeof data.toMap !== 'string') return;
+
+    // Warp phải tồn tại tại ô player đang đứng.
+    const tile = pixelToTile(player.x, player.y);
+    const warp = this.grid.warpAt(tile.x, tile.y);
+    if (!warp) {
+      console.warn(
+        `[world] change_map rejected (${player.displayName}) — no warp at (${tile.x},${tile.y})`,
+      );
+      return;
+    }
+
+    // Client phải báo đúng đích mà warp khai báo (chống teleport tự do).
+    const targetMap = normalizeMapId(warp.toMap);
+    if (data.toMap !== targetMap || data.toX !== warp.toX || data.toY !== warp.toY) {
+      console.warn(
+        `[world] change_map mismatch (${player.displayName}) — ` +
+          `client asked ${data.toMap}(${data.toX},${data.toY}) vs warp ${targetMap}(${warp.toX},${warp.toY})`,
+      );
+      return;
+    }
+
+    // Nếu target map chưa load được → từ chối (không đổi map).
+    void targetMap;
+    this.doChangeMap(client, player, targetMap, warp.toX, warp.toY, warp.direction);
+  }
+
+  private async doChangeMap(
+    client: Client,
+    player: PlayerState,
+    toMap: string,
+    toX: number,
+    toY: number,
+    direction?: 'up' | 'down' | 'left' | 'right',
+  ): Promise<void> {
+    try {
+      const target = await mapLoader.load(toMap);
+      const grid = new CollideGrid(target);
+
+      // Đặt player vào tâm ô đích, snap về ô walkable gần nhất nếu cần.
+      let landing = pixelToTile(toX, toY);
+      const safe = grid.nearestWalkable(landing.x, landing.y, DEFAULT_WALK_OPTS);
+      if (safe) landing = safe;
+      const px = tileToPixel(landing.x, landing.y);
+
+      // Cập nhật player → mapId đổi sang map đích. Room này không còn chứa
+      // player này nữa về mặt logic (client sẽ rejoin room map mới).
+      player.mapId = toMap;
+      player.x = px.x;
+      player.y = px.y;
+      if (direction) player.direction = direction;
+      player.moving = 0;
+      this.dirtyPlayerSessions.add(client.sessionId);
+
+      // Lưu DB ngay (không chờ 5s flush) — tránh mất chỗ khi client rejoin.
+      if (player.username) {
+        await this.savePlayerLocation(
+          player.username,
+          player.x,
+          player.y,
+          player.mapId,
+          player.direction,
+        );
+      }
+
+      // Thông báo client để rejoin room map đích.
+      client.send('player_moved_map', {
+        mapId: toMap,
+        x: player.x,
+        y: player.y,
+        direction: player.direction,
+      });
+      console.log(
+        `[world] ${player.displayName} warp ${this.state.mapId} -> ${toMap} ` +
+          `(${player.x},${player.y})`,
+      );
+    } catch (err) {
+      console.warn('[world] change_map failed:', err);
+    }
+  }
+
+  // ── 3d. onJoin — spawn từ ServerMap ─────────────────────────────────────
 
   async onJoin(
     client: Client,
     options: { userId: string; displayName: string; x?: number; y?: number },
   ) {
-    const mapData = MAPS[this.state.mapId];
-    const defaultSpawn = mapData?.spawn ?? { x: 160, y: 144 };
-
+    const defaultSpawn = this.getDefaultSpawn();
     let posX = options.x ?? defaultSpawn.x;
     let posY = options.y ?? defaultSpawn.y;
-    let mapId = this.state.mapId;
     let dir = 'down';
 
     // Đọc toạ độ và hướng nhìn đã lưu trong database nếu có
@@ -87,18 +294,26 @@ export class WorldRoom extends Room<WorldState> {
             posY = Number(r.y);
           }
           if (r.direction) dir = String(r.direction);
-          if (r.map_id) mapId = String(r.map_id);
+          // Chỉ nhận map_id trong DB nếu nó khớp room hiện tại (khác → dùng spawn).
+          if (r.map_id && String(r.map_id) === this.state.mapId) {
+            // giữ nguyên posX/posY
+          } else if (r.map_id && String(r.map_id) !== this.state.mapId) {
+            posX = defaultSpawn.x;
+            posY = defaultSpawn.y;
+          }
         }
       } catch (err) {
         console.warn('[world] failed to read player location from DB:', err);
       }
     }
 
-    // Đảm bảo toạ độ không vượt quá biên map
-    if (mapId === 'pallet-town' && (posX > 600 || posY > 540 || posX < 32 || posY < 32)) {
-      posX = defaultSpawn.x;
-      posY = defaultSpawn.y;
-    }
+    // Snap về tâm ô + tìm ô walkable gần nhất (không spawn trong tường).
+    const startTile = pixelToTile(posX, posY);
+    const safe = this.grid.nearestWalkable(startTile.x, startTile.y, DEFAULT_WALK_OPTS);
+    const landed = safe ?? startTile;
+    const p = tileToPixel(landed.x, landed.y);
+    posX = p.x;
+    posY = p.y;
 
     const player = new PlayerState();
     player.id = client.sessionId;
@@ -106,8 +321,8 @@ export class WorldRoom extends Room<WorldState> {
     player.displayName = options.displayName ?? 'Player';
     player.x = posX;
     player.y = posY;
-    player.mapId = mapId;
-    player.direction = dir;
+    player.mapId = this.state.mapId;
+    player.direction = normalizeDir(dir, 'down');
     player.moving = 0;
 
     // Sprite nhân vật được gán trong admin (rỗng → client dùng sheet mặc định).
@@ -118,10 +333,18 @@ export class WorldRoom extends Room<WorldState> {
     player.spriteFrameCount = sprite.frameCount;
 
     this.state.players.set(client.sessionId, player);
+    this.getMoveSession(client.sessionId);
     console.log(
       `[world] ${player.displayName} joined (session=${client.sessionId}, pos=(${player.x}, ${player.y}, map=${player.mapId})` +
         (sprite.url ? `, sprite=${sprite.url}` : ')'),
     );
+  }
+
+  private getDefaultSpawn(): { x: number; y: number } {
+    const meta = MAPS[this.state.mapId];
+    if (meta?.spawn) return meta.spawn;
+    // Fallback: giữa map.
+    return { x: Math.floor(this.grid.width / 2) * 32 + 16, y: Math.floor(this.grid.height / 2) * 32 + 16 };
   }
 
   /** Tra `sheet_url` + layout của sprite user (null → dùng mặc định). */
@@ -207,6 +430,7 @@ export class WorldRoom extends Room<WorldState> {
       }
     }
     this.dirtyPlayerSessions.delete(client.sessionId);
+    this.moveSessions.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
   }
 
@@ -215,5 +439,24 @@ export class WorldRoom extends Room<WorldState> {
       clearInterval(this.locationSyncTimer);
     }
     await this.flushPlayerLocations();
+  }
+}
+
+/** Chuẩn hoá mapId (map alias → id chính). */
+function normalizeMapId(raw: unknown): string {
+  if (typeof raw !== 'string' || !raw) return DEFAULT_MAP_ID;
+  const meta = (MAPS as Record<string, { id?: string } | undefined>)[raw];
+  return meta?.id ?? raw;
+}
+
+/** Nạp grid cho mapId (đã cache qua mapLoader). */
+async function getGridFor(mapId: string): Promise<CollideGrid> {
+  try {
+    const map = await mapLoader.load(mapId);
+    return new CollideGrid(map);
+  } catch (err) {
+    console.warn(`[world] failed to load map "${mapId}", falling back to default:`, err);
+    const map = await mapLoader.load(DEFAULT_MAP_ID);
+    return new CollideGrid(map);
   }
 }

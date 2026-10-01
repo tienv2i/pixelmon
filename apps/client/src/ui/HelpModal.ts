@@ -58,6 +58,7 @@ export class HelpModal extends UiModal {
       { key: 'P', desc: 'Ẩn / hiện Đội hình Pokémon (Party)' },
       { key: 'B', desc: 'Mở / đóng Hộp lưu trữ Pokémon (PC Box)' },
       { key: 'M', desc: 'Bật / tắt bản đồ thu nhỏ (Minimap)' },
+      { key: 'F3  hoặc  F2', desc: 'Mở / đóng Panel Debug & Thông số Map, Toạ độ' },
       { key: 'H  hoặc nút  ?', desc: 'Bật / tắt bảng hướng dẫn này' },
       { key: 'Esc  hoặc nút  ⚙', desc: 'Mở bảng Cài đặt hệ thống' },
     ];

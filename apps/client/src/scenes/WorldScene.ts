@@ -2,10 +2,11 @@ import Phaser from 'phaser';
 import { PlayerSprite, registerPlayerAnims, type Dir } from '../entities/PlayerSprite';
 import { loadSpriteSheet } from '../entities/SpriteSheetLoader';
 import { ColyseusManager } from '../network/ColyseusManager';
-import { TILE_SIZE, PLAYER_SPEED } from '@pixelmon/shared';
+import { TILE_SIZE, PLAYER_SPEED, MOVE_COOLDOWN_MS, MAPS } from '@pixelmon/shared';
 import { loadTiledMap, DEFAULT_MAP_ID, TILED_MAPS } from '../world/TiledMapLoader';
 import { buildPlaceholderMap, MAP_W, MAP_H } from '../world/PlaceholderMap';
 import { findPath, pathToPixels } from '../world/Pathfinder';
+import { getCollisionGrid, type CollisionGrid } from '../world/CollisionGrid';
 import { PlayerHud } from '../ui/PlayerHud';
 import { PartyStrip, type PartyMember } from '../ui/PartyStrip';
 import { Minimap } from '../ui/Minimap';
@@ -15,6 +16,7 @@ import { ConfirmModal } from '../ui/ConfirmModal';
 import { HelpModal } from '../ui/HelpModal';
 import { PcBoxModal } from '../ui/PcBoxModal';
 import { PokemonSummaryModal, type PokemonData } from '../ui/PokemonSummaryModal';
+import { DebugModal, type DebugMapInfo, type DebugPlayerInfo } from '../ui/DebugModal';
 import { TopMenu } from '../ui/TopMenu';
 import { InfoPanel } from '../ui/InfoPanel';
 import { UiZoomManager } from '../ui/UiZoomManager';
@@ -56,7 +58,6 @@ export class WorldScene extends Phaser.Scene {
   private wasd?: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
   private remotePlayers = new Map<string, PlayerSprite>();
   private canMove = true;
-  private lastMoveSent = 0;
   private moving = false;
 
   private uiZoom!: UiZoomManager;
@@ -74,6 +75,9 @@ export class WorldScene extends Phaser.Scene {
   private helpModal!: HelpModal;
   private pcBoxModal!: PcBoxModal;
   private pokemonSummaryModal!: PokemonSummaryModal;
+  private debugModal!: DebugModal;
+  private currentMapId: string = DEFAULT_MAP_ID;
+  private speedMultiplier = 1;
   private playerPokemonParty: PokemonData[] = [];
   private playerPokemonBox: PokemonData[] = [];
   private moveButton: 'left' | 'right' = 'left';
@@ -91,6 +95,22 @@ export class WorldScene extends Phaser.Scene {
   private destGfx?: Phaser.GameObjects.Graphics;
   private hoverTileX = -1;
   private hoverTileY = -1;
+
+  // ── Tile-based movement (Phase 2) ──────────────────────────────────────
+  /** Grid va chạm thật của map hiện tại (SSOT: server JSON). */
+  private collision!: CollisionGrid;
+  /** Nhịp bước đi: bấm phím = 1 ô, giữ phím lặp mỗi MOVE_COOLDOWN_MS. */
+  private nextStepAt = 0;
+  /** Đang nhảy ledge (tween 2 ô) → tạm khoá input. */
+  private isJumping = false;
+  /** Chu kỳ gửi `move` lên server (ms) — tránh spam, khớp nhịp bước. */
+  private lastNetMoveAt = 0;
+  /** Hướng đang giữ phím để lặp bước. */
+  private heldDir: Dir | null = null;
+  /** Đang lướt nước (Surf). */
+  private surfing = false;
+  /** Khoá warp vừa kích hoạt — tránh bắn `change_map` liên tục cùng một ô. */
+  private lastWarpKey = '';
 
   /** Trạng thái kéo pan camera (middle-button hoặc Shift+left). */
   private camDrag?: {
@@ -169,9 +189,20 @@ export class WorldScene extends Phaser.Scene {
     this.mapWidth = mapWidth;
     this.mapHeight = mapHeight;
 
-    // Spawn player ở giữa map
-    const spawnX = mapWidth / 2;
-    const spawnY = mapHeight / 2;
+    // Grid va chạm thật của map hiện tại (SSOT → dùng chung client/server).
+    this.collision = getCollisionGrid(DEFAULT_MAP_ID);
+
+    // Spawn: ưu tiên spawn khai báo trong MAPS, snap về tâm ô; nếu ô blocked
+    // → tìm ô walkable gần nhất. Fallback về giữa map khi không có metadata.
+    const meta = MAPS[DEFAULT_MAP_ID];
+    const spawnPx = meta?.spawn ?? { x: mapWidth / 2, y: mapHeight / 2 };
+    const spawnTile = {
+      x: Math.floor(spawnPx.x / TILE_SIZE),
+      y: Math.floor(spawnPx.y / TILE_SIZE),
+    };
+    const safeSpawn = this.collision.nearestWalkable(spawnTile.x, spawnTile.y) ?? spawnTile;
+    const spawnX = safeSpawn.x * TILE_SIZE + TILE_SIZE / 2;
+    const spawnY = safeSpawn.y * TILE_SIZE + TILE_SIZE / 2;
 
     // Tạo sprite — ưu tiên sprite user được gán trong thư viện admin,
     // nếu không có → hero sheet (đã load ở BootScene), cuối cùng → trainer.
@@ -229,6 +260,10 @@ export class WorldScene extends Phaser.Scene {
     if (remote) {
       remote.onStateChange((state) => this.syncRemotePlayers(state));
       remote.onMessage('chat', (data) => this.showChat(data.from, data.message));
+      // Server xác nhận đổi map (warp) → client rejoin room mới.
+      remote.onMessage('player_moved_map', (data) => this.onServerChangeMap(data));
+      // Server từ chối bước đi (chống gian lận) → kéo vị trí về đúng server.
+      remote.onMessage('move_rejected', (data) => this.onMoveRejected(data));
     }
 
     // ⚠️ BỎ global click → random battle. Trước đây `pointerdown` bắn 30% mỗi cú click
@@ -360,6 +395,7 @@ export class WorldScene extends Phaser.Scene {
       ...(this.helpModal ? this.helpModal.getGameObjects() : []),
       ...(this.pcBoxModal ? this.pcBoxModal.getGameObjects() : []),
       ...(this.pokemonSummaryModal ? this.pokemonSummaryModal.getGameObjects() : []),
+      ...(this.debugModal ? this.debugModal.getGameObjects() : []),
     ];
     if (this.debugText) objs.push(this.debugText);
     return objs;
@@ -610,7 +646,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    const path = findPath(this.player.x, this.player.y, x, y);
+    const path = findPath(this.player.x, this.player.y, x, y, (c, r) => this.canEnterTile(c, r));
     if (path.length === 0) return;
     this.movePath = pathToPixels(path);
     this.pointerTarget = new Phaser.Geom.Point(x, y);
@@ -794,6 +830,28 @@ export class WorldScene extends Phaser.Scene {
     );
     this.pcBoxModal.setUiZoomManager(this.uiZoom);
 
+    // DebugModal — panel debug hiển thị toạ độ, map và chạy lệnh
+    this.debugModal = new DebugModal(this, {
+      onTeleport: (x, y) => this.teleportPlayer(x, y),
+      onSwitchMap: (mapId, x, y) => this.switchMap(mapId, x, y),
+      onSetSpeed: (mult) => {
+        this.speedMultiplier = mult;
+      },
+      onRunCommand: (cmd) => this.handleDebugCommand(cmd),
+      onClose: () => this.topMenu?.setActive(''),
+    });
+    this.debugModal.setUiZoomManager(this.uiZoom);
+
+    // Phím tắt F3 / F2 bật/tắt Debug Panel
+    this.input.keyboard?.on('keydown-F3', (e: KeyboardEvent) => {
+      e.preventDefault();
+      this.toggleDebugModal();
+    });
+    this.input.keyboard?.on('keydown-F2', (e: KeyboardEvent) => {
+      e.preventDefault();
+      this.toggleDebugModal();
+    });
+
     // Áp dụng responsive mode ban đầu và lắng nghe sự kiện
     this.relayoutAllPanels();
     this.scale.on('resize', () => this.relayoutAllPanels());
@@ -812,6 +870,7 @@ export class WorldScene extends Phaser.Scene {
     this.helpModal?.relayout();
     this.pcBoxModal?.relayout();
     this.pokemonSummaryModal?.relayout();
+    this.debugModal?.relayout();
     if (this.minimap && this.player) {
       this.minimap.update(this.player.x, this.player.y, this.cameras.main);
     }
@@ -919,6 +978,9 @@ export class WorldScene extends Phaser.Scene {
         this.settingsPanel?.setHudCheckbox('minimap', this.minimap.isVisible());
         break;
       }
+      case 'debug':
+        this.toggleDebugModal();
+        break;
       case 'settings':
         this.settingsPanel.toggle();
         break;
@@ -1081,56 +1143,187 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * Di chuyển 1 bước dọc theo path click-to-move.
+   * Di chuyển 1 bước dọc theo path click-to-move (tile-based).
    * Trả về `true` nếu đang di chuyển (để animation walk chạy).
+   * Mỗi lần gọi tiến đúng 1 ô (snap tâm ô), nghỉ `MOVE_COOLDOWN_MS` giữa các ô.
    * Khi tới đích → dừng, trả về `false`.
    */
-  private advanceAlongPath(delta: number): boolean {
+  private advanceAlongPath(_delta: number): boolean {
     if (this.movePath.length === 0) {
       this.pointerTarget = undefined;
       return false;
     }
 
     const target = this.movePath[0];
-    const dx = target.x - this.player.x;
-    const dy = target.y - this.player.y;
-    const dist = Math.hypot(dx, dy);
-    const step = PLAYER_SPEED * TILE_SIZE * (delta / 1000);
+    const tile = {
+      x: Math.floor(target.x / TILE_SIZE),
+      y: Math.floor(target.y / TILE_SIZE),
+    };
 
-    // Hướng di chuyển
-    let direction: Dir = this.player.getDirection();
-    if (Math.abs(dx) > Math.abs(dy)) {
-      direction = dx > 0 ? 'right' : 'left';
-    } else if (Math.abs(dy) > 0.001) {
-      direction = dy > 0 ? 'down' : 'up';
+    // Chưa tới nhịp bước kế tiếp → coi như vẫn đang đi (giữ animation).
+    if (this.time.now < this.nextStepAt) return true;
+
+    this.nextStepAt = this.time.now + MOVE_COOLDOWN_MS;
+
+    // Ô bị chặn (path cũ / dữ liệu đổi) → huỷ phần còn lại.
+    if (!this.canEnterTile(tile.x, tile.y)) {
+      this.cancelAutoMove();
+      return false;
     }
 
-    if (dist <= step) {
-      // Đã tới ô này → nhảy tới ô tiếp theo
-      this.player.setPosition(target.x, target.y);
-      this.player.setDirection(direction);
-      this.movePath.shift();
-      // throttle network
-      const now = performance.now();
-      if (now - this.lastMoveSent > 100) {
-        this.lastMoveSent = now;
-        ColyseusManager.getInstance().sendMove(this.player.x, this.player.y, direction);
-      }
-      return this.movePath.length > 0;
+    const dir = this.directionTo(this.player.x, this.player.y, target.x, target.y);
+    this.stepTo(tile.x, tile.y, dir);
+
+    // Đã tới ô này → sang ô tiếp theo.
+    this.movePath.shift();
+    return this.movePath.length > 0;
+  }
+
+  /**
+   * Một bước tile-based: snap về tâm ô, đổi hướng, gửi `move` (throttle),
+   * kiểm tra warp / ledge / surf.
+   */
+  private stepTo(tileX: number, tileY: number, dir: Dir): void {
+    const center = this.tileCenter(tileX, tileY);
+    this.player.setPosition(center.x, center.y);
+    this.player.setDirection(dir);
+
+    // Cập nhật trạng thái surf khi bước vào/ra ô nước.
+    const inWater = this.collision.isWater(tileX, tileY);
+    if (inWater !== this.surfing) {
+      this.surfing = inWater;
+      this.player.setSurfing(inWater);
     }
 
-    // Chưa tới → tiến thêm 1 bước
-    const nx = this.player.x + (dx / dist) * step;
-    const ny = this.player.y + (dy / dist) * step;
-    this.player.setPosition(nx, ny);
-    this.player.setDirection(direction);
+    this.sendMoveThrottled(center.x, center.y, dir);
+    this.onTileEntered(tileX, tileY, dir);
+  }
 
-    const now = performance.now();
-    if (now - this.lastMoveSent > 100) {
-      this.lastMoveSent = now;
-      ColyseusManager.getInstance().sendMove(nx, ny, direction);
+  /** Tâm pixel của ô (col, row). */
+  private tileCenter(col: number, row: number): { x: number; y: number } {
+    return { x: col * TILE_SIZE + TILE_SIZE / 2, y: row * TILE_SIZE + TILE_SIZE / 2 };
+  }
+
+  /** Hướng từ điểm pixel A → B (chỉ 4 hướng, ưu tiên trục lệch nhiều hơn). */
+  private directionTo(ax: number, ay: number, bx: number, by: number): Dir {
+    const dx = bx - ax;
+    const dy = by - ay;
+    if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left';
+    if (Math.abs(dy) > 0.001) return dy > 0 ? 'down' : 'up';
+    return this.player.getDirection();
+  }
+
+  /** Gửi vị trí lên server, throttle theo nhịp bước. */
+  private sendMoveThrottled(x: number, y: number, dir: Dir): void {
+    const now = this.time.now;
+    if (now - this.lastNetMoveAt < MOVE_COOLDOWN_MS - 10) return;
+    this.lastNetMoveAt = now;
+    ColyseusManager.getInstance().sendMove(x, y, dir);
+  }
+
+  /**
+   * Ô (col,row) có thể đi vào không?
+   * - Nước: chỉ khi đang Surf.
+   * - Ledge: đi vào được (xử lý nhảy riêng ở `handleInputDirection`).
+   */
+  private canEnterTile(col: number, row: number): boolean {
+    return this.collision.isWalkable(col, row, { canSurf: this.surfing });
+  }
+
+  /** Vector đơn vị của 4 hướng. */
+  private static dirToVector(dir: Dir): { dx: number; dy: number } {
+    switch (dir) {
+      case 'up': return { dx: 0, dy: -1 };
+      case 'down': return { dx: 0, dy: 1 };
+      case 'left': return { dx: -1, dy: 0 };
+      case 'right': return { dx: 1, dy: 0 };
     }
+  }
+
+  /**
+   * Xử lý khi người chơi bấm/giữ 1 hướng: 1 ô nếu trống, nhảy 2 ô nếu là ledge,
+   * chặn nếu bị va chạm.
+   */
+  private handleInputDirection(dir: Dir): boolean {
+    if (this.isJumping) return false;
+
+    const col = Math.floor(this.player.x / TILE_SIZE);
+    const row = Math.floor(this.player.y / TILE_SIZE);
+
+    // 1. Ledge: đứng trên ô ledge + bấm ĐÚNG hướng → nhảy 2 ô.
+    const ledgeDir = this.collision.getLedgeDirection(col, row);
+    if (ledgeDir) {
+      if (ledgeDir !== dir) return false; // sai hướng → chặn
+      const v = WorldScene.dirToVector(dir);
+      const landX = col + v.dx * 2;
+      const landY = row + v.dy * 2;
+      if (!this.canEnterTile(landX, landY)) return false;
+      this.jumpLedge(landX, landY, dir);
+      return true;
+    }
+
+    // 2. Bước thường: 1 ô.
+    const v = WorldScene.dirToVector(dir);
+    const nx = col + v.dx;
+    const ny = row + v.dy;
+    if (!this.canEnterTile(nx, ny)) {
+      // Không đi được — vẫn quay mặt sang hướng đó (phản hồi trực quan).
+      this.player.setDirection(dir);
+      return false;
+    }
+    this.stepTo(nx, ny, dir);
     return true;
+  }
+
+  /** Nhảy ledge: tween 2 ô, khoá input, gửi vị trí đáp. */
+  private jumpLedge(landX: number, landY: number, dir: Dir): void {
+    this.isJumping = true;
+    this.cancelAutoMove();
+    const center = this.tileCenter(landX, landY);
+    this.player.jumpTo(center.x, center.y, dir, 220, () => {
+      this.isJumping = false;
+      this.surfing = this.collision.isWater(landX, landY);
+      this.player.setSurfing(this.surfing);
+      this.sendMoveThrottled(center.x, center.y, dir);
+      this.onTileEntered(landX, landY, dir);
+    });
+  }
+
+  /** Sau mỗi bước: kiểm tra warp (cửa nhà) và cỏ cao (encounter). */
+  private onTileEntered(col: number, row: number, _dir: Dir): void {
+    // Warp → yêu cầu server chuyển map (Phase 3 xử lý broadcast).
+    const warp = this.collision.getWarpAt(col, row);
+    if (warp) {
+      const zoneKey = `${this.currentMapId}:${col},${row}`;
+      if (this.lastWarpKey !== zoneKey) {
+        this.lastWarpKey = zoneKey;
+        ColyseusManager.getInstance().sendChangeMap(warp.toMap ?? '', warp.toX ?? 0, warp.toY ?? 0);
+      }
+      return;
+    }
+
+    // Grass encounter (hiện dữ liệu chưa bật flag GRASS → luôn false).
+    if (this.collision.isGrass(col, row) && this.canMove && !this.scene.isSleeping()) {
+      const rate = MAPS[this.currentMapId]?.encounterRate ?? 0;
+      if (rate > 0 && Math.random() * 100 < Math.min(rate, 12) * 0.1) {
+        this.startBattle();
+      }
+    }
+  }
+
+  /** Xử lý yêu cầu đổi map từ server (`player_moved_map`). */
+  private async onServerChangeMap(data: any): Promise<void> {
+    const mapId = data?.mapId;
+    if (!mapId || !TILED_MAPS[mapId]) return;
+    await this.switchMap(mapId, data.x, data.y);
+  }
+
+  /** Server từ chối bước đi → snap về vị trí authoritative của server. */
+  private onMoveRejected(data: any): void {
+    if (typeof data?.x !== 'number' || typeof data?.y !== 'number') return;
+    this.cancelAutoMove();
+    this.player.setPosition(data.x, data.y);
+    if (data.direction) this.player.setDirection(data.direction);
   }
 
   // ── 5. Update ───────────────────────────────────────────────────────────
@@ -1143,46 +1336,33 @@ export class WorldScene extends Phaser.Scene {
     const up = this.cursors.up.isDown || !!this.wasd?.W?.isDown;
     const down = this.cursors.down.isDown || !!this.wasd?.S?.isDown;
 
-    let vx = 0;
-    let vy = 0;
-    let keyDirection: Dir = 'down';
+    // Một hướng tại một thời điểm (ưu tiên trái/phải như bản cũ).
+    let keyDirection: Dir | null = null;
+    if (left) keyDirection = 'left';
+    else if (right) keyDirection = 'right';
+    else if (up) keyDirection = 'up';
+    else if (down) keyDirection = 'down';
 
-    if (left) {
-      vx = -1;
-      keyDirection = 'left';
-    } else if (right) {
-      vx = 1;
-      keyDirection = 'right';
-    } else if (up) {
-      vy = -1;
-      keyDirection = 'up';
-    } else if (down) {
-      vy = 1;
-      keyDirection = 'down';
-    }
+    // Bỏ giữ phím → reset trạng thái.
+    if (!keyDirection) this.heldDir = null;
 
-    const isKeyboardMoving = vx !== 0 || vy !== 0;
+    if (keyDirection && !this.isJumping) {
+      if (this.movePath.length > 0) this.cancelAutoMove();
+      // Chỉ animate walk khi thật sự bước được ô (tránh đứng đánh võng trước tường).
+      let stepped = false;
 
-    if (isKeyboardMoving) {
-      if (this.movePath.length > 0) {
-        this.cancelAutoMove();
+      // Bước nếu là lần bấm đầu tiên HOẶC đã qua nhịp MOVE_COOLDOWN_MS.
+      const firstPress = this.heldDir !== keyDirection;
+      if (firstPress || this.time.now >= this.nextStepAt) {
+        this.nextStepAt = this.time.now + MOVE_COOLDOWN_MS;
+        stepped = this.handleInputDirection(keyDirection);
+      } else {
+        stepped = true; // vẫn trong nhịp bước vừa thực hiện → giữ anim
       }
+      this.heldDir = keyDirection;
+      this.moving = stepped;
+    } else if (this.isJumping) {
       this.moving = true;
-      const speed = PLAYER_SPEED * TILE_SIZE;
-      const nextX = this.player.x + vx * speed * (delta / 1000);
-      const nextY = this.player.y + vy * speed * (delta / 1000);
-
-      const maxX = this.mapWidth - TILE_SIZE;
-      const maxY = this.mapHeight - TILE_SIZE;
-
-      this.player.setPosition(Phaser.Math.Clamp(nextX, 0, maxX), Phaser.Math.Clamp(nextY, 0, maxY));
-      this.player.setDirection(keyDirection);
-
-      // throttle ~10/s
-      if (time - this.lastMoveSent > 100) {
-        this.lastMoveSent = time;
-        ColyseusManager.getInstance().sendMove(this.player.x, this.player.y, keyDirection);
-      }
     } else if (this.movePath.length > 0) {
       this.moving = this.advanceAlongPath(delta);
       // Đã tới đích → xoá marker
@@ -1197,6 +1377,46 @@ export class WorldScene extends Phaser.Scene {
     this.player.animateWalk(delta, this.moving);
     this.minimap?.update(this.player.x, this.player.y, this.cameras.main);
 
+    // Cập nhật thông số thời gian thực vào DebugModal nếu đang mở
+    if (this.debugModal?.isOpen() && !this.debugModal.isMinimizedState()) {
+      const mapMeta = MAPS[this.currentMapId];
+      const tmj = TILED_MAPS[this.currentMapId];
+      const objGroup = tmj?.layers?.find((l: any) => l.type === 'objectgroup');
+      const warpsCount = objGroup?.objects?.length ?? 0;
+
+      const mapInfo: DebugMapInfo = {
+        id: this.currentMapId,
+        name: mapMeta?.name ?? this.currentMapId,
+        widthTiles: Math.round(this.mapWidth / TILE_SIZE),
+        heightTiles: Math.round(this.mapHeight / TILE_SIZE),
+        widthPx: Math.round(this.mapWidth),
+        heightPx: Math.round(this.mapHeight),
+        layersCount: this.tiledLayers.length || 1,
+        warpsCount,
+        tilesetName:
+          this.currentMapId.includes('house') || this.currentMapId.includes('lab')
+            ? 'Interior general.png'
+            : 'Outside.png',
+      };
+
+      const cam = this.cameras.main;
+      const playerInfo: DebugPlayerInfo = {
+        x: this.player.x,
+        y: this.player.y,
+        tileX: Math.floor(this.player.x / TILE_SIZE),
+        tileY: Math.floor(this.player.y / TILE_SIZE),
+        direction: this.player.getDirection(),
+        isMoving: this.moving,
+        speed: PLAYER_SPEED * this.speedMultiplier,
+        fps: Math.round(this.game.loop.actualFps),
+        camX: Math.round(cam.scrollX),
+        camY: Math.round(cam.scrollY),
+        zoom: cam.zoom,
+      };
+
+      this.debugModal.updateDebugInfo(mapInfo, playerInfo);
+    }
+
     if (DEBUG && this.debugText) {
       const cam = this.cameras.main;
       this.debugText.setText(
@@ -1206,5 +1426,117 @@ export class WorldScene extends Phaser.Scene {
           `zoom ${cam.zoom}`,
       );
     }
+  }
+
+  // ── 6. Debug Helpers ────────────────────────────────────────────────────
+
+  public toggleDebugModal(): void {
+    this.debugModal.toggle();
+    this.topMenu?.setActive(this.debugModal.isOpen() ? 'debug' : '');
+  }
+
+  public teleportPlayer(x: number, y: number): void {
+    const maxX = this.mapWidth - TILE_SIZE;
+    const maxY = this.mapHeight - TILE_SIZE;
+    const clampedX = Phaser.Math.Clamp(x, 0, maxX);
+    const clampedY = Phaser.Math.Clamp(y, 0, maxY);
+
+    this.cancelAutoMove();
+    // Snap về tâm ô gần nhất để giữ mô hình tile-based.
+    const col = Math.floor(clampedX / TILE_SIZE);
+    const row = Math.floor(clampedY / TILE_SIZE);
+    const safe = this.collision.nearestWalkable(col, row, { canSurf: this.surfing }) ?? { x: col, y: row };
+    const center = this.tileCenter(safe.x, safe.y);
+
+    this.player.setPosition(center.x, center.y);
+    this.surfing = this.collision.isWater(safe.x, safe.y);
+    this.player.setSurfing(this.surfing);
+    ColyseusManager.getInstance().sendMove(center.x, center.y, this.player.getDirection());
+    console.log(`[debug] teleported player to (${center.x}, ${center.y})`);
+  }
+
+  public async switchMap(mapId: string, targetX?: number, targetY?: number): Promise<void> {
+    if (!TILED_MAPS[mapId]) {
+      console.warn(`[debug] map "${mapId}" not found in TILED_MAPS`);
+      this.debugModal?.log(`Không tìm thấy map: "${mapId}"`);
+      return;
+    }
+
+    try {
+      // 1. Huỷ các layer cũ
+      if (this.tiledLayers && this.tiledLayers.length > 0) {
+        this.tiledLayers.forEach((l) => l.destroy());
+        this.tiledLayers = [];
+      }
+      if (this.mapLayer) {
+        this.mapLayer.destroy();
+      }
+
+      // 2. Nạp map mới
+      const loaded = await loadTiledMap(this, mapId, 10);
+      this.tiledLayers = loaded.layers;
+      this.mapLayer = loaded.layers[0];
+      this.mapWidth = loaded.width;
+      this.mapHeight = loaded.height;
+      this.currentMapId = mapId;
+      // Cập nhật grid va chạm sang map mới + reset trạng thái warp.
+      this.collision = getCollisionGrid(mapId);
+      this.lastWarpKey = '';
+      this.isJumping = false;
+      this.heldDir = null;
+
+      // 3. Đặt lại toạ độ người chơi
+      const meta = MAPS[mapId];
+      const spawnX = targetX ?? meta?.spawn.x ?? loaded.width / 2;
+      const spawnY = targetY ?? meta?.spawn.y ?? loaded.height / 2;
+      this.teleportPlayer(spawnX, spawnY);
+
+      // 4. Giới hạn camera bounds
+      this.physics.world?.setBounds(0, 0, loaded.width, loaded.height);
+      this.updateCameraBounds();
+
+      // 5. Cập nhật ignore list camera UI
+      this.registerWorldObject(...loaded.layers);
+
+      this.debugModal?.log(`Đã chuyển thành công sang map "${meta?.name ?? mapId}"!`);
+    } catch (err: any) {
+      console.error(`[debug] switchMap error:`, err);
+      this.debugModal?.log(`Lỗi tải map: ${err.message}`);
+    }
+  }
+
+  private handleDebugCommand(cmd: string): string {
+    const parts = cmd.trim().split(/\s+/);
+    const action = parts[0]?.toLowerCase();
+
+    if (action === '/tp') {
+      if (parts.length === 2) {
+        this.switchMap(parts[1]);
+        return `Đang chuyển tới map: ${parts[1]}`;
+      } else if (parts.length >= 3) {
+        const x = parseFloat(parts[1]);
+        const y = parseFloat(parts[2]);
+        this.teleportPlayer(x, y);
+        return `Teleport tới: (${x}, ${y})`;
+      }
+      return 'Cú pháp: /tp <x> <y> hoặc /tp <mapId>';
+    }
+
+    if (action === '/speed') {
+      const mult = parseFloat(parts[1]);
+      if (!isNaN(mult) && mult > 0) {
+        this.speedMultiplier = mult;
+        return `Tốc độ di chuyển: ${mult}x`;
+      }
+      return 'Cú pháp: /speed <hệ số>';
+    }
+
+    if (action === '/pos') {
+      return `Pos: (${this.player.x.toFixed(1)}, ${this.player.y.toFixed(1)}), Tile: [${Math.floor(
+        this.player.x / TILE_SIZE,
+      )}, ${Math.floor(this.player.y / TILE_SIZE)}]`;
+    }
+
+    return `Lệnh không hợp lệ: ${cmd}`;
   }
 }

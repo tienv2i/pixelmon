@@ -14,16 +14,18 @@ import { C } from './ui/theme';
  * Khi resize, scene.scale.width/height thay đổi → UI elements tự cập nhật
  * thông qua scene.scale.on('resize').
  */
+// Dùng Phaser.CANVAS để render bộ tileset chuẩn Pokémon Essentials (Outdoor.png cao 16096px).
+// WebGL có giới hạn MAX_TEXTURE_SIZE (thường là 8192px trên nhiều GPU) sẽ gây lỗi
+// "texImage2D: width or height out of range". Canvas 2D không bị giới hạn này
+// và render pixel-perfect 100% khớp với Admin map canvas.
 const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
+  type: Phaser.CANVAS,
   width: CANVAS_WIDTH,
   height: CANVAS_HEIGHT,
   parent: 'game-container',
   backgroundColor: C.bg,
-  // pixelArt: false → antialias được BẬT → text HUD sắc nét (không bị mờ).
-  // Tiles vẫn đẹp vì được vẽ bằng Graphics 32×32, không phải pixel-art asset thật.
-  pixelArt: false,
-  antialias: true,
+  pixelArt: true,
+  antialias: false,
   roundPixels: true,
   scale: {
     mode: Phaser.Scale.RESIZE,

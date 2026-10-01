@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
 // Kiểu `*.png?url` đã khai báo trong `src/vite-env.d.ts` → không cần ts-ignore.
 import outdoorTilesetUrl from '@pixelmon/shared/assets/tilesets/Outdoor.png?url';
-import palletTownMap from '@pixelmon/shared/data/maps/tiled/pallet-town.tmj';
-import map1Map from '@pixelmon/shared/data/maps/tiled/map-1.tmj';
-import map3Map from '@pixelmon/shared/data/maps/tiled/map-3.tmj';
-import interiorLabMap from '@pixelmon/shared/data/maps/tiled/interior-lab.tmj';
-import interiorPlayerHouseMap from '@pixelmon/shared/data/maps/tiled/interior-player-house.tmj';
-import interiorRivalHouseMap from '@pixelmon/shared/data/maps/tiled/interior-rival-house.tmj';
+import interiorTilesetUrl from '@pixelmon/shared/assets/tilesets/Interior general.png?url';
+import lappetTownMap from '@pixelmon/shared/data/maps/tiled/lappet-town.tmj';
+import route1Map from '@pixelmon/shared/data/maps/tiled/route-1.tmj';
+import pokemonLabMap from '@pixelmon/shared/data/maps/tiled/pokemon-lab.tmj';
+import playersHouseMap from '@pixelmon/shared/data/maps/tiled/players-house.tmj';
+import daisysHouseMap from '@pixelmon/shared/data/maps/tiled/daisys-house.tmj';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — TS6059: type nằm ngoài rootDir của client (packages/shared/data)
 import type { TiledMapJSON, TiledTileset } from '@pixelmon/shared/data/maps/tiled/types';
@@ -16,29 +16,27 @@ import type { TiledMapJSON, TiledTileset } from '@pixelmon/shared/data/maps/tile
  *
  * Dữ liệu map: `packages/shared/data/maps/tiled/*.tmj` + `assets/tilesets/Outdoor.png`.
  * Mỗi .tmj có 3 tilelayer: Ground, Decoration, Overhead + 1 objectgroup.
- *
- * Phaser KHÔNG đọc .tmj trực tiếp. Ta cần:
- * 1. Import JSON (bundled bởi Vite — không cần fetch)
- * 2. Load tileset image vào Phaser texture cache
- * 3. Tạo Tilemap thủ công từ layer.data
- * 4. Add TilemapLayer cho mỗi tilelayer
  */
 
-/** Registry các map ID có sẵn trong repo. */
+/** Registry các map ID có sẵn trong repo (khớp MapInfos.rxdata). */
 export const TILED_MAPS: Record<string, TiledMapJSON> = {
-  'pallet-town': palletTownMap,
-  'map-1': map1Map,
-  'map-3': map3Map,
-  'interior-lab': interiorLabMap,
-  'interior-player-house': interiorPlayerHouseMap,
-  'interior-rival-house': interiorRivalHouseMap,
+  'lappet-town': lappetTownMap,
+  'route-1': route1Map,
+  'pokemon-lab': pokemonLabMap,
+  'players-house': playersHouseMap,
+  'daisys-house': daisysHouseMap,
+  // Aliases
+  'pallet-town': lappetTownMap,
+  'interior-lab': pokemonLabMap,
+  'interior-player-house': playersHouseMap,
+  'interior-rival-house': daisysHouseMap,
 } as Record<string, TiledMapJSON>;
 
 /** Danh sách map ID có sẵn (dùng cho WorldScene dropdown + admin). */
 export const AVAILABLE_MAP_IDS = Object.keys(TILED_MAPS);
 
-/** Map mặc định load khi vào game. */
-export const DEFAULT_MAP_ID = 'pallet-town';
+/** Map mặc định load khi vào game (khớp rxmapdata). */
+export const DEFAULT_MAP_ID = 'lappet-town';
 
 export interface LoadedTiledMap {
   tilemap: Phaser.Tilemaps.Tilemap;
@@ -53,8 +51,11 @@ export interface LoadedTiledMap {
  * Load tileset image vào texture cache (nếu chưa có).
  * Dùng `this.load.image()` để đồng bộ với loader của Phaser.
  */
-export async function loadTilesetTexture(scene: Phaser.Scene): Promise<void> {
-  const key = 'tileset_outdoor';
+export async function loadTilesetTexture(
+  scene: Phaser.Scene,
+  key = 'tileset_outdoor',
+  url = outdoorTilesetUrl,
+): Promise<void> {
   if (scene.textures.exists(key)) return;
 
   return new Promise<void>((resolve, reject) => {
@@ -63,7 +64,7 @@ export async function loadTilesetTexture(scene: Phaser.Scene): Promise<void> {
     loader.once('loaderror', (file: { key: string }) => {
       if (file.key === key) reject(new Error(`Failed to load tileset: ${key}`));
     });
-    loader.image(key, outdoorTilesetUrl);
+    loader.image(key, url);
     loader.start();
   });
 }
@@ -80,11 +81,15 @@ export async function loadTiledMap(
   const mapJson = TILED_MAPS[mapId] ?? TILED_MAPS[DEFAULT_MAP_ID];
   if (!mapJson) throw new Error(`Map "${mapId}" not found in registry`);
 
-  // Load tileset nếu chưa có
-  await loadTilesetTexture(scene);
-
   const ts: TiledTileset = mapJson.tilesets[0];
   if (!ts) throw new Error(`Map "${mapId}" has no tilesets`);
+
+  const isInterior = ts.image.includes('Interior') || ts.name.includes('interior');
+  const textureKey = isInterior ? 'tileset_interior' : 'tileset_outdoor';
+  const textureUrl = isInterior ? interiorTilesetUrl : outdoorTilesetUrl;
+
+  // Load tileset nếu chưa có
+  await loadTilesetTexture(scene, textureKey, textureUrl);
 
   // 1. Tạo Tilemap
   const tilemap = scene.make.tilemap({
@@ -97,7 +102,7 @@ export async function loadTiledMap(
   // 2. Add tileset image vào Tilemap
   const tileset = tilemap.addTilesetImage(
     ts.name,
-    'tileset_outdoor',
+    textureKey,
     ts.tilewidth,
     ts.tileheight,
     ts.margin ?? 0,
@@ -107,7 +112,6 @@ export async function loadTiledMap(
 
   // 3. Tạo layer cho mỗi tilelayer (bỏ qua objectgroup)
   const layers: Phaser.Tilemaps.TilemapLayer[] = [];
-  let depth = depthBase;
 
   for (const layer of mapJson.layers) {
     if (layer.type !== 'tilelayer' || !layer.data) continue;
@@ -159,7 +163,6 @@ export async function loadTiledMap(
 
 /**
  * Load nhiều map cùng lúc (dùng khi cần preload tất cả vào scene).
- * Hiện tại chỉ dùng 1 map/lần nhưng API sẵn sàng cho mở rộng.
  */
 export async function loadAllTiledMaps(
   scene: Phaser.Scene,

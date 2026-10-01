@@ -86,6 +86,8 @@ export {
   isGrass,
   isWater,
   isLedge,
+  getLedgeDirection,
+  canJumpLedge,
   getCollisionFlag,
   getObjectsOfType,
   getWarpAt,
@@ -99,4 +101,5 @@ export {
   tileToPixel,
   clampToMap,
   type MapObjectType,
+  type WalkableOptions,
 } from './mapruntime.js';

@@ -1315,6 +1315,32 @@ eslint.config.js                                 (+ ignores .venv, temp)
 ### 4. Kết quả kiểm tra
 - `pnpm typecheck`: 4/4 packages pass không có lỗi TypeScript nào (`@pixelmon/shared`, `client`, `server`).
 
+---
+
+## Nhật ký 2026-10-01 (13) — Plan 29: Chuyển khung Hướng dẫn điều khiển (Help) sang UiModal (HelpModal)
+
+### 1. Mục tiêu
+- Đưa toàn bộ bảng Hướng dẫn điều khiển / Phím tắt từ dạng Graphics/Text thủ công cũ trong `WorldScene.ts` sang một popup modal chuẩn kế thừa từ `UiModal` (`HelpModal.ts`).
+- Đồng bộ visual pixel, tự do kéo thả, thu nhỏ, neo vị trí, và tự động co giãn theo `UiZoomManager`.
+
+### 2. Các thay đổi thực hiện
+- **Tạo mới `apps/client/src/ui/HelpModal.ts`:**
+  - Kế thừa từ `UiModal` với tiêu đề `❓ HƯỚNG DẪN ĐIỀU KHIỂN`, kích thước chuẩn 440×320px, căn giữa màn hình (`defaultAlign: 'center'`).
+  - Hỗ trợ đầy đủ bộ nút điều khiển trên Header: Nút Tắt (✕), Nút Thu nhỏ (－), Nút Neo (⚓) và kéo thả tự do.
+  - Phân chia bố cục rõ ràng thành 2 nhóm hướng dẫn trực quan:
+    - **Nhóm 1 — Bàn phím (Keyboard):** WASD / Phím mũi tên (Di chuyển), Enter (Chat), M (Minimap), H / nút ? (Hướng dẫn), Esc / nút ⚙ (Cài đặt).
+    - **Nhóm 2 — Chuột & Cảm ứng (Mouse & Touch):** Chuột trái / Touch (Click-to-move), Chuột giữa / Shift + Kéo (Pan camera), Con lăn chuột (Thu phóng camera khi bật trong Cài đặt).
+  - Nút xác nhận `✔ ĐÃ HIỂU [H]` ở đáy với hiệu ứng hover pixel màu cyan.
+- **Tích hợp vào `apps/client/src/scenes/WorldScene.ts`:**
+  - Khai báo và khởi tạo `HelpModal` trong `createHud()`, kết nối `setUiZoomManager(this.uiZoom)` và callback đóng modal đồng bộ trạng thái `TopMenu`.
+  - Cập nhật `relayoutAllPanels()` gọi `this.helpModal?.relayout()`.
+  - Thêm `this.helpModal.getGameObjects()` vào `getHudObjects()` để `worldCam` tự động ignore, tránh lỗi nhân đôi hoặc mất layer.
+  - Phím tắt `H` và icon `help` trên thanh công cụ `TopMenu` mở/tắt `helpModal` và đồng bộ highlight icon.
+  - Xóa bỏ toàn bộ các biến và phương thức vẽ hint thủ công cũ: `hintText`, `hintGfx`, `hintVisible`, `createHintPanel()`, `layoutHint()`, `toggleHint()`.
+
+### 3. Kết quả kiểm tra
+- `pnpm typecheck`: 4/4 packages thành công (`@pixelmon/shared`, `client`, `server`), không có bất kỳ lỗi cú pháp hoặc type nào.
+
 
 
 

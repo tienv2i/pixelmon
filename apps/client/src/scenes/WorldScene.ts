@@ -12,6 +12,7 @@ import { Minimap } from '../ui/Minimap';
 import { ChatLog } from '../ui/ChatLog';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { HelpModal } from '../ui/HelpModal';
 import { TopMenu } from '../ui/TopMenu';
 import { InfoPanel } from '../ui/InfoPanel';
 import { UiZoomManager } from '../ui/UiZoomManager';
@@ -43,7 +44,7 @@ const SERVER_ORIGIN: string = (() => {
  * 4. **TopMenu** — dãy icon nhỏ neo giữa cạnh trên.
  * 5. **InfoPanel** — khối giờ + thời tiết góc trên phải.
  * 6. **Minimap** — popup dưới InfoPanel, bật/tắt qua icon GPS (hoặc phím M).
- * 7. **Hướng dẫn** — bảng hướng dẫn toggle bằng nút `?` (hoặc phím H).
+ * 7. **HelpModal** — bảng hướng dẫn điều khiển dạng popup modal chuẩn.
  *
  * Network (Colyseus) logic giữ nguyên từ bản cũ.
  */
@@ -68,16 +69,11 @@ export class WorldScene extends Phaser.Scene {
   private chatLog!: ChatLog;
   private settingsPanel!: SettingsPanel;
   private confirmModal!: ConfirmModal;
+  private helpModal!: HelpModal;
   private moveButton: 'left' | 'right' = 'left';
   private manualMiniMode?: boolean;
   private playerSheetKey: string = TEX.hero;
   private playerFrameCount = 16;
-
-  /** Bảng hướng dẫn — toggle bằng nút `?` hoặc phím H. */
-  private hintText?: Phaser.GameObjects.Text;
-  private hintGfx?: Phaser.GameObjects.Graphics;
-  private hintZone?: Phaser.GameObjects.Zone;
-  private hintVisible = false;
 
   private debugText?: Phaser.GameObjects.Text;
 
@@ -340,10 +336,8 @@ export class WorldScene extends Phaser.Scene {
       ...this.infoPanel.getGameObjects(),
       ...this.settingsPanel.getGameObjects(),
       ...this.confirmModal.getGameObjects(),
+      ...(this.helpModal ? this.helpModal.getGameObjects() : []),
     ];
-    if (this.hintGfx) objs.push(this.hintGfx);
-    if (this.hintText) objs.push(this.hintText);
-    if (this.hintZone) objs.push(this.hintZone);
     if (this.debugText) objs.push(this.debugText);
     return objs;
   }
@@ -427,7 +421,10 @@ export class WorldScene extends Phaser.Scene {
         this.topMenu?.setActive(this.minimap.isVisible() ? 'gps' : '');
       });
       // H → ẩn/hiện bảng hướng dẫn
-      this.input.keyboard.on('keydown-H', () => this.toggleHint());
+      this.input.keyboard.on('keydown-H', () => {
+        this.helpModal?.toggle();
+        this.topMenu?.setActive(this.helpModal?.isOpen() ? 'help' : '');
+      });
     }
 
     this.setupPointerInput();
@@ -450,7 +447,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.on(
       'pointerdown',
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-        if (this.settingsPanel?.isOpen() || this.confirmModal?.isOpen()) return;
+        if (this.settingsPanel?.isOpen() || this.confirmModal?.isOpen() || this.helpModal?.isOpen()) return;
         if (over.length > 0) return;
 
         const wantPan = p.middleButtonDown() || (p.leftButtonDown() && p.event.shiftKey);
@@ -706,8 +703,11 @@ export class WorldScene extends Phaser.Scene {
         (this.infoPanel.getSize().w + (this.isSmallViewport() ? 6 : 8) * (this.uiZoom?.uiZoom ?? 1)),
     );
 
-    // Bảng hướng dẫn — ẩn mặc định, bật qua nút ? hoặc phím H
-    this.createHintPanel();
+    // HelpModal — bảng hướng dẫn điều khiển dạng popup modal chuẩn
+    this.helpModal = new HelpModal(this, () => {
+      this.topMenu?.setActive('');
+    });
+    this.helpModal.setUiZoomManager(this.uiZoom);
 
     // Áp dụng responsive mode ban đầu và lắng nghe sự kiện
     this.relayoutAllPanels();
@@ -724,6 +724,7 @@ export class WorldScene extends Phaser.Scene {
     this.topMenu?.relayout();
     this.chatLog?.relayout();
     this.settingsPanel?.relayout();
+    this.helpModal?.relayout();
     if (this.minimap && this.player) {
       this.minimap.update(this.player.x, this.player.y, this.cameras.main);
     }
@@ -768,67 +769,6 @@ export class WorldScene extends Phaser.Scene {
     this.chatLog.setVisible(on);
   }
 
-  /** Bảng hướng dẫn: khung + text, ẩn mặc định. */
-  private createHintPanel(): void {
-    const lines = [
-      'WASD / Arrows  Di chuyển',
-      'RMB              Đi tới vị trí đã chọn',
-      'MMB + kéo        Di chuyển camera',
-      'Enter            Gửi tin nhắn',
-      'M                Bật/tắt minimap',
-      'H                Ẩn/hiện bảng này',
-      'Esc              Mở menu',
-    ].join('\n');
-
-    this.hintText = this.add
-      .text(0, 0, lines, {
-        fontSize: '11px',
-        fontFamily: FONT.mono,
-        color: '#e8eaf6',
-        lineSpacing: 4,
-      })
-      .setOrigin(0.5, 0.5)
-      .setDepth(160)
-      .setScrollFactor(0)
-      .setVisible(false);
-
-    this.hintGfx = this.add.graphics().setDepth(159).setScrollFactor(0);
-
-    this.layoutHint();
-    this.scale.on('resize', () => this.layoutHint());
-  }
-
-  /** Tính vị trí + vẽ khung cho bảng hướng dẫn. */
-  private layoutHint(): void {
-    if (!this.hintText || !this.hintGfx) return;
-    const cx = this.scale.width / 2;
-    const cy = this.scale.height / 2;
-
-    // Khung bám theo kích thước thật của text + padding
-    const tw = this.hintText.width;
-    const th = this.hintText.height;
-    const w = tw + 36;
-    const h = th + 32;
-
-    this.hintText.setPosition(cx, cy);
-
-    this.hintGfx.clear();
-    if (!this.hintVisible) return;
-    this.hintGfx.fillStyle(0x000000, 0.6);
-    this.hintGfx.fillRoundedRect(cx - w / 2 + 3, cy - h / 2 + 3, w, h, 6);
-    this.hintGfx.fillStyle(0x1c1f3a, 0.97);
-    this.hintGfx.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, 6);
-    this.hintGfx.lineStyle(1, 0x2e3358, 1);
-    this.hintGfx.strokeRoundedRect(cx - w / 2, cy - h / 2, w, h, 6);
-  }
-
-  /** Bật/tắt bảng hướng dẫn. */
-  private toggleHint(): void {
-    this.hintVisible = !this.hintVisible;
-    this.hintText?.setVisible(this.hintVisible);
-    this.layoutHint();
-  }
-
   private onTopMenuIcon(key: string): void {
     switch (key) {
       case 'gps': {
@@ -839,9 +779,11 @@ export class WorldScene extends Phaser.Scene {
       case 'settings':
         this.settingsPanel.toggle();
         break;
-      case 'help':
-        this.toggleHint();
+      case 'help': {
+        this.helpModal.toggle();
+        this.topMenu?.setActive(this.helpModal.isOpen() ? 'help' : '');
         break;
+      }
       case 'logout':
         this.confirmLogout();
         break;

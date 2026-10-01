@@ -795,3 +795,17 @@ eslint.config.js                                 (+ ignores .venv, temp)
   - Gỡ bỏ `window._spriteEdit` khỏi phạm vi window.
 - **File sửa:** `apps/server/public/js/admin.js`.
 
+### Lỗi 3e: Giao diện dropdown / select có hiệu ứng nhưng bị lỗi mất một phần
+
+- **Nguyên nhân:**
+  1. Thẻ `<select>` dùng chung class `.input-search` thiếu `box-sizing: border-box`, khi kết hợp padding và width: 100% trong modal khiến kích thước thực tế vượt ra ngoài container.
+  2. Các item trong `.form-row` dùng CSS Grid (`1fr 1fr`) có `min-width: auto` mặc định, khiến select bị tràn ra ngoài cột khi có nội dung dài.
+  3. Khung chọn sprite `.sprite-picker` là flexbox container có thẻ `<select id="user-sprite">` mang inline `style="width: 100%"`, khi kết hợp cùng preview canvas 64px bị cộng dồn width tràn khỏi `modal-box`, dẫn tới bị che khuất hoặc cắt mất góc.
+  4. Mũi tên dropdown native của browser không đồng bộ giữa các hệ điều hành, thiếu khoảng đệm bên phải khiến text dài bị đè lên mũi tên, và menu popup `<option>` chưa được style nền tối đồng bộ theme.
+- **Khắc phục:**
+  - Thêm `box-sizing: border-box`, `min-width: 0` cho `.form-row .form-field` và `overflow-x: hidden` cho `.modal-box`.
+  - Thiết lập rule chuẩn cho `select.input-search, .form-field select`: kích hoạt `appearance: none`, thêm icon mũi tên chevron SVG tinh gọn, tạo padding bên phải chống đè chữ (`padding-right: 32px`), style nền tối cho thẻ `<option>`.
+  - Chuẩn hóa flexbox `.sprite-picker select` với `flex: 1 1 0%`, `min-width: 0` và gỡ các inline style width thừa trong `admin.html`.
+- **File sửa:** `apps/server/public/admin.html`, `apps/server/public/css/admin.css`.
+
+

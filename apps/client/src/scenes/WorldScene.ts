@@ -10,7 +10,7 @@ import { PlayerHud } from '../ui/PlayerHud';
 import { PartyStrip, type PartyMember } from '../ui/PartyStrip';
 import { Minimap } from '../ui/Minimap';
 import { ChatLog } from '../ui/ChatLog';
-import { MenuPanel } from '../ui/MenuPanel';
+import { SettingsPanel } from '../ui/SettingsPanel';
 import { TopMenu } from '../ui/TopMenu';
 import { InfoPanel } from '../ui/InfoPanel';
 import { UiZoomManager } from '../ui/UiZoomManager';
@@ -65,7 +65,8 @@ export class WorldScene extends Phaser.Scene {
   private partyStrip!: PartyStrip;
   private minimap!: Minimap;
   private chatLog!: ChatLog;
-  private menuPanel!: MenuPanel;
+  private settingsPanel!: SettingsPanel;
+  private manualMiniMode?: boolean;
   private playerSheetKey: string = TEX.hero;
   private playerFrameCount = 16;
 
@@ -334,7 +335,7 @@ export class WorldScene extends Phaser.Scene {
       ...this.chatLog.getGameObjects(),
       ...this.topMenu.getGameObjects(),
       ...this.infoPanel.getGameObjects(),
-      ...this.menuPanel.getGameObjects(),
+      ...this.settingsPanel.getGameObjects(),
     ];
     if (this.hintGfx) objs.push(this.hintGfx);
     if (this.hintText) objs.push(this.hintText);
@@ -414,8 +415,8 @@ export class WorldScene extends Phaser.Scene {
       this.cursors.up.on('down', cancelMove);
       this.cursors.down.on('down', cancelMove);
 
-      // Esc → mở/đóng menu
-      this.input.keyboard.on('keydown-ESC', () => this.menuPanel?.toggle());
+      // Esc → mở/đóng settings panel
+      this.input.keyboard.on('keydown-ESC', () => this.settingsPanel?.toggle());
       // M → toggle minimap (bên cạnh icon GPS)
       this.input.keyboard.on('keydown-M', () => {
         this.minimap.toggle();
@@ -645,22 +646,29 @@ export class WorldScene extends Phaser.Scene {
     this.infoPanel.setUiZoomManager(this.uiZoom);
     this.minimap.setAnchorYSource(() => this.infoPanel.getBottomY());
 
-    // Menu panel (Esc)
-    this.menuPanel = new MenuPanel(this, {
+    // Settings panel (Esc / icon ⚙)
+    this.settingsPanel = new SettingsPanel(this, {
       onToggleHud: (v) => this.applyHudVisible(v),
       onToggleMinimap: (v) => {
         this.minimap.setVisible(v);
-        this.topMenu?.setActive('gps');
+        this.topMenu?.setActive(v ? 'gps' : '');
+      },
+      onToggleMiniMode: (v) => {
+        this.manualMiniMode = v;
+        this.applyViewportHudMode();
+        this.layoutLeftColumn();
+        this.topMenu.relayout();
       },
       onUiZoomIn: () => this.uiZoom.zoomIn(),
       onUiZoomOut: () => this.uiZoom.zoomOut(),
+      onUiZoomReset: () => this.uiZoom.reset(),
       onLogout: () => {
         ColyseusManager.getInstance().disconnect();
         this.scene.start('Login');
       },
       onClose: () => undefined,
     });
-    this.menuPanel.setUiZoomManager(this.uiZoom);
+    this.settingsPanel.setUiZoomManager(this.uiZoom);
 
     // TopMenu — dãy icon nhỏ neo giữa cạnh trên
     this.topMenu = new TopMenu(this, (key) => this.onTopMenuIcon(key));
@@ -693,13 +701,14 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private applyViewportHudMode(): void {
-    const isMini = this.isSmallViewport();
+    const isMini = this.manualMiniMode !== undefined ? this.manualMiniMode : this.isSmallViewport();
     const mode = isMini ? 'mini' : 'normal';
     this.hud.setHudMode(mode);
     this.partyStrip.setHudMode(mode);
     this.infoPanel.setHudMode(mode);
     this.chatLog.setHudMode(mode);
     this.minimap.setHudMode(mode);
+    this.topMenu.setHudMode(mode);
   }
 
   /**
@@ -792,13 +801,12 @@ export class WorldScene extends Phaser.Scene {
         this.topMenu?.setActive(this.minimap.isVisible() ? 'gps' : '');
         break;
       }
-      case 'menu':
-        this.menuPanel.toggle();
+      case 'settings':
+        this.settingsPanel.toggle();
         break;
       case 'help':
         this.toggleHint();
         break;
-      case 'settings':
       case 'pokedex':
       case 'bag':
       case 'map':

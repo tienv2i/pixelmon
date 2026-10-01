@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokemon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 22: Chuẩn hoá giao diện Client ở màn hình nhỏ)
+> Cập nhật lần cuối: **2026-10-01** (Hoàn thành Plan 23: Tinh gọn UI, Profile Mini, Toolbar thu gọn & Settings Panel)
 > File này được cập nhật **sau khi hoàn thành mỗi plan**.
 > Designed để AI agent mới có thể load lại toàn bộ cấu trúc project ngay lập tức.
 
@@ -51,6 +51,7 @@
 | Plan 21 — Import toàn bộ sprite (16-frame chuẩn), preview 128/256, nâng cấp Sprite Library, Register & Player Info | ✅           |
 | Căn giữa map ở trung tâm hiển thị thay vì neo ở góc trên bên trái                                    | ✅           |
 | Plan 22 — Chuẩn hoá giao diện Client ở màn hình nhỏ (Responsive Mobile & Small Viewport)             | ✅           |
+| Plan 23 — Tinh gọn UI, Profile Mini, Toolbar thu gọn & Settings Panel đa năng                        | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -635,6 +636,60 @@ quay hướng âm thầm. Chi tiết: `docs/sprite-import-guide.md` mục 3b.
 8. **Bước 8 — Kiểm tra typecheck và cập nhật status:**
    - [x] Chạy `pnpm --filter client typecheck` pass 100%.
    - [x] Cập nhật kết quả vào `project_status.md` và git commit.
+
+---
+
+### Kế hoạch hiện tại: Plan 23 — Tinh gọn UI, Profile Mini, Toolbar thu gọn & Settings Panel
+
+> Bắt đầu 2026-10-01. Hoàn thành 2026-10-01. Mục tiêu: Cắt bỏ khoảng trống thừa, Profile Mini dạng viên thuốc (pill), Toolbar thu gọn chỉ còn 1 nút bật mở Toolbar Panel Mini, loại bỏ Pause Menu và thay bằng Settings Panel đa năng.
+
+1. **Bước 1 — Tinh gọn khoảng trống thừa & Profile Mini (`PlayerHud.ts`):**
+   - [x] Tối ưu padding panel chuẩn 6px (desktop) và 4px (mini), giảm kích thước bảng từ 260×92px xuống 210×72px.
+   - [x] Xây dựng Profile Mini dạng viên thuốc (pill badge): Avatar tròn 28px + Tên Trainer + Tiền game, kích thước chỉ 146×36px, cực kỳ thoáng đãng.
+   - [x] Hỗ trợ click vào Profile Mini để chuyển đổi nhanh hoặc xem chi tiết.
+2. **Bước 2 — Xây dựng Toolbar Mini thu gọn (`TopMenu.ts`):**
+   - [x] Bỏ nút Pause (`☰`). Sắp xếp lại danh mục menu logic: Gameplay (Pokédex, Túi đồ, Đội hình, Bản đồ, GPS/Minimap) + Hệ thống (Cài đặt, Hướng dẫn).
+   - [x] Ở giao diện tối giản (hoặc khi màn hình nhỏ): Thu gọn toàn bộ toolbar thành **1 Nút Toggle Toolbar** (`☰` 28px) nhỏ gọn ở cạnh trên.
+   - [x] Khi click nút Toggle: Bung ra một **Toolbar Mini Panel** chứa các icon chức năng với nền mờ tối, bo góc đẹp mắt. Click ra ngoài hoặc click lại để đóng.
+3. **Bước 3 — Tạo mới `SettingsPanel.ts` thay thế `MenuPanel.ts`:**
+   - [x] Loại bỏ `MenuPanel.ts` (bỏ khái niệm "Pause Menu" không phù hợp với game MMORPG online).
+   - [x] Tạo `SettingsPanel.ts` với giao diện Cài đặt toàn diện:
+     - Nhóm Hiển thị: Toggle HUD, Toggle Minimap, Chế độ Mini/Normal, UI Zoom controls (+ / - / Reset).
+     - Nhóm Âm thanh: BGM, SFX toggle (chuẩn bị sẵn).
+     - Nhóm Tài khoản & Hệ thống: Đăng xuất (Logout), Đóng (Close).
+   - [x] Phím `Esc` và icon `⚙ Cài đặt` trên Toolbar sẽ mở `SettingsPanel`.
+4. **Bước 4 — Tinh gọn các panel khác (`InfoPanel.ts`, `PartyStrip.ts`):**
+   - [x] Thu hẹp các khoảng đệm bên trong `InfoPanel` (144×46px desktop, 80×32px mini) và `PartyStrip` để giảm chiếm dụng không gian màn hình.
+5. **Bước 5 — Cập nhật `WorldScene.ts` kết nối toàn bộ hệ thống mới:**
+   - [x] Đổi liên kết từ `MenuPanel` sang `SettingsPanel`.
+   - [x] Tích hợp Toolbar mini và Profile mini vào update loop, resize listener và đồng bộ trạng thái HUD mode.
+6. **Bước 6 — Kiểm tra typecheck toàn dự án & Cập nhật `project_status.md`:**
+   - [x] `pnpm typecheck` pass 100% (cả client, server, shared).
+   - [x] Cập nhật kết quả vào `project_status.md` và tạo git commit.
+
+---
+
+### Nhật ký 2026-10-01 (7) — Plan 23: Tinh gọn UI, Profile Mini, Toolbar thu gọn & Settings Panel đa năng
+
+- **Cắt giảm khoảng trống thừa:**
+  - `PlayerHud`: thu gọn từ 260×92px xuống 210×72px (tiết kiệm ~30% diện tích).
+  - `InfoPanel`: thu gọn từ 168×54px xuống 144×46px (ở mode mini là 80×32px).
+- **Profile Mini dạng viên thuốc (Pill Badge):**
+  - Kích thước siêu gọn 146×36px: bo tròn viền cyan, avatar 28px nằm gọn bên trái, hiển thị Tên Trainer và Tiền game, ẩn tiền thật để tối giản không gian.
+- **Toolbar Mini thu gọn:**
+  - Ở `mini` mode: ẩn toàn bộ dãy icon, thay bằng duy nhất 1 nút toggle tròn `☰` (28px).
+  - Khi click vào nút toggle: hiển thị một Toolbar Mini Panel popup nổi lên với nền mờ tối, chứa đầy đủ các icon chức năng (Pokédex, Túi đồ, Đội hình, Bản đồ, GPS, Cài đặt, Hướng dẫn).
+  - Click lại nút toggle hoặc click ra ngoài canvas sẽ tự động đóng popup toolbar.
+- **Settings Panel đa năng & Xóa Pause Menu:**
+  - Xóa bỏ file `MenuPanel.ts` và khái niệm pause game offline.
+  - Tạo mới `SettingsPanel.ts` (`apps/client/src/ui/SettingsPanel.ts`) thiết kế dạng modal hiện đại với 3 phân vùng rõ ràng:
+    1. **Hiển thị:** Bật/tắt thanh HUD, Bật/tắt bản đồ thu nhỏ (Minimap), Bật/tắt giao diện tối giản (Chế độ Mini / Normal), Điều chỉnh độ phóng to UI (+, -, 100%).
+    2. **Âm thanh:** Bật/tắt nhạc nền (BGM), Bật/tắt âm thanh hiệu ứng (SFX).
+    3. **Tài khoản & Hệ thống:** Nút Đăng xuất tài khoản (đưa về trang Login), Nút Đóng.
+  - Phím `Esc` và icon `⚙` trên Toolbar đều mở Settings Panel này.
+- **Typecheck & Clean code:**
+  - Loại bỏ hoàn toàn references của `MenuPanel`.
+  - Typecheck `pnpm typecheck` toàn monorepo vượt qua 100%.
 
 ---
 

@@ -18,11 +18,11 @@ const WEATHERS: WeatherDef[] = [
   { glyph: '🌧', name: 'Mưa', tint: 0x6c9fd8 },
 ];
 
-const PANEL_W = 168;
-const PANEL_H = 54;
-const MINI_W = 84;
-const MINI_H = 36;
-const PAD = 8;
+const PANEL_W = 144;
+const PANEL_H = 46;
+const MINI_W = 80;
+const MINI_H = 32;
+const PAD = 6;
 
 /**
  * **InfoPanel** — khối thông tin góc trên phải: giờ + thời tiết.
@@ -53,7 +53,7 @@ export class InfoPanel {
 
     this.clockText = scene.add
       .text(0, 0, '00:00', {
-        fontSize: '18px',
+        fontSize: '16px',
         fontFamily: FONT.ui,
         color: C.text,
       })
@@ -63,7 +63,7 @@ export class InfoPanel {
 
     this.dateText = scene.add
       .text(0, 0, '', {
-        fontSize: '10px',
+        fontSize: '9px',
         fontFamily: FONT.ui,
         color: C.muted,
       })
@@ -72,14 +72,14 @@ export class InfoPanel {
     this.objects.push(this.dateText);
 
     this.weatherGlyph = scene.add
-      .text(0, 0, '☀', { fontSize: '18px', fontFamily: FONT.ui, color: '#fdcb6e' })
+      .text(0, 0, '☀', { fontSize: '16px', fontFamily: FONT.ui, color: '#fdcb6e' })
       .setScrollFactor(0)
       .setDepth(101);
     this.objects.push(this.weatherGlyph);
 
     this.weatherText = scene.add
       .text(0, 0, '', {
-        fontSize: '10px',
+        fontSize: '9px',
         fontFamily: FONT.ui,
         color: C.muted,
       })
@@ -132,7 +132,7 @@ export class InfoPanel {
     const isMini = this.isMiniMode();
     const w = (isMini ? MINI_W : PANEL_W) * z;
     const h = (isMini ? MINI_H : PANEL_H) * z;
-    const pad = (isMini ? 6 : PAD) * z;
+    const pad = (isMini ? 4 : PAD) * z;
 
     const W = this.scene.scale.width;
     const x = W - w - pad;
@@ -141,8 +141,8 @@ export class InfoPanel {
     this.currentH = h;
 
     this.panel.clear();
-    this.panel.fillStyle(0x000000, 0.25);
-    this.panel.fillRoundedRect(x + 3, y + 3, w, h, 4);
+    this.panel.fillStyle(0x000000, 0.28);
+    this.panel.fillRoundedRect(x + 2, y + 2, w, h, 4);
     this.panel.fillStyle(C.panel, 0.94);
     this.panel.fillRoundedRect(x, y, w, h, 4);
     this.panel.lineStyle(1, C.border, 0.95);
@@ -150,18 +150,18 @@ export class InfoPanel {
 
     if (isMini) {
       // Chế độ mini: chỉ hiển thị giờ và glyph thời tiết cạnh nhau
-      this.clockText.setPosition(x + 8 * z, y + 9 * z).setFontSize(14 * z);
+      this.clockText.setPosition(x + 7 * z, y + 8 * z).setFontSize(13 * z);
       this.dateText.setVisible(false);
 
-      this.weatherGlyph.setPosition(x + w - 24 * z, y + 9 * z).setFontSize(14 * z);
+      this.weatherGlyph.setPosition(x + w - 22 * z, y + 8 * z).setFontSize(13 * z);
       this.weatherText.setVisible(false);
     } else {
       // Chế độ normal: hiển thị đầy đủ
-      this.clockText.setPosition(x + 12 * z, y + 8 * z).setFontSize(18 * z);
-      this.dateText.setPosition(x + 13 * z, y + 32 * z).setFontSize(10 * z).setVisible(true);
+      this.clockText.setPosition(x + 10 * z, y + 6 * z).setFontSize(16 * z);
+      this.dateText.setPosition(x + 11 * z, y + 27 * z).setFontSize(9 * z).setVisible(true);
 
-      this.weatherGlyph.setPosition(x + w - 48 * z, y + 10 * z).setFontSize(18 * z);
-      this.weatherText.setPosition(x + w - 34 * z, y + 16 * z).setFontSize(10 * z).setVisible(true);
+      this.weatherGlyph.setPosition(x + w - 42 * z, y + 8 * z).setFontSize(16 * z);
+      this.weatherText.setPosition(x + w - 28 * z, y + 14 * z).setFontSize(9 * z).setVisible(true);
     }
   }
 

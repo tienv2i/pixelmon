@@ -12,27 +12,19 @@ export interface PlayerHudData {
   realMoney: number;
 }
 
-/** Kích thước panel. */
-const PANEL_W = 260;
-const PANEL_H = 92;
-const PAD = 8;
+/** Kích thước panel chuẩn và mini. */
+const PANEL_W = 210;
+const PANEL_H = 72;
+const MINI_W = 146;
+const MINI_H = 36;
+const PAD = 6;
 
 /**
  * **PlayerHud** — bảng thông tin người chơi, góc trên-trái.
  *
- * Layout dạng bảng:
- * ```
- * ┌────┬──────────────────┐
- * │    │  Tên nhân vật     │  ← avatar chiếm cột trái
- * │ A  │  💰 Tiền game     │  ← cột phải, từ trên xuống
- * │ v  │  💎 Tiền thật     │
- * │ a  │                  │
- * └────┴──────────────────┘
- * ```
- *
- * - Avatar chiếm toàn bộ chiều cao bên trái.
- * - Bên phải theo hàng từ trên xuống: **tên nhân vật**, **tiền game**, **tiền thật**.
- * - Không có level / EXP — Pokémon không dùng EXP cho trainer (EXP thuộc về Pokémon).
+ * Hỗ trợ 2 chế độ:
+ * - **Normal**: Bảng chi tiết gọn gàng (Avatar + Tên + Tiền game + Tiền thật).
+ * - **Mini (Profile Mini)**: Dạng viên thuốc tối giản (Avatar 28px + Tên + Tiền game), cao chỉ 36px.
  */
 export class PlayerHud {
   private readonly scene: Phaser.Scene;
@@ -49,8 +41,8 @@ export class PlayerHud {
   getSize(): { w: number; h: number } {
     const z = this._uiZoomManager?.uiZoom ?? 1;
     const isMini = this._hudMode === 'mini';
-    const w = (isMini ? 172 : PANEL_W) * z;
-    const h = (isMini ? 54 : PANEL_H) * z;
+    const w = (isMini ? MINI_W : PANEL_W) * z;
+    const h = (isMini ? MINI_H : PANEL_H) * z;
     return { w, h };
   }
 
@@ -78,21 +70,21 @@ export class PlayerHud {
     this.objs.push(this.avatar);
 
     this.nameText = scene.add
-      .text(0, 0, 'Trainer', { fontSize: '14px', fontFamily: FONT.ui, color: C.text })
+      .text(0, 0, 'Trainer', { fontSize: '13px', fontFamily: FONT.ui, color: C.text })
       .setOrigin(0, 0)
       .setDepth(101)
       .setScrollFactor(0);
     this.objs.push(this.nameText);
 
     this.moneyText = scene.add
-      .text(0, 0, '$ 0', { fontSize: '13px', fontFamily: FONT.mono, color: '#00cec9' })
+      .text(0, 0, '$ 0', { fontSize: '12px', fontFamily: FONT.mono, color: '#00cec9' })
       .setOrigin(0, 0)
       .setDepth(101)
       .setScrollFactor(0);
     this.objs.push(this.moneyText);
 
     this.realMoneyText = scene.add
-      .text(0, 0, '₿ 0', { fontSize: '13px', fontFamily: FONT.mono, color: '#fdcb6e' })
+      .text(0, 0, '₿ 0', { fontSize: '11px', fontFamily: FONT.mono, color: '#fdcb6e' })
       .setOrigin(0, 0)
       .setDepth(101)
       .setScrollFactor(0);
@@ -119,39 +111,56 @@ export class PlayerHud {
   private relayout(): void {
     const z = this._uiZoomManager?.uiZoom ?? 1;
     const isMini = this._hudMode === 'mini';
-    const P = (isMini ? 6 : PAD) * z;
-    const w = (isMini ? 172 : PANEL_W) * z;
-    const h = (isMini ? 54 : PANEL_H) * z;
+    const P = (isMini ? 4 : PAD) * z;
+    const w = (isMini ? MINI_W : PANEL_W) * z;
+    const h = (isMini ? MINI_H : PANEL_H) * z;
     const x = P;
     const y = P;
 
-    // Khung nền
+    // Khung nền panel
     this.graphics.clear();
-    this.graphics.fillStyle(0x000000, 0.25);
-    this.graphics.fillRoundedRect(x + 3, y + 3, w, h, 4);
+    this.graphics.fillStyle(0x000000, 0.28);
+    this.graphics.fillRoundedRect(x + 2, y + 2, w, h, isMini ? 6 : 4);
     this.graphics.fillStyle(C.panel, 0.94);
-    this.graphics.fillRoundedRect(x, y, w, h, 4);
+    this.graphics.fillRoundedRect(x, y, w, h, isMini ? 6 : 4);
     this.graphics.lineStyle(1, C.border, 0.95);
-    this.graphics.strokeRoundedRect(x, y, w, h, 4);
+    this.graphics.strokeRoundedRect(x, y, w, h, isMini ? 6 : 4);
 
-    // Avatar: chiếm trọng cột trái
-    const avatarSize = h - (isMini ? 8 : 12) * z;
-    this.avatar
-      .setPosition(x + avatarSize / 2 + (isMini ? 4 : 6) * z, y + h / 2)
-      .setScale(avatarSize / (this._avatarFrameSize || 32));
-
-    // Cột phải: tên → tiền game → tiền thật (từ trên xuống)
-    const colX = x + avatarSize + (isMini ? 10 : 16) * z;
     if (isMini) {
-      this.nameText.setPosition(colX, y + 9 * z).setFontSize(12 * z);
-      this.moneyText.setPosition(colX, y + 28 * z).setFontSize(11 * z);
+      // Profile Mini (Dạng Pill): Avatar 28px + Tên Trainer + Tiền game
+      const avatarSize = h - 6 * z;
+      this.avatar
+        .setPosition(x + avatarSize / 2 + 4 * z, y + h / 2)
+        .setScale(avatarSize / (this._avatarFrameSize || 32));
+
+      const colX = x + avatarSize + 8 * z;
+      this.nameText
+        .setPosition(colX, y + 4 * z)
+        .setFontSize(Math.max(10, Math.round(11 * z)));
+      this.moneyText
+        .setPosition(colX, y + 18 * z)
+        .setFontSize(Math.max(9, Math.round(10 * z)));
+
+      this.realMoneyText.setVisible(false);
     } else {
-      this.nameText.setPosition(colX, y + 14 * z).setFontSize(14 * z);
-      this.moneyText.setPosition(colX, y + 40 * z).setFontSize(13 * z);
+      // Chế độ Normal gọn gàng
+      const avatarSize = h - 10 * z;
+      this.avatar
+        .setPosition(x + avatarSize / 2 + 6 * z, y + h / 2)
+        .setScale(avatarSize / (this._avatarFrameSize || 32));
+
+      const colX = x + avatarSize + 12 * z;
+      this.nameText
+        .setPosition(colX, y + 8 * z)
+        .setFontSize(Math.max(11, Math.round(13 * z)));
+      this.moneyText
+        .setPosition(colX, y + 28 * z)
+        .setFontSize(Math.max(10, Math.round(12 * z)));
+      this.realMoneyText
+        .setPosition(colX, y + 48 * z)
+        .setFontSize(Math.max(10, Math.round(11 * z)))
+        .setVisible(true);
     }
-    this.realMoneyText.setPosition(colX, y + 64 * z).setFontSize(13 * z);
-    // Mini: ẩn tiền thật để panel gọn hơn.
-    this.realMoneyText.setVisible(!isMini);
   }
 
   update(d: Partial<PlayerHudData>): void {

@@ -723,6 +723,7 @@ export class WorldScene extends Phaser.Scene {
     this.layoutLeftColumn();
     this.topMenu?.relayout();
     this.chatLog?.relayout();
+    this.settingsPanel?.relayout();
     if (this.minimap && this.player) {
       this.minimap.update(this.player.x, this.player.y, this.cameras.main);
     }

@@ -102,6 +102,7 @@ export class SettingsPanel {
   // Containers & visual objects
   private overlay: Phaser.GameObjects.Graphics;
   private overlayBlocker: Phaser.GameObjects.Zone;
+  private modalContainer: Phaser.GameObjects.Container;
   private panel: Phaser.GameObjects.Graphics;
   private titleText: Phaser.GameObjects.Text;
   private headerZone: Phaser.GameObjects.Zone;
@@ -176,36 +177,38 @@ export class SettingsPanel {
     });
     this.allObjects.push(this.overlayBlocker);
 
-    // 2. Khung modal chính
-    this.panel = scene.add.graphics().setDepth(201).setScrollFactor(0).setVisible(false);
-    this.allObjects.push(this.panel);
-
-    // 3. Header title
-    this.titleText = scene.add
-      .text(0, 0, '⚙ BẢNG CÀI ĐẶT HỆ THỐNG', ts(15, '#00cec9', FONT.ui))
-      .setDepth(202)
+    // 2. Container chính chứa toàn bộ phần tử modal (để scale theo UI Zoom và giới hạn theo màn hình)
+    this.modalContainer = scene.add
+      .container(0, 0)
+      .setDepth(201)
       .setScrollFactor(0)
       .setVisible(false);
-    this.allObjects.push(this.titleText);
+    this.allObjects.push(this.modalContainer);
 
-    // 4. Vùng kéo thả Header (Draggable Zone)
+    // 3. Khung modal chính
+    this.panel = scene.add.graphics();
+    this.allObjects.push(this.panel);
+    this.modalContainer.add(this.panel);
+
+    // 4. Header title (toạ độ local trong container)
+    this.titleText = scene.add
+      .text(16, 12, '⚙ BẢNG CÀI ĐẶT HỆ THỐNG', ts(15, '#00cec9', FONT.ui));
+    this.allObjects.push(this.titleText);
+    this.modalContainer.add(this.titleText);
+
+    // 5. Vùng kéo thả Header (Draggable Zone)
     this.headerZone = scene.add
-      .zone(0, 0, 10, 10)
+      .zone(0, 0, MODAL_W - 64, 40)
       .setOrigin(0, 0)
-      .setDepth(202)
-      .setScrollFactor(0)
-      .setVisible(false)
       .setInteractive({ cursor: 'grab' });
     this.allObjects.push(this.headerZone);
+    this.modalContainer.add(this.headerZone);
     this.setupDragEvents();
 
-    // 5. Nút Căn giữa (Center / Dock ⚓)
+    // 6. Nút Căn giữa (Center / Dock ⚓)
     this.btnCenter = scene.add
-      .text(0, 0, '⚓', ts(13, C.muted, FONT.ui))
+      .text(MODAL_W - 40, 20, '⚓', ts(13, C.muted, FONT.ui))
       .setOrigin(0.5)
-      .setDepth(203)
-      .setScrollFactor(0)
-      .setVisible(false)
       .setInteractive({ useHandCursor: true });
 
     this.btnCenter.on('pointerover', () => this.btnCenter.setColor('#00cec9'));
@@ -217,14 +220,12 @@ export class SettingsPanel {
       this.relayout();
     });
     this.allObjects.push(this.btnCenter);
+    this.modalContainer.add(this.btnCenter);
 
-    // 6. Nút ✕ đóng
+    // 7. Nút ✕ đóng
     this.btnCloseX = scene.add
-      .text(0, 0, '✕', ts(15, C.muted, FONT.ui))
+      .text(MODAL_W - 18, 20, '✕', ts(15, C.muted, FONT.ui))
       .setOrigin(0.5)
-      .setDepth(203)
-      .setScrollFactor(0)
-      .setVisible(false)
       .setInteractive({ useHandCursor: true });
 
     this.btnCloseX.on('pointerover', () => this.btnCloseX.setColor('#ff7675'));
@@ -234,15 +235,21 @@ export class SettingsPanel {
       this.close();
     });
     this.allObjects.push(this.btnCloseX);
+    this.modalContainer.add(this.btnCloseX);
 
-    // 7. Xây dựng Tab buttons
+    // 8. Xây dựng Tab buttons
     this.buildTabs();
 
-    // 8. Xây dựng nội dung từng Tab
+    // 9. Xây dựng nội dung từng Tab
     this.buildInterfaceTab();
     this.buildGameplayTab();
     this.buildAudioTab();
     this.buildSystemTab();
+
+    // Đưa tất cả nội dung tab vào modalContainer
+    this.tabObjects.forEach((objs) => {
+      this.modalContainer.add(objs);
+    });
 
     // Resize listener
     scene.scale.on('resize', () => {
@@ -256,20 +263,21 @@ export class SettingsPanel {
       pointer.event?.stopPropagation();
       this.isDragging = true;
       this.dragOffset = {
-        x: pointer.x - this.currentX,
-        y: pointer.y - this.currentY,
+        x: pointer.x - this.modalContainer.x,
+        y: pointer.y - this.modalContainer.y,
       };
     });
 
     this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       if (!this.isDragging) return;
-      const modalW = this.getModalW();
-      const modalH = this.getModalH();
-      const maxX = Math.max(0, this.scene.scale.width - modalW);
-      const maxY = Math.max(0, this.scene.scale.height - modalH);
+      const { actualW, actualH } = this.getScaleAndBounds();
+      const maxX = Math.max(0, this.scene.scale.width - actualW);
+      const maxY = Math.max(0, this.scene.scale.height - actualH);
       this.customX = Phaser.Math.Clamp(pointer.x - this.dragOffset.x, 0, maxX);
       this.customY = Phaser.Math.Clamp(pointer.y - this.dragOffset.y, 0, maxY);
-      this.relayout();
+      this.currentX = this.customX;
+      this.currentY = this.customY;
+      this.modalContainer.setPosition(this.customX, this.customY);
     });
 
     const endDrag = () => {
@@ -281,12 +289,35 @@ export class SettingsPanel {
     this.scene.input.on('pointerupoutside', endDrag);
   }
 
-  private getModalW(): number {
-    return Math.min(MODAL_W, this.scene.scale.width - 24);
+  /**
+   * Tính toán tỷ lệ scale của bảng Settings:
+   * - Nhận theo UI zoom (`uiZoomManager.uiZoom`).
+   * - Tối đa không vượt quá chiều rộng và chiều cao màn hình (kèm khoảng đệm an toàn).
+   */
+  private getScaleAndBounds(): { scale: number; actualW: number; actualH: number } {
+    const uiZoom = this._uiZoomManager?.uiZoom ?? 1.25;
+    const screenW = this.scene.scale.width;
+    const screenH = this.scene.scale.height;
+    const MARGIN = 12;
+
+    const maxScaleW = Math.max(0.2, (screenW - MARGIN * 2) / MODAL_W);
+    const maxScaleH = Math.max(0.2, (screenH - MARGIN * 2) / MODAL_H);
+    const maxScale = Math.min(maxScaleW, maxScaleH);
+
+    // Kẹp scale: nhận theo UI Zoom nhưng tối đa không tràn màn hình
+    const effectiveScale = Math.max(0.35, Math.min(uiZoom, maxScale));
+    const actualW = Math.round(MODAL_W * effectiveScale);
+    const actualH = Math.round(MODAL_H * effectiveScale);
+
+    return { scale: effectiveScale, actualW, actualH };
   }
 
-  private getModalH(): number {
-    return Math.min(MODAL_H, this.scene.scale.height - 24);
+  getModalW(): number {
+    return this.getScaleAndBounds().actualW;
+  }
+
+  getModalH(): number {
+    return this.getScaleAndBounds().actualH;
   }
 
   setUiZoomManager(m: UiZoomManager): void {
@@ -306,18 +337,14 @@ export class SettingsPanel {
     ];
 
     for (const t of tabs) {
-      const bg = this.scene.add.graphics().setDepth(202).setScrollFactor(0).setVisible(false);
+      const bg = this.scene.add.graphics().setVisible(false);
       const text = this.scene.add
         .text(0, 0, t.label, ts(12, C.muted, FONT.ui))
         .setOrigin(0.5)
-        .setDepth(203)
-        .setScrollFactor(0)
         .setVisible(false);
       const zone = this.scene.add
         .zone(0, 0, 10, 10)
         .setOrigin(0.5)
-        .setDepth(204)
-        .setScrollFactor(0)
         .setVisible(false)
         .setInteractive({ useHandCursor: true });
 
@@ -328,6 +355,7 @@ export class SettingsPanel {
 
       this.tabButtons.set(t.id, { bg, text, zone });
       this.allObjects.push(bg, text, zone);
+      this.modalContainer.add([bg, text, zone]);
     }
   }
 
@@ -792,6 +820,7 @@ export class SettingsPanel {
     this.updateZoomLabels();
     this.overlay.setVisible(true);
     this.overlayBlocker.setVisible(true);
+    this.modalContainer.setVisible(true);
     this.panel.setVisible(true);
     this.titleText.setVisible(true);
     this.headerZone.setVisible(true);
@@ -810,6 +839,9 @@ export class SettingsPanel {
   close(): void {
     this.open = false;
     this.isDragging = false;
+    this.overlay.setVisible(false);
+    this.overlayBlocker.setVisible(false);
+    this.modalContainer.setVisible(false);
     this.allObjects.forEach((o) => o.setVisible(false));
     this.opts.onClose?.();
   }
@@ -827,63 +859,66 @@ export class SettingsPanel {
   }
 
   // ── Layout & Render ────────────────────────────────────────────────────────
-  private relayout(): void {
+  public relayout(): void {
     if (!this.open) return;
 
     const screenW = this.scene.scale.width;
     const screenH = this.scene.scale.height;
 
-    // Full screen overlay khóa UI
+    // Full screen overlay khóa UI (depth 200)
     this.overlay.clear();
     this.overlay.fillStyle(0x000000, 0.65);
     this.overlay.fillRect(0, 0, screenW, screenH);
     this.overlayBlocker.setPosition(0, 0).setSize(screenW, screenH);
 
-    // Kích thước modal
-    const modalW = this.getModalW();
-    const modalH = this.getModalH();
+    // Tính toán tỷ lệ scale: nhận theo UI zoom, nhưng tối đa không vượt quá màn hình
+    const { scale, actualW, actualH } = this.getScaleAndBounds();
 
     // Toạ độ modal: ưu tiên customX/Y nếu người dùng kéo thả
-    let X: number;
-    let Y: number;
+    let targetX: number;
+    let targetY: number;
     if (this.customX !== undefined && this.customY !== undefined) {
-      const maxX = Math.max(0, screenW - modalW);
-      const maxY = Math.max(0, screenH - modalH);
-      X = Phaser.Math.Clamp(this.customX, 0, maxX);
-      Y = Phaser.Math.Clamp(this.customY, 0, maxY);
+      const maxX = Math.max(0, screenW - actualW);
+      const maxY = Math.max(0, screenH - actualH);
+      targetX = Phaser.Math.Clamp(this.customX, 0, maxX);
+      targetY = Phaser.Math.Clamp(this.customY, 0, maxY);
     } else {
-      X = Math.round((screenW - modalW) / 2);
-      Y = Math.round((screenH - modalH) / 2);
+      targetX = Math.round((screenW - actualW) / 2);
+      targetY = Math.round((screenH - actualH) / 2);
     }
-    this.currentX = X;
-    this.currentY = Y;
+    this.currentX = targetX;
+    this.currentY = targetY;
 
-    // Vẽ panel chính
+    // Áp dụng scale và toạ độ vào modalContainer
+    this.modalContainer.setScale(scale);
+    this.modalContainer.setPosition(targetX, targetY);
+
+    // Vẽ panel chính (toạ độ local bên trong container: 0, 0 đến MODAL_W, MODAL_H)
     this.panel.clear();
     this.panel.fillStyle(0x000000, 0.45);
-    this.panel.fillRoundedRect(X + 4, Y + 4, modalW, modalH, 8);
+    this.panel.fillRoundedRect(4, 4, MODAL_W, MODAL_H, 8);
     this.panel.fillStyle(0x151833, 0.98);
-    this.panel.fillRoundedRect(X, Y, modalW, modalH, 8);
+    this.panel.fillRoundedRect(0, 0, MODAL_W, MODAL_H, 8);
     this.panel.lineStyle(2, 0x2e3358, 1);
-    this.panel.strokeRoundedRect(X, Y, modalW, modalH, 8);
+    this.panel.strokeRoundedRect(0, 0, MODAL_W, MODAL_H, 8);
 
     // Header top bar background (vùng kéo thả)
     this.panel.fillStyle(0x0f1124, 0.95);
-    this.panel.fillRoundedRect(X, Y, modalW, 40, { tl: 8, tr: 8, bl: 0, br: 0 });
+    this.panel.fillRoundedRect(0, 0, MODAL_W, 40, { tl: 8, tr: 8, bl: 0, br: 0 });
     this.panel.lineStyle(1, 0x2e3358, 0.8);
-    this.panel.lineBetween(X, Y + 40, X + modalW, Y + 40);
+    this.panel.lineBetween(0, 40, MODAL_W, 40);
 
-    // Header elements
-    this.titleText.setPosition(X + 16, Y + 12);
-    this.headerZone.setPosition(X, Y).setSize(modalW - 64, 40);
-    this.btnCenter.setPosition(X + modalW - 40, Y + 20);
-    this.btnCloseX.setPosition(X + modalW - 18, Y + 20);
+    // Header elements (toạ độ local trong container)
+    this.titleText.setPosition(16, 12);
+    this.headerZone.setPosition(0, 0).setSize(MODAL_W - 64, 40);
+    this.btnCenter.setPosition(MODAL_W - 40, 20);
+    this.btnCloseX.setPosition(MODAL_W - 18, 20);
 
-    // Tab buttons layout
-    const tabY = Y + 50;
-    const tabW = Math.floor((modalW - 32) / 4);
+    // Tab buttons layout (toạ độ local trong container)
+    const tabY = 50;
+    const tabW = Math.floor((MODAL_W - 32) / 4);
     const tabH = 30;
-    let curTabX = X + 16;
+    let curTabX = 16;
 
     const tabKeys: SettingsTab[] = ['interface', 'gameplay', 'audio', 'system'];
     for (const key of tabKeys) {
@@ -919,10 +954,10 @@ export class SettingsPanel {
       objs.forEach((o) => o.setVisible(isCur));
     });
 
-    // Layout nội dung tab đang chọn
-    const contentX = X + 20;
-    const contentY = Y + 94;
-    const contentW = modalW - 40;
+    // Layout nội dung tab đang chọn (toạ độ local trong container)
+    const contentX = 20;
+    const contentY = 94;
+    const contentW = MODAL_W - 40;
 
     switch (this.activeTab) {
       case 'interface':

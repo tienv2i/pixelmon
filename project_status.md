@@ -688,6 +688,9 @@ quay hướng âm thầm. Chi tiết: `docs/sprite-import-guide.md` mục 3b.
   - Đổi cơ chế đóng: Bảng cài đặt **chỉ đóng khi bấm nút ✕**, không tự đóng khi bấm vào khoảng trống overlay bên ngoài.
   - Sửa lỗi chồng lấn hiển thị: Dịch chuyển các nút tăng/giảm thu phóng game sang phải, đảm bảo text nhãn không bao giờ bị đè.
   - Bổ sung cấu hình Cơ chế di chuyển: Người chơi có thể tuỳ chọn giữa `Chuột trái / Touch (LMB)` [Mặc định] và `Chuột phải (RMB)`.
+  - **Tự động co giãn theo UI Zoom và kẹp an toàn trong màn hình:**
+    - Tích hợp `Phaser.GameObjects.Container` (`modalContainer`) cho toàn bộ phần tử của bảng cài đặt, giúp phóng to/thu nhỏ đồng bộ theo `uiZoom`.
+    - Tính toán tỷ lệ co giãn an toàn: `effectiveScale = Math.max(0.35, Math.min(uiZoom, maxScale))`, tự động giới hạn theo kích thước thực của màn hình để không bao giờ bị tràn mép trên/dưới/trái/phải, đồng thời kẹp toạ độ kéo thả (`customX`, `customY`) luôn nằm trong tầm nhìn.
 - **Cập nhật Cơ chế di chuyển trong game (`WorldScene`):**
   - Hỗ trợ di chuyển mặc định bằng click chuột trái / chạm màn hình (touch), kiểm tra chuẩn xác không trúng UI và không xung đột với thao tác Pan camera (Shift + Drag / MMB).
 

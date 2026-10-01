@@ -7,3 +7,20 @@ dist/
 *.log
 .DS_Store
 .pm/
+
+# Playwright MCP logs & page snapshots
+.playwright-mcp/
+
+# Python virtual environment & cache
+.venv/
+__pycache__/
+*.pyc
+
+# Temporary & scratch files
+temp/
+typescript-tmp/
+
+# Backup and temp files
+*.png~
+*.bak
+*.swp

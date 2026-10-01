@@ -17,8 +17,8 @@ const WEATHERS: WeatherDef[] = [
   { glyph: '🌧', name: 'Mưa', tint: 0x6c9fd8 },
 ];
 
-const PANEL_W = 154;
-const PANEL_H = 40;
+const PANEL_W = 180;
+const PANEL_H = 48;
 
 /**
  * **InfoPanel** — Bảng thông tin góc trên-phải: Đồng hồ & Thời tiết:
@@ -58,8 +58,8 @@ export class InfoPanel extends UiModal {
 
     // 1. Clock Text (Local trong contentContainer)
     this.clockText = scene.add
-      .text(10, 4, '00:00', {
-        fontSize: '15px',
+      .text(12, 6, '00:00', {
+        fontSize: '16px',
         fontFamily: FONT.ui,
         color: C.text,
       });
@@ -67,28 +67,34 @@ export class InfoPanel extends UiModal {
 
     // 2. Date Text
     this.dateText = scene.add
-      .text(10, 22, '', {
-        fontSize: '9px',
+      .text(12, 27, '', {
+        fontSize: '10px',
         fontFamily: FONT.ui,
         color: C.muted,
       });
     this.contentContainer.add(this.dateText);
 
+    // Vạch ngăn cách dọc giữa Giờ và Thời tiết
+    const divider = scene.add.graphics();
+    divider.lineStyle(1, 0x2e3358, 0.8);
+    divider.lineBetween(88, 8, 88, 40);
+    this.contentContainer.add(divider);
+
     // 3. Weather Glyph
     this.weatherGlyph = scene.add
-      .text(96, 6, '☀', {
-        fontSize: '15px',
+      .text(100, 8, '☀', {
+        fontSize: '17px',
         fontFamily: FONT.ui,
         color: '#fdcb6e',
       });
     this.contentContainer.add(this.weatherGlyph);
 
-    // 4. Weather Text
+    // 4. Weather Text (Rộng rãi, không bao giờ bị tràn)
     this.weatherText = scene.add
-      .text(114, 10, '', {
-        fontSize: '9px',
+      .text(124, 15, '', {
+        fontSize: '11px',
         fontFamily: FONT.ui,
-        color: C.muted,
+        color: C.text,
       });
     this.contentContainer.add(this.weatherText);
 
@@ -103,11 +109,6 @@ export class InfoPanel extends UiModal {
   setHudMode(mode: HudMode): void {
     if (this._hudMode === mode) return;
     this._hudMode = mode;
-    if (mode === 'mini') {
-      this.minimize();
-    } else if (mode === 'normal') {
-      this.expand();
-    }
   }
 
   /** Kích thước hiện tại của panel. */

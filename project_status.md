@@ -1302,17 +1302,19 @@ eslint.config.js                                 (+ ignores .venv, temp)
   - Cấu hình `showTitleBar: false`, `docked: true`, gắn cứng tại góc trên-trái (`top-left`) và góc trên-phải (`top-right`), không có thanh title bar cồng kềnh.
   - Kích thước tinh gọn: `PlayerHud` 168×56px, `InfoPanel` 154×40px.
 - **Khắc phục lỗi thanh Party Box biến mất, tràn title & tràn ô slot:**
-  - **Nguyên nhân:** Khung `PartyStrip` trước đây có chiều rộng nhỏ nhưng chứa title quá dài `'🐾 ĐỘI HÌNH (0/6)'` đè lên các nút; `PANEL_H` trước đây tính theo nội dung mà chưa cộng thêm `HEADER_H = 26px` dẫn tới 6 ô slot bị đẩy tụt xuống đáy và tràn ra ngoài modal; nút toggle dock thiếu `setInteractive` trên `headerZone` khiến không thể kéo được khi mở neo.
-  - **Khắc phục:**
-    - Đặt `showClose: false` trên `PartyStrip`, tăng chiều rộng lên 88px.
-    - Title đổi thành dạng compact: `🐾 0/6` (hoặc `🐾 3/6`), không bao giờ bị đè lên các nút header.
-    - Tính đúng chiều cao: `PANEL_H = HEADER_H + CONTENT_H = 26 + (6 * 34 + 5 * 4 + 12) = 264px`, các ô slot nằm trọn vẹn bên trong khung modal.
-    - Trong `UiModal.ts`: Gọi `setInteractive()` ngay khi khởi tạo `headerZone`, mở rộng hitArea của `btnDock` (22×22px) và đồng bộ resize hitArea của `headerZone` trong `relayout()` để kéo thả mượt mà 100%.
-- **Khắc phục tràn Sprite Preview trên PlayerHud:**
-  - Scale avatar tự động theo tỷ lệ khung 34px (`targetSize / Math.max(1, frameSize)`), vẽ thêm khung nền avatar 38×38px viền pixel sắc nét, dịch chuyển text sang x=52px. Nhân vật 64×64 hoặc 32×32 đều hiển thị vừa khít trong khung 168×56px.
+  - Bỏ title chữ trên khung `PartyStrip` (`title: ''`), thanh header chỉ còn nút thu nhỏ (－) và neo (⚓), hoàn toàn không vướng chữ và không bị tràn.
+  - Tính đúng chiều cao: `PANEL_H = HEADER_H + CONTENT_H = 26 + (6 * 34 + 5 * 4 + 12) = 264px`, `PANEL_W = 84px`, các ô slot nằm trọn vẹn bên trong khung modal.
+  - Trong `UiModal.ts`: Gọi `setInteractive()` ngay khi khởi tạo `headerZone`, mở rộng hitArea của `btnDock` (22×22px) và đồng bộ resize hitArea của `headerZone` trong `relayout()` để kéo thả mượt mà 100%.
+- **Phóng to khung Avatar & Sprite Preview trên PlayerHud:**
+  - Nâng kích thước `PlayerHud` lên 180×68px.
+  - Khung nền avatar phóng to 50×50px bo góc viền kép, avatar sprite preview tăng kích thước mục tiêu lên 46px (rõ nét gấp 1.35x), dịch chuyển text sang x=66px, không bị tràn ra ngoài.
+- **Khắc phục tràn chữ khung Thời tiết (InfoPanel):**
+  - Nâng chiều rộng `InfoPanel` lên 180×48px (đối xứng hoàn hảo với `PlayerHud` 180×68px ở góc trái).
+  - Bố cục 2 cột với vạch ngăn dọc tinh tế: Cột 1 (Giờ 16px + Ngày 10px), Cột 2 (Icon thời tiết 17px + Tên thời tiết 11px). Chiều rộng khả dụng cho chữ thời tiết lên tới 54px, không bao giờ bị tràn ngay cả với tên dài như "Nhiều mây" hay "Mưa bão".
 
 ### 4. Kết quả kiểm tra
 - `pnpm typecheck`: 4/4 packages pass không có lỗi TypeScript nào (`@pixelmon/shared`, `client`, `server`).
+
 
 
 

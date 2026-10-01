@@ -12,8 +12,8 @@ export interface PlayerHudData {
   realMoney: number;
 }
 
-const PANEL_W = 168;
-const PANEL_H = 56;
+const PANEL_W = 180;
+const PANEL_H = 68;
 
 /**
  * **PlayerHud** — Bảng thông tin người chơi (UserInfo):
@@ -51,26 +51,26 @@ export class PlayerHud extends UiModal {
 
     this._avatarFrameSize = frameSize;
 
-    // Khung nền chứa Avatar (38x38)
+    // Khung nền phóng to chứa Avatar (50x50)
     const avatarBox = scene.add.graphics();
-    avatarBox.fillStyle(0x0e1022, 0.9);
-    avatarBox.fillRoundedRect(6, 9, 38, 38, 4);
-    avatarBox.lineStyle(1, 0x2e3358, 1);
-    avatarBox.strokeRoundedRect(6, 9, 38, 38, 4);
+    avatarBox.fillStyle(0x0e1022, 0.95);
+    avatarBox.fillRoundedRect(8, 9, 50, 50, 6);
+    avatarBox.lineStyle(1.5, 0x2e3358, 1);
+    avatarBox.strokeRoundedRect(8, 9, 50, 50, 6);
     this.contentContainer.add(avatarBox);
 
-    // 1. Avatar (local space trong contentContainer, scale chuẩn vừa khung)
+    // 1. Avatar (local space trong contentContainer, phóng to rõ nét)
     this.avatar = scene.add
-      .image(25, 28, sheetKey, frame)
+      .image(33, 34, sheetKey, frame)
       .setOrigin(0.5, 0.5);
-    const targetSize = 34;
+    const targetSize = 46;
     this.avatar.setScale(targetSize / Math.max(1, this._avatarFrameSize));
     this.contentContainer.add(this.avatar);
 
     // 2. Name Text
     this.nameText = scene.add
-      .text(52, 6, 'Trainer', {
-        fontSize: '11px',
+      .text(66, 11, 'Trainer', {
+        fontSize: '12px',
         fontFamily: FONT.ui,
         color: C.text,
       })
@@ -79,8 +79,8 @@ export class PlayerHud extends UiModal {
 
     // 3. Money Text
     this.moneyText = scene.add
-      .text(52, 22, '$ 0', {
-        fontSize: '10px',
+      .text(66, 29, '$ 0', {
+        fontSize: '11px',
         fontFamily: FONT.mono,
         color: '#00cec9',
       })
@@ -89,8 +89,8 @@ export class PlayerHud extends UiModal {
 
     // 4. Real Money Text
     this.realMoneyText = scene.add
-      .text(52, 38, '₿ 0', {
-        fontSize: '10px',
+      .text(66, 46, '₿ 0', {
+        fontSize: '11px',
         fontFamily: FONT.mono,
         color: '#fdcb6e',
       })
@@ -117,7 +117,7 @@ export class PlayerHud extends UiModal {
     if (!this.scene.textures.exists(sheetKey)) return;
     this._avatarFrameSize = frameSize;
     this.avatar.setTexture(sheetKey, frame);
-    const targetSize = 34;
+    const targetSize = 46;
     this.avatar.setScale(targetSize / Math.max(1, this._avatarFrameSize));
   }
 

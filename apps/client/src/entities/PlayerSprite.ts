@@ -5,46 +5,47 @@ import { C, FONT } from '../ui/theme';
 const DIRS = ['down', 'up', 'left', 'right'] as const;
 export type Dir = (typeof DIRS)[number];
 
-/**
- * Frame index trong sheet. Hỗ trợ 2 dạng sheet:
- * - 12 frame (4 hướng × 3 frame): legacy trainer sheet
- * - 16 frame (4 hướng × 4 frame): hero sheet mới import
- */
-function frameIndex(dir: Dir, frame: number): number {
-  const dirIdx = DIRS.indexOf(dir);
-  // Mặc định 3 frame/dir (legacy). Sheet hero dùng 4 frame/dir → tính lại.
-  const framesPerDir = 3;
-  return dirIdx * framesPerDir + frame;
-}
+/** Số frame đi bộ mỗi hướng: sheet trainer cũ = 3, sheet hero = 4. */
+const FRAMES_PER_DIR = { legacy: 3, hero: 4 } as const;
+
+/** Chu kỳ đổi 1 frame đi bộ (ms). ~6.7 fps, khớp nhịp bước chân pixel-art. */
+const WALK_FRAME_MS = 150;
 
 /**
- * Frame index cho sheet 4 hướng × 4 frame (hero sprite mới).
- * Layout: 0-3 = down, 4-7 = left, 8-11 = right, 12-15 = up.
- */
-function heroFrameIndex(dir: Dir, frame: number): number {
-  const dirIdx = DIRS.indexOf(dir);
-  return dirIdx * 4 + frame;
-}
-
-/**
+ * KHÔNG dùng `setFlipX` để làm hướng trái: sheet đã có frame trái/phải riêng
+ * biệt (và frame này được khôi phục màu thật + alpha khi cắt từ ảnh gốc nền
+ * trắng) — lật sẽ chỉ làm sprite sai hướng.
+ *
  * Đăng ký animation đi bộ. Gọi 1 lần (WorldScene create) trước khi tạo sprite.
  * Hỗ trợ cả 2 sheet: 12-frame (3f/dir) và 16-frame (4f/dir).
  */
 export function registerPlayerAnims(scene: Phaser.Scene, sheetKey: string, frameCount = 12): void {
   const animKey = `walk-${sheetKey}`;
   if (scene.anims.exists(animKey)) return;
-  const framesPerDir = frameCount / 4;
+  const sheet: keyof typeof FRAMES_PER_DIR = frameCount === 16 ? 'hero' : 'legacy';
+  const framesPerDir = FRAMES_PER_DIR[sheet];
   DIRS.forEach((dir) => {
     for (let i = 0; i < framesPerDir; i++) {
-      const idx = frameCount === 16 ? heroFrameIndex(dir, i) : frameIndex(dir, i);
       scene.anims.create({
         key: `${animKey}-${dir}-${i}`,
-        frames: [{ key: sheetKey, frame: idx }],
+        frames: [{ key: sheetKey, frame: frameName(dir, i) }],
         frameRate: 1,
         repeat: -1,
       });
     }
   });
+}
+
+/**
+ * Tên frame trong texture, dùng để `texture.get(...)` / `setFrame(...)`.
+ *
+ * Quan trọng: frame trong sheet được đăng ký bằng NAME string (vd `0_0`, `0_1`,
+ * `1_2`, ...), KHÔNG phải index số. Truyền number vào `texture.get(number)`
+ * sẽ tra `frames[number]` → undefined và báo lỗi
+ * "Texture <key> has no frame <n>". Vì vậy mọi nơi đều phải dùng name.
+ */
+function frameName(dir: Dir, frame: number): string {
+  return `${DIRS.indexOf(dir)}_${frame}`;
 }
 
 export class PlayerSprite extends Phaser.GameObjects.Sprite {
@@ -54,16 +55,19 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
   private walkFrame = 0;
   private walkTimer = 0;
   private hue: number;
-  /** 12-frame legacy (3f/dir) hay 16-frame hero (4f/dir). */
-  private frameCount: number;
+  /** Sheet nào đang dùng: 'legacy' (12 frame) hay 'hero' (16 frame). */
+  private sheet: keyof typeof FRAMES_PER_DIR;
 
   constructor(scene: Phaser.Scene, x: number, y: number, sheetKey: string, hueSeed = 0, frameCount = 12) {
-    super(scene, x, y, sheetKey, frameIndex('down', 0));
+    super(scene, x, y, sheetKey, frameName('down', 0));
     scene.add.existing(this);
-    this.setOrigin(0.5, 0.7);
+    // Origin Y theo từng loại sheet (xem HERO_FRAME_SIZE / trainer sheet):
+    // - hero: frame đã canh chân sát đáy  -> origin Y = 1.0
+    // - trainer cũ: vẽ trong 32px, chân ở ~y=31 -> 0.7 giữ như cũ
+    this.sheet = frameCount === 16 ? 'hero' : 'legacy';
+    this.setOrigin(0.5, this.sheet === 'hero' ? 1.0 : 0.7);
     this.setDepth(10);
     this.hue = hueSeed;
-    this.frameCount = frameCount;
 
     this.shadow = scene.add
       .image(x, y + 2, 'shadow')
@@ -93,12 +97,14 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
 
   setDirection(dir: string): void {
     const d = DIRS.includes(dir as Dir) ? (dir as Dir) : 'down';
-    this.dir = d;
-    if (d === 'left') this.setFlipX(true);
-    else this.setFlipX(false);
-    this.walkFrame = 0;
-    const idx = this.frameCount === 16 ? heroFrameIndex(d, 0) : frameIndex(d, 0);
-    this.setFrame(idx);
+    // Chỉ reset walkFrame khi thực sự ĐỔI hướng — nếu reset mỗi tick thì
+    // animateWalk không bao giờ advance được frame đi bộ (luôn nhảy về 0).
+    if (d !== this.dir) {
+      this.walkFrame = 0;
+      this.walkTimer = 0;
+      this.dir = d;
+      this.setFrame(frameName(d, 0));
+    }
   }
 
   getDirection(): Dir {
@@ -113,21 +119,17 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
 
   /** Bước chân animation (gọi mỗi frame trong update). */
   animateWalk(deltaMs: number, moving: boolean): void {
+    const maxFrame = FRAMES_PER_DIR[this.sheet];
     if (!moving) {
       this.walkTimer = 0;
-      const idx = this.frameCount === 16 ? heroFrameIndex(this.dir, 0) : frameIndex(this.dir, 0);
-      this.setFrame(idx);
+      this.setFrame(frameName(this.dir, 0));
       return;
     }
     this.walkTimer += deltaMs;
-    if (this.walkTimer >= 150) {
+    if (this.walkTimer >= WALK_FRAME_MS) {
       this.walkTimer = 0;
-      const maxFrame = this.frameCount === 16 ? 4 : 3;
       this.walkFrame = (this.walkFrame + 1) % maxFrame;
-      const idx = this.frameCount === 16
-        ? heroFrameIndex(this.dir, this.walkFrame)
-        : frameIndex(this.dir, this.walkFrame);
-      this.setFrame(idx);
+      this.setFrame(frameName(this.dir, this.walkFrame));
     }
   }
 

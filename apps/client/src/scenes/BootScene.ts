@@ -31,6 +31,18 @@ export const TEX_TILE = 32;
 export const HERO_FRAME_SIZE = 64;
 
 /**
+ * Thứ tự hướng của hero sheet (16 frame = 4 hướng × 4 frame).
+ *
+ * Phải khớp với `DIRS` trong `entities/PlayerSprite.ts` và với thứ tự hàng
+ * của file PNG (`packages/shared/assets/sprites/hero_64.png`, sinh từ
+ * `sprites_import/main.png`).
+ *
+ * CŨNG LÀ LỖI GỐC: version trước khai `['down','left','right','up']` trong khi
+ * PlayerSprite dùng `['down','up','left','right']` → sprite quay sai hướng.
+ */
+export const HERO_DIRS = ['down', 'up', 'left', 'right'] as const;
+
+/**
  * Tiles sheet cho Tilemap: gom tất cả tile 32×32 vào 1 texture ngang.
  * Index trong sheet = vị trí của tile đó.
  */
@@ -102,9 +114,13 @@ export class BootScene extends Phaser.Scene {
   }
 
   /**
-   * Load hero sheet 16 frame (4 hướng × 4 frame, 64×64 mỗi frame = 1024×64).
-   * Sheet đã có sẵn ở `@pixelmon/shared/assets/sprites/hero_64.png`.
-   * Đăng ký 16 frame con để PlayerSprite dùng được.
+   * Load hero sheet 16 frame (4 hướng × 4 frame, 64×64 mỗi frame = 256×256).
+   * Sheet đã có sẵn ở `@pixelmon/shared/assets/sprites/hero_64.png`, được sinh
+   * từ `sprites_import/main.png` bởi script cắt spritesheet.
+   *
+   * LƯU Ý THỨ TỰ: `HERO_DIRS` phải khớp CHÍNH XÁC với `DIRS` trong
+   * `entities/PlayerSprite.ts` và với layout hàng của file PNG.
+   * Sai thứ tự → nhân vật quay đầu sang hướng khác.
    */
   private async loadHeroSheet(): Promise<void> {
     try {
@@ -116,12 +132,19 @@ export class BootScene extends Phaser.Scene {
           // Đăng ký 16 frame con
           const tex = this.textures.get(TEX.hero);
           if (tex && tex.source.length > 0) {
-            // Layout: 0-3 down, 4-7 left, 8-11 right, 12-15 up (4 frame/dir)
+            // Sheet là lưới 4×4 (256×256) — KHÔNG phải dải ngang 1024×64.
+            // Layout hàng theo `HERO_DIRS` (down, up, left, right):
+            //   row 0 = down (0_0..0_3)
+            //   row 1 = up   (1_0..1_3)
+            //   row 2 = left (2_0..2_3)
+            //   row 3 = right(3_0..3_3)
             const F = HERO_FRAME_SIZE;
-            const dirs = ['down', 'left', 'right', 'up'];
-            dirs.forEach((dir, di) => {
+            HERO_DIRS.forEach((_, di) => {
               for (let i = 0; i < 4; i++) {
-                tex.add(`${di}_${i}`, 0, F * (di * 4 + i), 0, F, F);
+                // x = cột, y = hàng — CŨNG LÀ LỖI GỐC trước đây truyền dải 1D
+                // (F*(di*4+i)) làm index vượt quá 256 → clamp về 0 → toàn bộ
+                // frame trỏ về ô 0_0 nên sprite không đổi hướng.
+                tex.add(`${di}_${i}`, 0, F * i, F * di, F, F);
               }
             });
           }

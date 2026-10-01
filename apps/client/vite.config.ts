@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, searchForWorkspaceRoot } from 'vite';
 import path from 'path';
 
 export default defineConfig({
@@ -7,8 +7,11 @@ export default defineConfig({
     port: 5173,
     open: true,
     fs: {
-      // Cho phép serve file từ packages/shared (data + assets)
-      allow: ['../../packages/shared'],
+      // Cho phép serve file từ packages/shared (data + assets).
+      // LƯU Ý: khai báo `allow` sẽ GHI ĐÈ danh sách mặc định của Vite (vốn cho
+      // phép workspace root + project root). Thiếu workspace root ở đây sẽ khiến
+      // chính apps/client/index.html trả 403. Vì vậy phải liệt kê đầy đủ.
+      allow: [searchForWorkspaceRoot(process.cwd()), '../../packages/shared'],
     },
   },
   build: {

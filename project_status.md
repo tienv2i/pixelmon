@@ -468,6 +468,9 @@ pnpm format:check # clean
 | `typescript-tmp/` empty leftover dir                                 | `/mnt/data/AI-Agent/pixelmon/typescript-tmp/`       | Có thể xóa                                        |
 | `root package.json` thiếu `"type": "module"`                        | `package.json`                                      | Gây MODULE_TYPELESS_PACKAGE_JSON warning khi lint   |
 | Vite bundle > 500kB                                                  | client build                                        | 1,665 kB single chunk — cần code-split              |
+| 🔴 Tiled map load fail → luôn fallback `PlaceholderMap`                | `world/TiledMapLoader.ts:35`, `WorldScene.ts:61`    | `mapJson.tilesets` = `undefined` → `TypeError: Cannot read properties of undefined (reading '0')`. Kèm `WebGL: INVALID_VALUE: texImage2D`. **Map thật chưa bao giờ hiển thị.** Tạm hoãn theo quyết định user |
+| `hero_32.png` sinh ra nhưng chưa được load ở đâu                      | `packages/shared/assets/sprites/hero_32.png`        | Dead asset — chỉ `hero_64.png` được import trong `BootScene.ts`. Xoá hoặc dùng cho scale nhỏ |
+| `registerPlayerAnims` tạo anim 1-frame, không dùng                    | `PlayerSprite.ts`                                   | Walk dùng `setFrame` trực tiếp, các anim `walk-<sheet>-<dir>-<i>` không ai chơi → dead code |
 
 ---
 
@@ -483,6 +486,10 @@ pnpm format:check # clean
 8. **Process manager:** `bash scripts/pm.sh [start|stop|restart|status|logs|watch]` — tự free port, tự kill child
 9. **localStorage key:** `pixelmon.token`, `pixelmon.userId`, `pixelmon.displayName`
 10. **API_BASE dynamic:** Client tại `:5173` gọi `http://localhost:2567`, tại `:2567` gọi `window.location.origin`
+11. **Sprite sheet layout:** Hàng = hướng theo thứ tự `['down','up','left','right']`
+    (khớp `DIRS` ở `PlayerSprite.ts` và `HERO_DIRS` ở `BootScene.ts`); cột = frame
+    đi bộ 0..3. Frame được truy xuất bằng **name** (`'0_1'`), không dùng index số.
+    Khi sinh sheet mới xem `docs/sprite-import-guide.md`.
 
 ---
 
@@ -493,11 +500,99 @@ pnpm format:check # clean
 ### Kế hoạch hiện tại: Quản lý Maps & Sprite (Plan 19)
 
 1. **Phân tích tài nguyên trong `game_pack`:**
-   - Khảo sát map Kanto / Tiled maps (`.tmx`, `.tsx`, tileset PNG) và sprite demo.
+   - [x] Khảo sát map Kanto / Tiled maps (`.tmx`, `.tsx`, tileset PNG) và sprite demo.
+   - *Ghi chú (2026-10-01):* `game_pack/` đã bị xóa theo yêu cầu user. Kết luận
+     phân tích trước đó: **không có file Tiled** (`.tmx/.tsx/.tmj`) trong
+     `game_pack` — map là 1 ảnh raster `FullKanto.png` 7700×6400 không chia tile
+     ổn định, nên **không thể import trực tiếp** theo kiểu Tiled.
 2. **Import Maps Tiled vào Game:**
-   - Thay thế `PlaceholderMap` bằng map thật từ `game_pack`.
-   - Xóa các tính năng map editor thừa, chuyển sang cơ chế import map có sẵn.
+   - [ ] Thay thế `PlaceholderMap` bằng map thật từ `game_pack`.
+   - [ ] Xóa các tính năng map editor thừa, chuyển sang cơ chế import map có sẵn.
+   - **⏸ TẠM DỪNG (2026-10-01):** User quyết định bỏ qua hệ thống maps hiện tại
+     (không đạt kỳ vọng, thư mục maps cũ đã xóa). Chưa có hướng thay thế.
+   - *Lưu ý:* pipeline Tiled sẵn có của project
+     (`packages/shared/data/maps/tiled/*.tmj`, `apps/client/src/world/TiledMapLoader.ts`)
+     vẫn còn và **đang lỗi** → xem "Known issues" mục Warning.
 3. **Cập nhật Sprite mặc định:**
-   - Kiểm tra sprite demo trong `game_pack`, tích hợp vào `PlayerSprite` và `BootScene`.
+   - [x] Import `sprites_import/main.png` → `packages/shared/assets/sprites/hero_64.png`
+     (16/16 frame, grid 4×4, tách nền alpha). *2026-10-01*
+   - [x] Sửa lỗi `BootScene` (đăng ký frame 2D + thứ tự `HERO_DIRS`). *2026-10-01*
+   - [x] Sửa lỗi `PlayerSprite` (frame name thay vì index, bỏ `setFlipX`,
+     `setDirection` không reset mỗi tick, origin theo loại sheet). *2026-10-01*
+   - [x] Tạo tool tái dùng `scripts/tools/build_spritesheet.py`. *2026-10-01*
+   - [x] Tạo hướng dẫn `docs/sprite-import-guide.md`. *2026-10-01*
+   - [x] Sửa lỗi **đảo hướng** (thứ tự hàng sheet ≠ layout game) + thêm
+     `--preview` để kiểm bằng mắt. *2026-10-01*
+   - *Xác nhận:* ↓ ↑ ← → hiển thị đúng, walk cycle chạy `*_1→*_2→*_3→*_0`,
+     console chỉ còn 2 warning (dự kiến, thuộc lỗi Tiled).
 4. **Cập nhật Admin Dashboard:**
-   - Thêm tab/view Quản lý tài nguyên (Maps & Sprites) trong trang quản trị.
+   - [ ] Thêm tab/view Quản lý tài nguyên (Maps & Sprites) trong trang quản trị.
+
+---
+
+## Nhật ký 2026-10-01 — Sprite import & fix lỗi
+
+### Khởi động lại game
+
+- Khởi động bằng `bash scripts/pm.sh start` → server :2567 + client :5173 OK.
+- **Fix 403 ở client:** `apps/client/vite.config.ts` khai `server.fs.allow`
+  **ghi đè hoàn toàn** allow-list mặc định của Vite → chính
+  `apps/client/index.html` bị chặn.
+  ```ts
+  // ❌ cũ
+  allow: ['../../packages/shared'],
+  // ✅ mới
+  import { defineConfig, searchForWorkspaceRoot } from 'vite';
+  allow: [searchForWorkspaceRoot(process.cwd()), '../../packages/shared'],
+  ```
+- Kiểm tra hạ tầng: Postgres (5432) + Redis (6379) đều chạy sẵn.
+
+### Import sprite
+
+| | Trước | Sau |
+|---|---|---|
+| `hero_64.png` | 1024×64 dải 1D, **12/16 frame trống** | **256×256 grid 4×4**, **16/16 frame** |
+| `hero_32.png` | 512×32 | 128×128 |
+| Nền | nền trắng | alpha trong suốt (white-unmatting) |
+| Console | 28 warning | **2 warning** (còn lại = lỗi Tiled) |
+
+Layout chuẩn sheet: hàng = `['down','up','left','right']`, cột = frame 0..3.
+Ảnh nguồn `sprites_import/*.png`: hàng = `['down','left','right','up']`.
+
+### Lỗi đã fix (chi tiết trong `docs/sprite-import-guide.md` mục 4)
+
+| # | Lỗi | File | Fix |
+|---|---|---|---|
+| 1 | Đăng ký frame theo dải 1D → index vượt 256 → clamp 0 → **tất cả frame trỏ ô `0_0`** | `BootScene.ts` | `tex.add(name, 0, F*i, F*di, F, F)` |
+| 2 | Thứ tự hướng `BootScene` ≠ `PlayerSprite` | 2 file | Xuất `HERO_DIRS` chung |
+| 3 | `setFrame(number)` tra `frames[number]` → 26 warning "has no frame" | `PlayerSprite.ts` | Dùng `frameName(dir, frame)` |
+| 4 | `setFlipX(true)` cho hướng trái dù có frame left thật | `PlayerSprite.ts` | Bỏ `setFlipX` |
+| 5 | `setDirection` reset `walkFrame` mỗi tick → walk không advance | `PlayerSprite.ts` | Chỉ reset khi đổi hướng |
+| 6 | `setOrigin(0.5, 0.7)` không hợp frame canh chân | `PlayerSprite.ts` | hero → `(0.5, 1.0)` |
+| 7 | Sheet sinh ra giữ thứ tự hàng ảnh nguồn → **↑ quay trái, ← quay phải, → quay lưng** | `build_spritesheet.py` | Thêm `SOURCE_DIR_ORDER` + remap hàng + `--preview` |
+| 8 | Vite `fs.allow` ghi đè → 403 | `vite.config.ts` | Thêm workspace root vào allow list |
+
+### Bài học — lỗi đảo hướng là lỗi ÂM THẦM
+
+Lỗi #7 không bị bất kỳ lớp kiểm tra nào bắt được:
+
+- `--verify` chỉ kiểm frame **không trống** → 16/16 vẫn ✓
+- `typecheck` sạch → `DIRS` vẫn đúng thứ tự
+- console vẫn hiện `up / 1_1` → **tên frame do code quyết định, không do ảnh**
+- walk cycle vẫn chạy bình thường
+
+**Quy tắc:** mỗi lần sinh sheet phải kèm `--preview`, mở ảnh soi 4 dòng nhãn
+`0:down / 1:up / 2:left / 3:right` **trước khi báo hoàn thành**. Không tin
+frame name trong console.
+
+### File mới / thay đổi trong session này
+
+```
+scripts/tools/build_spritesheet.py        (mới)  — tool cắt sprite tái dùng
+docs/sprite-import-guide.md               (mới)  — quy trình import + 5 lỗi đã biết
+packages/shared/assets/sprites/hero_64.png (sinh lại, 256×256, 16 frame)
+packages/shared/assets/sprites/hero_32.png (sinh lại, 128×128)
+apps/client/vite.config.ts                (fix 403)
+apps/client/src/scenes/BootScene.ts       (HERO_DIRS + đăng ký frame 2D)
+apps/client/src/entities/PlayerSprite.ts  (frameName, bỏ flip, origin, walk reset)
+```

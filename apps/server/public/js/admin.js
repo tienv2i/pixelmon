@@ -347,13 +347,16 @@
 
   // ── Sprite helpers (dùng bởi bảng users + modal user) ──
   /** Ô hiển thị sprite đã gán (thumb + tên), hoặc "mặc định" nếu chưa gán. */
+  // ── Sprite helpers (dùng bởi bảng users + modal user) ──
+  /** Ô hiển thị sprite đã gán (thumb + tên), hoặc "mặc định" nếu chưa gán. */
   function spriteCell(u) {
     if (u.sprite && u.sprite.sheetUrl) {
+      var thumb = u.sprite.previewUrl128 || u.sprite.previewGif128 || u.sprite.sheetUrl;
       return (
         '<div class="sprite-thumb-cell" title="' +
         esc(u.sprite.name) +
         '"><img src="' +
-        esc(u.sprite.sheetUrl) +
+        esc(thumb) +
         '" alt="" /><span class="sprite-name dim">' +
         esc(u.sprite.name) +
         '</span></div>'
@@ -403,36 +406,43 @@
     updateSpritePreview(sel.value);
   }
 
-  /** Vẽ frame 0 (hướng down) của sprite đang chọn lên canvas preview. */
+  var userSpriteShowGif = false;
+
+  /** Cập nhật ảnh đại diện preview trong Modal User. */
   function updateSpritePreview(spriteId) {
-    var canvas = $('user-sprite-canvas');
+    var imgEl = $('user-sprite-img');
     var label = $('user-sprite-label');
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    var toggleBtn = $('user-sprite-view-toggle');
+    if (!imgEl) return;
 
     var s = spritesCache.find(function (x) {
       return x.id === spriteId;
     });
+
     if (!s || !s.sheetUrl) {
-      if (label) label.textContent = t('m.spriteDefault');
+      // Mặc định (hero)
+      var defaultPreview = userSpriteShowGif
+        ? '/sprites/previews/main-128.gif'
+        : '/sprites/previews/main-128.png';
+      imgEl.src = defaultPreview;
+      if (label) label.textContent = t('m.spriteDefault') + ' (hero 64×64)';
+      if (toggleBtn) {
+        toggleBtn.textContent = userSpriteShowGif ? '⏸ Xem ảnh tĩnh' : '▶ Xem hoạt ảnh';
+      }
       return;
     }
-    var frame = s.frameW || 32;
-    var perDir = Math.max(1, Math.floor((s.frameCount || 12) / 4));
-    // 16 frame = lưới 4×4 (frame đầu ở (0,0)); 12 frame = dải ngang (frame 0 ở x=0).
-    // Cả 2 đều lấy frame 0 → toạ độ (0,0) → vẽ frame down đầu tiên.
-    var img = new Image();
-    img.onload = function () {
-      var zoom = Math.floor(64 / frame) || 1;
-      canvas.width = frame * zoom;
-      canvas.height = frame * zoom;
-      ctx.imageSmoothingEnabled = false;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, frame, frame, 0, 0, frame * zoom, frame * zoom);
-      if (label) label.textContent = s.name + ' · ' + perDir + 'f/' + t('m.spritePerDir');
-    };
-    img.src = s.sheetUrl;
+
+    var previewUrl = userSpriteShowGif
+      ? s.previewGif128 || s.previewUrl128 || s.sheetUrl
+      : s.previewUrl128 || s.sheetUrl;
+    imgEl.src = previewUrl;
+
+    if (label) {
+      label.textContent = s.name + ' · ' + s.frameW + '×' + s.frameH + ' (' + (s.frameCount || 16) + 'f)';
+    }
+    if (toggleBtn) {
+      toggleBtn.textContent = userSpriteShowGif ? '⏸ Xem ảnh tĩnh' : '▶ Xem hoạt ảnh';
+    }
   }
 
   // ── Users ──
@@ -827,13 +837,25 @@
         var list = d.sprites || [];
         fillTable('sprites-table', 'sprites-empty', list, function (s) {
           // 16 frame = lưới 4×4, 12 frame = dải ngang → crop ô đầu tiên (frame 0_0)
-          var thumb = s.sheetUrl || s.sourceUrl;
-          var thumbHtml = thumb
-            ? '<img class="sprite-thumb-frame" src="' +
-              esc(thumb) +
-              '" alt="" title="' +
+          var p128 = s.previewUrl128 || s.previewGif128 || s.sheetUrl;
+          var p256 = s.previewUrl256 || s.sheetUrl;
+          var pGif = s.previewGif256 || s.previewGif128 || p256;
+          var thumbHtml = p128
+            ? '<div class="sprite-thumb-preview" onclick="_previewSpriteModal(\'' +
               esc(s.name) +
-              '" />'
+              "','" +
+              esc(p256) +
+              "','" +
+              esc(pGif) +
+              '\')" title="' +
+              esc(s.name) +
+              ' — bấm xem 256px">' +
+              '<img src="' +
+              esc(p128) +
+              '" alt="' +
+              esc(s.name) +
+              '" />' +
+              '</div>'
             : '<span class="dim">—</span>';
           var modeColor =
             s.mode === 'atlas'
@@ -843,7 +865,9 @@
             '<tr><td>' +
             thumbHtml +
             '</td><td>' +
+            '<span class="sprite-table-name">' +
             esc(s.name) +
+            '</span>' +
             '</td><td><span class="badge" style="background:' +
             modeColor +
             '">' +
@@ -1391,6 +1415,29 @@
     deleteSprite(id, name);
   };
 
+  var spritePreviewState = {
+    name: '',
+    staticUrl: '',
+    gifUrl: '',
+    isGif: false,
+  };
+
+  window._previewSpriteModal = function (name, staticUrl, gifUrl) {
+    spritePreviewState.name = name;
+    spritePreviewState.staticUrl = staticUrl;
+    spritePreviewState.gifUrl = gifUrl || staticUrl;
+    spritePreviewState.isGif = false;
+
+    $('sprite-preview-title').textContent = name + ' (256×256)';
+    $('sprite-preview-img').src = staticUrl;
+    var toggleBtn = $('sprite-preview-toggle-mode');
+    if (toggleBtn) {
+      toggleBtn.textContent = '▶ Xem animation đi bộ';
+      toggleBtn.style.display = gifUrl && gifUrl !== staticUrl ? '' : 'none';
+    }
+    $('sprite-preview-modal').classList.remove('hidden');
+  };
+
   // ── Init ──
   document.addEventListener('DOMContentLoaded', function () {
     wireLogin();
@@ -1478,6 +1525,32 @@
     // Đổi sprite trong modal user → cập nhật preview ngay (không cần bấm Lưu)
     $('user-sprite').addEventListener('change', function () {
       updateSpritePreview(this.value);
+    });
+
+    var userToggleBtn = $('user-sprite-view-toggle');
+    if (userToggleBtn) {
+      userToggleBtn.addEventListener('click', function () {
+        userSpriteShowGif = !userSpriteShowGif;
+        updateSpritePreview($('user-sprite').value);
+      });
+    }
+
+    // Modal xem trước sprite 256px
+    var closePreviewModal = function () {
+      $('sprite-preview-modal').classList.add('hidden');
+    };
+    $('sprite-preview-close').addEventListener('click', closePreviewModal);
+    $('sprite-preview-ok').addEventListener('click', closePreviewModal);
+    $('sprite-preview-toggle-mode').addEventListener('click', function () {
+      spritePreviewState.isGif = !spritePreviewState.isGif;
+      var img = $('sprite-preview-img');
+      if (spritePreviewState.isGif) {
+        img.src = spritePreviewState.gifUrl;
+        this.textContent = '⏸ Xem ảnh tĩnh';
+      } else {
+        img.src = spritePreviewState.staticUrl;
+        this.textContent = '▶ Xem animation đi bộ';
+      }
     });
 
     // Confirm

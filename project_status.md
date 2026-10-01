@@ -48,6 +48,7 @@
 | Plan 17 — Thư viện Sprite trong trang admin (upload/căn khung/preview/export 2 dạng)                 | ✅           |
 | Plan 18 — HUD Layout: tách zoom (Game/UI) + Neo/Tự do + Mini/Normal/Hidden + Ẩn tất cả               | 🔄 Đang làm  |
 | Plan 20 — Sprite #2 (jin-yuichi) + `users.sprite_id` + editor 16-frame + gán sprite trong admin      | ✅           |
+| Plan 21 — Import toàn bộ sprite (16-frame chuẩn), preview 128/256, nâng cấp Sprite Library, Register & Player Info | ✅           |
 | `gameData` / `mapLoader` nối vào server boot                                                         | ❌ Chưa làm  |
 | Session persist — refresh trang không bị đá ra khỏi game                                             | ✅           |
 | Scroll zoom chỉ map/nhân vật, không zoom UI (2 camera)                                               | ✅           |
@@ -819,6 +820,65 @@ eslint.config.js                                 (+ ignores .venv, temp)
   - Căn giữa tiêu đề `PARTY` ở đầu panel và tinh chỉnh kích thước chữ theo `uiZoom`.
   - Giữ thiết kế slot vuông vắn hiển thị avatar Pokémon và thanh HP tích hợp gọn bên trong slot, chuẩn bị sẵn sàng để gắn avatar thật khi dựng chức năng tiếp theo.
 - **File sửa:** `apps/client/src/ui/PartyStrip.ts`.
+
+---
+
+## Nhật ký 2026-10-01 (4) — Plan 21: Import toàn bộ Sprite, Previews 128/256px, Redesign Admin & Register
+
+### 1. Chuẩn hóa & Import toàn bộ sprite trong `sprites_import/`
+
+- **Xử lý:**
+  - Nâng cấp `scripts/tools/build_spritesheet.py`: hỗ trợ ảnh nguồn 3 cột (`ninja-blue.png`, 1086×1448) tự động chuyển đổi sang chu kỳ 4 frame bước đi `[Neutral (1), Left step (0), Neutral (1), Right step (2)]`.
+  - Xử lý các sprite còn lại: `ninja-red.png`, `purple-boy.png`, `ninja-blue.png` thành sheet chuẩn 16 frames 4×4 256×256, frame 64×64.
+  - Kiểm tra thứ tự 4 hàng nghiêm ngặt bằng `--preview`:
+    - Hàng 0: `down` (mặt trước)
+    - Hàng 1: `up` (lưng)
+    - Hàng 2: `left` (nhìn trái)
+    - Hàng 3: `right` (nhìn phải)
+  - Xuất bản vào `apps/server/public/sprites/` và đăng ký vào bảng `sprite_catalog` trong PostgreSQL:
+    - `main` (`/sprites/hero-64.png`)
+    - `jin-yuichi` (`/sprites/jin-yuichi.png`)
+    - `ninja-red` (`/sprites/ninja-red.png`)
+    - `purple-boy` (`/sprites/purple-boy.png`)
+    - `ninja-blue` (`/sprites/ninja-blue.png`)
+
+### 2. Sinh bộ Sprite Previews chuẩn kích thước 128px và 256px
+
+- **Tự động sinh:**
+  - Tĩnh (PNG): `<name>-128.png` (128×128) và `<name>-256.png` (256×256) dùng thuật toán `NEAREST` giữ nguyên độ sắc nét pixel-art.
+  - Động (GIF): `<name>-128.gif` và `<name>-256.gif` lặp lại 4 frame bước đi (150ms/frame) của hướng down.
+  - Lưu trữ tại: `apps/server/public/sprites/previews/`.
+  - Backend API (`toRow`, `toUserSprite`) trả kèm `previewUrl128`, `previewUrl256`, `previewGif128`, `previewGif256`.
+
+### 3. Cải tiến Sprite Library trong trang Admin
+
+- Thay thế việc hiển thị cả tấm spritesheet cồng kềnh bằng ô preview 56×56 tinh tế với ảnh 128px pixelated.
+- Thêm modal xem trước sprite kích thước lớn 256px (`#sprite-preview-modal`), hỗ trợ chuyển đổi giữa xem ảnh tĩnh 256px và animation đi bộ 256px.
+- Cải thiện ô sprite trong bảng `users` (`spriteCell`): hiển thị đúng avatar mặt trước 48×48 thay vì co cả sheet 16 frame.
+
+### 4. Thiết kế lại giao diện Edit User trong Admin
+
+- Tái cấu trúc modal `#user-modal` sang layout 2 cột hiện đại:
+  - Cột trái: Form thông tin người chơi (Tài khoản, Mật khẩu, Cấp & Tiền, Quyền & Ngôn ngữ, Ngày sinh, Bio, Notes).
+  - Cột phải: **Character Avatar Showcase**:
+    - Khung xem trước lớn 160×160 với nền checkerboard pixel art nổi bật.
+    - Nút toggle xem ảnh tĩnh / hoạt ảnh đi bộ.
+    - Badge thông số sprite và select chọn sprite đặt ngay bên dưới, cập nhật tức thì khi chuyển đổi lựa chọn.
+
+### 5. Cập nhật tính năng Đăng ký tài khoản (Register)
+
+- **Backend:**
+  - Thêm endpoint công khai `GET /api/sprites` trả về danh sách các sprite có sẵn kèm preview URLs.
+  - Cập nhật `RegisterSchema` và `registerHandler` (`register.ts`) để nhận và lưu `spriteId` vào trường `users.sprite_id`.
+- **Client:**
+  - Trong `LoginScene.ts`: Thêm giao diện chọn avatar nhân vật đại diện ngay trong form Đăng ký.
+  - Nạp danh sách avatar trực quan từ `/api/sprites`, có viền highlight khi chọn và tự động gửi `spriteId` khi submit form đăng ký.
+
+### 6. Tích hợp sprite preview vào Client Player Info
+
+- Cập nhật `PlayerHud.ts`: hỗ trợ phương thức `setAvatar(sheetKey, frame, frameSize)` và tính toán `scale` theo kích thước `frameSize` thực tế (64px / 32px) thay vì hardcode.
+- Trong `WorldScene.ts`: Khi người chơi vào game, truyền đúng `sheetKey` của nhân vật người chơi (kèm frame `0_0` và frameSize 64) vào `PlayerHud`, giúp avatar hiển thị chính xác nhân vật người chơi đang sử dụng.
+
 
 
 

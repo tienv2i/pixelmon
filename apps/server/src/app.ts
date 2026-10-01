@@ -20,6 +20,7 @@ import {
 } from './modules/admin/index.js';
 import {
   listAdminSprites,
+  listPublicSprites,
   getAdminSprite,
   createAdminSprite,
   updateAdminSprite,
@@ -66,6 +67,8 @@ export function createApp(): Express {
   app.get('/api/admin/players', requireAuth, requireAdmin, listAdminPlayers);
 
   // ── Thư viện sprite nhân vật ──
+  app.get('/api/sprites', listPublicSprites);
+
   // Upload dùng multipart; các route JSON vẫn đi qua cùng handler (multer bỏ qua khi
   // không có Content-Type multipart).
   app.post(

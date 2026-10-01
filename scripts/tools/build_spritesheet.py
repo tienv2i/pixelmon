@@ -74,7 +74,7 @@ def detect_bands(mask_1d: np.ndarray) -> list[tuple[int, int]]:
 
 
 def detect_grid(rgba: np.ndarray, already_alpha: bool) -> tuple[list, list]:
-    """Tìm 4 hàng + 4 cột frame trong ảnh nguồn.
+    """Tìm 4 hàng + 4 cột (hoặc 3 cột mở rộng thành 4) frame trong ảnh nguồn.
 
     `rgba` là mảng đã chuẩn hoá RGBA (4 kênh).
     - already_alpha=True  → nguồn có alpha, ink = alpha > 16
@@ -89,10 +89,16 @@ def detect_grid(rgba: np.ndarray, already_alpha: bool) -> tuple[list, list]:
     rows = detect_bands(ink.any(axis=1))
     cols = detect_bands(ink.any(axis=0))
 
+    if len(rows) == 4 and len(cols) == 3:
+        # Ảnh 3 cột đi bộ chuẩn (Left step, Neutral, Right step)
+        # Chuyển đổi thành chu kỳ 4 frame: [Neutral (1), Left (0), Neutral (1), Right (2)]
+        print("  ℹ phát hiện ảnh nguồn 3 cột → tự động chuyển thành chu kỳ 4 frame: [1, 0, 1, 2]")
+        cols = [cols[1], cols[0], cols[1], cols[2]]
+
     if len(rows) != 4 or len(cols) != 4:
         raise SystemExit(
-            f"không phát hiện lưới 4×4 (thấy {len(rows)} hàng, {len(cols)} cột).\n"
-            "  → ảnh nguồn phải là lưới 4 hàng × 4 cột hoặc dùng --rows/--cols tự khai."
+            f"không phát hiện lưới 4×4 hoặc 4×3 (thấy {len(rows)} hàng, {len(cols)} cột).\n"
+            "  → ảnh nguồn phải là lưới 4 hàng × 4 cột (hoặc 4×3) hoặc dùng --rows/--cols tự khai."
         )
     return rows, cols
 
@@ -185,6 +191,57 @@ def make_preview(sheet: Image.Image, frame_size: int, path: Path) -> None:
     print(f"  preview: {path}  ← MỞ ẢNH NÀY ĐỂ KIỂM TRA HƯỚNG BẰNG MẮT")
 
 
+def generate_previews(sheet: Image.Image, frame_size: int, publish_name: str, out_dir: Path) -> None:
+    """Sinh ảnh preview tĩnh 128×128, 256×256 và GIF động cho sprite.
+
+    Lấy frame hướng 'down' (hàng 0 trong layout chuẩn game).
+    Dùng NEAREST để giữ nguyên độ sắc nét pixel-art.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Frame 0 của hướng down (mặt trước đứng yên)
+    f0 = sheet.crop((0, 0, frame_size, frame_size))
+
+    # 1. Preview tĩnh 128×128 & 256×256 (PNG)
+    p128 = f0.resize((128, 128), Image.NEAREST)
+    p128.save(out_dir / f"{publish_name}-128.png")
+
+    p256 = f0.resize((256, 256), Image.NEAREST)
+    p256.save(out_dir / f"{publish_name}-256.png")
+
+    # 2. Preview động walk cycle hướng down (4 frame, 150ms/frame)
+    frames_128 = [
+        sheet.crop((ci * frame_size, 0, (ci + 1) * frame_size, frame_size)).resize((128, 128), Image.NEAREST)
+        for ci in range(4)
+    ]
+    frames_256 = [
+        sheet.crop((ci * frame_size, 0, (ci + 1) * frame_size, frame_size)).resize((256, 256), Image.NEAREST)
+        for ci in range(4)
+    ]
+
+    try:
+        frames_128[0].save(
+            out_dir / f"{publish_name}-128.gif",
+            save_all=True,
+            append_images=frames_128[1:],
+            duration=150,
+            loop=0,
+            disposal=2,
+        )
+        frames_256[0].save(
+            out_dir / f"{publish_name}-256.gif",
+            save_all=True,
+            append_images=frames_256[1:],
+            duration=150,
+            loop=0,
+            disposal=2,
+        )
+    except Exception as e:
+        print(f"  warning: không thể lưu GIF preview: {e}")
+
+    print(f"  previews: 128px & 256px (png + gif) → {out_dir / publish_name}-*.png")
+
+
 # ── Build ───────────────────────────────────────────────────────────────────
 def build_sheet(
     src_path: Path,
@@ -197,7 +254,7 @@ def build_sheet(
     already_alpha: bool,
     verify: bool,
     preview_path: Path | None = None,
-) -> None:
+) -> Image.Image:
     im = Image.open(src_path)
     src_arr = np.asarray(im)
 
@@ -224,7 +281,7 @@ def build_sheet(
     sheet = Image.new("RGBA", (frame_size * 4, frame_size * 4), (0, 0, 0, 0))
 
     # Vị trí hàng NGUỒN (dòng 0-3 của ảnh gốc) → giữ để dựng preview so sánh.
-    # dir_order = nhãn hướng cho từng hàng theo THỨ TỰ ẢNH NGUỒN.
+    # dir_order = nhãn hướng cho từng hàng theo THỰ TỰ ẢNH NGUỒN.
     # Sheet xuất ra LUÔN dùng DEFAULT_DIR_ORDER → cần remap hàng.
     dst_index = {d: i for i, d in enumerate(DEFAULT_DIR_ORDER)}
 
@@ -255,6 +312,8 @@ def build_sheet(
     if preview_path:
         make_preview(sheet, frame_size, preview_path)
 
+    return sheet
+
 
 def parse_bands(spec: str) -> list[tuple[int, int]]:
     """'24-298,328-607,...' → [(24,298), ...]"""
@@ -267,7 +326,7 @@ def parse_bands(spec: str) -> list[tuple[int, int]]:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("src", type=Path, help="đường dẫn ảnh nguồn")
+    p.add_argument("src", nargs="?", type=Path, default=None, help="đường dẫn ảnh nguồn (tùy chọn nếu dùng --generate-all-previews)")
     p.add_argument("--name", default="hero_64", help="tên file output (không .png)")
     p.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     p.add_argument("--frame", type=int, default=64, help="size mỗi frame (mặc định 64)")
@@ -285,8 +344,28 @@ def main() -> None:
                    help="ghi ảnh preview có nhãn hướng ra file này (NÊN dùng)")
     p.add_argument("--publish-name", default=None,
                    help="copy sheet vừa sinh sang apps/server/public/sprites/<tên>.png "
-                        "để client load bằng URL và đăng ký vào thư viện sprite (admin)")
+                        "và sinh preview 128/256px vào apps/server/public/sprites/previews/")
+    p.add_argument("--generate-all-previews", action="store_true",
+                   help="tự động duyệt toàn bộ sheet 64px trong apps/server/public/sprites/ và sinh previews")
     args = p.parse_args()
+
+    if args.generate_all_previews:
+        previews_dir = SERVER_PUBLIC_SPRITES / "previews"
+        previews_dir.mkdir(parents=True, exist_ok=True)
+        for sheet_file in sorted(SERVER_PUBLIC_SPRITES.glob("*.png")):
+            name = sheet_file.stem
+            try:
+                sheet_img = Image.open(sheet_file)
+                fw = sheet_img.width // 4 if sheet_img.width % 4 == 0 else 64
+                generate_previews(sheet_img, fw, name, previews_dir)
+            except Exception as e:
+                print(f"  lỗi khi sinh preview cho {sheet_file.name}: {e}")
+        print("✓ Đã sinh toàn bộ preview cho các sheet trong public/sprites/")
+        return
+
+    if not args.src:
+        p.print_help()
+        sys.exit(1)
 
     if not args.src.is_file():
         raise SystemExit(f"không thấy file: {args.src}")
@@ -300,7 +379,7 @@ def main() -> None:
     if unknown:
         raise SystemExit(f"hướng không hợp lệ: {unknown} — chỉ nhận {list(DEFAULT_DIR_ORDER)}")
 
-    build_sheet(
+    built_sheet = build_sheet(
         args.src,
         args.out_dir / f"{args.name}.png",
         frame_size=args.frame,
@@ -320,6 +399,8 @@ def main() -> None:
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(src.read_bytes())
         print(f"  publish: /sprites/{args.publish_name}.png  ← {dst.relative_to(ROOT)}")
+        # Tự động sinh preview tĩnh & động 128px và 256px
+        generate_previews(built_sheet, args.frame, args.publish_name, SERVER_PUBLIC_SPRITES / "previews")
 
     if args.also_32:
         # hero_64 → hero_32 (bỏ hậu tố _64), để tên nhất quán với file cũ

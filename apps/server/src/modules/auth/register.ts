@@ -14,6 +14,7 @@ const RegisterSchema = z.object({
     .regex(/^[a-zA-Z0-9_]+$/),
   password: z.string().min(6).max(100),
   displayName: z.string().min(1).max(30),
+  spriteId: z.string().uuid().nullable().optional(),
 });
 
 export async function registerHandler(req: Request, res: Response): Promise<void> {
@@ -22,10 +23,16 @@ export async function registerHandler(req: Request, res: Response): Promise<void
     const id = uuid();
     const passwordHash = await bcrypt.hash(body.password, 10);
 
+    let spriteId: string | null = null;
+    if (body.spriteId) {
+      const s = await pool.query('SELECT id FROM sprite_catalog WHERE id = $1', [body.spriteId]);
+      if (s.rows.length > 0) spriteId = s.rows[0].id;
+    }
+
     await pool.query(
-      `INSERT INTO users (id, username, password_hash, display_name)
-       VALUES ($1, $2, $3, $4)`,
-      [id, body.username, passwordHash, body.displayName],
+      `INSERT INTO users (id, username, password_hash, display_name, sprite_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, body.username, passwordHash, body.displayName, spriteId],
     );
 
     // Create default player row

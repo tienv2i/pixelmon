@@ -142,7 +142,7 @@ export class LoginScene extends Phaser.Scene {
               color:#e8eaf6; outline:none; box-sizing:border-box;"
               required />
           </label>
-          <label style="display:block; margin-bottom:18px;">
+          <label style="display:block; margin-bottom:14px;">
             <span style="display:block; font-size:12px; color:#9aa0c3; margin-bottom:5px; font-weight:500;">Xác nhận mật khẩu</span>
             <input name="confirmPassword" type="password" placeholder="nhập lại mật khẩu"
               autocomplete="new-password"
@@ -151,6 +151,15 @@ export class LoginScene extends Phaser.Scene {
               color:#e8eaf6; outline:none; box-sizing:border-box;"
               required />
           </label>
+          <div style="margin-bottom:18px;">
+            <span style="display:block; font-size:12px; color:#9aa0c3; margin-bottom:8px; font-weight:500;">
+              Chọn nhân vật đại diện
+            </span>
+            <input type="hidden" name="spriteId" id="reg-sprite-id" value="" />
+            <div id="reg-sprite-list" style="display:flex; gap:10px; overflow-x:auto; padding:4px 2px 8px 2px; scrollbar-width:thin;">
+              <span style="font-size:12px; color:#718096;">Đang tải danh sách nhân vật…</span>
+            </div>
+          </div>
           <div id="register-msg" style="display:none; padding:8px 12px; border-radius:6px;
             font-size:13px; margin-bottom:14px;"></div>
           <button type="submit" id="register-btn"
@@ -265,6 +274,88 @@ export class LoginScene extends Phaser.Scene {
     const form = root.querySelector<HTMLFormElement>('#register-form')!;
     const msgEl = root.querySelector<HTMLDivElement>('#register-msg')!;
     const btn = root.querySelector<HTMLButtonElement>('#register-btn')!;
+    const spriteListEl = root.querySelector<HTMLDivElement>('#reg-sprite-list');
+    const spriteInput = root.querySelector<HTMLInputElement>('#reg-sprite-id');
+
+    const API_BASE =
+      window.__API_BASE__ ||
+      (window.location.port === '5173' ? 'http://localhost:2567' : window.location.origin);
+
+    // Tải danh sách sprite để người chơi chọn
+    if (spriteListEl) {
+      fetch(API_BASE + '/api/sprites')
+        .then((r) => r.json())
+        .then(
+          (d: {
+            ok: boolean;
+            sprites?: Array<{
+              id: string;
+              name: string;
+              previewUrl128?: string;
+              sheetUrl?: string;
+            }>;
+          }) => {
+            if (!d.ok || !d.sprites || d.sprites.length === 0) {
+              spriteListEl.innerHTML =
+                '<span style="font-size:12px; color:#a0aec0;">Mặc định</span>';
+              return;
+            }
+            spriteListEl.innerHTML = '';
+            d.sprites.forEach((s, idx) => {
+              const card = document.createElement('div');
+              card.className = 'reg-sprite-card';
+              card.dataset.id = s.id;
+              const isFirst = idx === 0;
+              if (isFirst && spriteInput) spriteInput.value = s.id;
+
+              card.style.cssText =
+                'flex: 0 0 auto; width: 62px; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: #14172b; border: 2px solid ' +
+                (isFirst ? '#00cec9' : '#2e3358') +
+                '; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;';
+
+              const previewUrl = s.previewUrl128
+                ? s.previewUrl128.startsWith('/')
+                  ? API_BASE + s.previewUrl128
+                  : s.previewUrl128
+                : s.sheetUrl?.startsWith('/')
+                  ? API_BASE + s.sheetUrl
+                  : s.sheetUrl || '';
+
+              card.innerHTML =
+                '<img src="' +
+                previewUrl +
+                '" alt="' +
+                s.name +
+                '" style="width:38px; height:38px; object-fit:contain; image-rendering:pixelated; border-radius:4px;" />' +
+                '<span style="font-size:10px; color:' +
+                (isFirst ? '#00cec9' : '#9aa0c3') +
+                '; max-width:56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' +
+                s.name +
+                '</span>';
+
+              card.addEventListener('click', () => {
+                root.querySelectorAll('.reg-sprite-card').forEach((el) => {
+                  const c = el as HTMLElement;
+                  c.style.borderColor = '#2e3358';
+                  const sp = c.querySelector('span');
+                  if (sp) sp.style.color = '#9aa0c3';
+                });
+                card.style.borderColor = '#00cec9';
+                const span = card.querySelector('span');
+                if (span) span.style.color = '#00cec9';
+                if (spriteInput) spriteInput.value = s.id;
+              });
+
+              spriteListEl.appendChild(card);
+            });
+          },
+        )
+        .catch(() => {
+          if (spriteListEl)
+            spriteListEl.innerHTML =
+              '<span style="font-size:12px; color:#718096;">Không thể tải danh sách</span>';
+        });
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -273,6 +364,7 @@ export class LoginScene extends Phaser.Scene {
       const displayName = String(fd.get('displayName') ?? '').trim();
       const password = String(fd.get('password') ?? '').trim();
       const confirmPassword = String(fd.get('confirmPassword') ?? '').trim();
+      const spriteId = String(fd.get('spriteId') ?? '').trim() || null;
 
       if (!username || !displayName || !password || !confirmPassword) {
         this.showMsg(msgEl, 'Vui lòng nhập đầy đủ thông tin.', 'warn');
@@ -296,13 +388,10 @@ export class LoginScene extends Phaser.Scene {
       this.hideMsg(root, 'register-msg');
 
       try {
-        const API_BASE =
-          window.__API_BASE__ ||
-          (window.location.port === '5173' ? 'http://localhost:2567' : window.location.origin);
         const res = await fetch(API_BASE + '/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password, displayName }),
+          body: JSON.stringify({ username, password, displayName, spriteId }),
         });
         const data: AuthResponse = await res.json();
         if (!data.ok) {

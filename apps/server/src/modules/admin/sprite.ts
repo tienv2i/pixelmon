@@ -67,7 +67,18 @@ function parseFrameCount(v: unknown): number | null {
   return n === 16 ? 16 : 12;
 }
 
+function getPreviewUrls(name: unknown, _sheetUrl: unknown) {
+  const n = String(name || '');
+  return {
+    previewUrl128: `/sprites/previews/${n}-128.png`,
+    previewUrl256: `/sprites/previews/${n}-256.png`,
+    previewGif128: `/sprites/previews/${n}-128.gif`,
+    previewGif256: `/sprites/previews/${n}-256.gif`,
+  };
+}
+
 function toRow(r: Record<string, unknown>) {
+  const p = getPreviewUrls(r.name, r.sheet_url);
   return {
     id: r.id,
     name: r.name,
@@ -78,6 +89,10 @@ function toRow(r: Record<string, unknown>) {
     frameW: r.frame_w,
     frameH: r.frame_h,
     frameCount: r.frame_count ?? SPRITES.FRAME_COUNT,
+    previewUrl128: p.previewUrl128,
+    previewUrl256: p.previewUrl256,
+    previewGif128: p.previewGif128,
+    previewGif256: p.previewGif256,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -93,6 +108,7 @@ function isUsable(s: Record<string, unknown>): boolean {
 /** Tạo object `sprite` gửi kèm user — null nếu không dùng được. */
 export function toUserSprite(s: Record<string, unknown> | null | undefined) {
   if (!s || !isUsable(s)) return null;
+  const p = getPreviewUrls(s.name, s.sheet_url);
   return {
     id: s.id,
     name: s.name,
@@ -100,7 +116,30 @@ export function toUserSprite(s: Record<string, unknown> | null | undefined) {
     frameW: s.frame_w,
     frameH: s.frame_h,
     frameCount: s.frame_count ?? SPRITES.FRAME_COUNT,
+    previewUrl128: p.previewUrl128,
+    previewUrl256: p.previewUrl256,
+    previewGif128: p.previewGif128,
+    previewGif256: p.previewGif256,
   };
+}
+
+/** GET /api/sprites — danh sách sprite công khai cho register & client. */
+export async function listPublicSprites(_req: Request, res: Response): Promise<void> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, name, mode, sheet_url, frame_w, frame_h, frame_count
+         FROM sprite_catalog
+        WHERE sheet_url IS NOT NULL
+        ORDER BY name ASC`,
+    );
+    res.json({
+      ok: true,
+      sprites: rows.map(toRow),
+    });
+  } catch (err) {
+    console.error('[sprites:public:list]', err);
+    res.status(500).json({ ok: false, code: 'INTERNAL' });
+  }
 }
 
 /** GET /api/admin/sprites — danh sách thư viện sprite. */

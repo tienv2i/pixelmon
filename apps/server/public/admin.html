@@ -392,107 +392,127 @@
 
     <!-- ═══ USER CREATE/EDIT MODAL ═══ -->
     <div id="user-modal" class="modal hidden">
-      <div class="modal-box">
+      <div class="modal-box modal-box-user">
         <div class="modal-header">
           <h3 id="modal-title">Tạo người chơi mới</h3>
           <button class="modal-close" id="modal-close">×</button>
         </div>
         <form id="user-form">
           <input type="hidden" name="id" id="user-id" />
-          <label class="form-field">
-            <span class="form-label" data-i18n="m.username">Tên đăng nhập</span>
-            <input
-              name="username"
-              type="text"
-              data-i18n-ph="m.hintUsername"
-              placeholder="3-20 ký tự, chữ/số/_"
-              required
-            />
-          </label>
-          <label class="form-field">
-            <span class="form-label" data-i18n="m.displayName">Tên hiển thị</span>
-            <input
-              name="displayName"
-              type="text"
-              data-i18n-ph="m.hintDisplayName"
-              placeholder="Tên nhân vật"
-              required
-            />
-          </label>
-          <label class="form-field" id="password-field">
-            <span class="form-label" data-i18n="m.password">Mật khẩu</span>
-            <input
-              name="password"
-              type="password"
-              data-i18n-ph="m.hintPassword"
-              placeholder="Tối thiểu 6 ký tự"
-            />
-          </label>
-          <div class="form-row">
-            <label class="form-field">
-              <span class="form-label" data-i18n="m.level">Cấp</span>
-              <input name="level" type="number" min="1" max="100" value="5" />
-            </label>
-            <label class="form-field">
-              <span class="form-label" data-i18n="m.money">Tiền</span>
-              <input name="money" type="number" min="0" value="5000" />
-            </label>
-          </div>
-          <div class="form-row">
-            <label class="form-field">
-              <span class="form-label" data-i18n="m.role">Quyền</span>
-              <select name="role" class="input-search">
-                <option value="player" data-i18n="m.rolePlayerOption">
-                  Player — người chơi bình thường
-                </option>
-                <option value="moderator" data-i18n="m.roleModOption">
-                  Moderator — quản trị viên nhỏ
-                </option>
-                <option value="admin" data-i18n="m.roleAdminOption">Admin — quản trị cao nhất</option>
-                <option value="banned" data-i18n="m.roleBannedOption">
-                  Banned — bị khóa tài khoản
-                </option>
-              </select>
-            </label>
-            <label class="form-field">
-              <span class="form-label" data-i18n="m.language">Ngôn ngữ</span>
-              <select name="language" class="input-search">
-                <option value="en" data-i18n="lang.en">English</option>
-                <option value="vi" data-i18n="lang.vi">Vietnamese</option>
-              </select>
-            </label>
-          </div>
-          <label class="form-field">
-            <span class="form-label" data-i18n="m.sprite">Sprite nhân vật</span>
-            <div class="sprite-picker">
-              <select
-                name="spriteId"
-                id="user-sprite"
-                class="input-search"
-              >
-                <option value="" data-i18n="m.spriteDefault">Mặc định (hero)</option>
-              </select>
-              <div class="sprite-picker-preview">
-                <canvas id="user-sprite-canvas" width="64" height="64"></canvas>
-                <span class="dim" id="user-sprite-label" style="font-size: 12px">—</span>
+          <div class="user-modal-grid">
+            <!-- Cột trái: Thông tin tài khoản -->
+            <div class="user-modal-fields">
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label" data-i18n="m.username">Tên đăng nhập</span>
+                  <input
+                    name="username"
+                    type="text"
+                    data-i18n-ph="m.hintUsername"
+                    placeholder="3-20 ký tự, chữ/số/_"
+                    required
+                  />
+                </label>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="m.displayName">Tên hiển thị</span>
+                  <input
+                    name="displayName"
+                    type="text"
+                    data-i18n-ph="m.hintDisplayName"
+                    placeholder="Tên nhân vật"
+                    required
+                  />
+                </label>
               </div>
+
+              <label class="form-field" id="password-field">
+                <span class="form-label" data-i18n="m.password">Mật khẩu</span>
+                <input
+                  name="password"
+                  type="password"
+                  data-i18n-ph="m.hintPassword"
+                  placeholder="Tối thiểu 6 ký tự"
+                />
+              </label>
+
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label" data-i18n="m.level">Cấp</span>
+                  <input name="level" type="number" min="1" max="100" value="5" />
+                </label>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="m.money">Tiền</span>
+                  <input name="money" type="number" min="0" value="5000" />
+                </label>
+              </div>
+
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label" data-i18n="m.role">Quyền</span>
+                  <select name="role" class="input-search">
+                    <option value="player" data-i18n="m.rolePlayerOption">
+                      Player — người chơi bình thường
+                    </option>
+                    <option value="moderator" data-i18n="m.roleModOption">
+                      Moderator — quản trị viên nhỏ
+                    </option>
+                    <option value="admin" data-i18n="m.roleAdminOption">Admin — quản trị cao nhất</option>
+                    <option value="banned" data-i18n="m.roleBannedOption">
+                      Banned — bị khóa tài khoản
+                    </option>
+                  </select>
+                </label>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="m.language">Ngôn ngữ</span>
+                  <select name="language" class="input-search">
+                    <option value="en" data-i18n="lang.en">English</option>
+                    <option value="vi" data-i18n="lang.vi">Vietnamese</option>
+                  </select>
+                </label>
+              </div>
+
+              <label class="form-field">
+                <span class="form-label" data-i18n="m.birthday">Ngày sinh</span>
+                <input name="birthday" type="date" />
+              </label>
+              <label class="form-field">
+                <span class="form-label" data-i18n="m.bio">Giới thiệu</span>
+                <textarea name="bio" rows="2" data-i18n-ph="m.bioPh" placeholder="Giới thiệu bản thân…"></textarea>
+              </label>
+              <label class="form-field">
+                <span class="form-label" data-i18n="m.notes">Ghi chú (admin)</span>
+                <textarea name="notes" rows="2" data-i18n-ph="m.notesPh" placeholder="Ghi chú nội bộ…"></textarea>
+              </label>
             </div>
-            <span class="dim" style="font-size: 11px" data-i18n="m.spriteHint">
-              Sprite đã gán sẽ hiển thị trong game cho cả nhân vật của bạn và người chơi khác.
-            </span>
-          </label>
-          <label class="form-field">
-            <span class="form-label" data-i18n="m.birthday">Ngày sinh</span>
-            <input name="birthday" type="date" />
-          </label>
-          <label class="form-field">
-            <span class="form-label" data-i18n="m.bio">Giới thiệu</span>
-            <textarea name="bio" rows="2" data-i18n-ph="m.bioPh" placeholder="Giới thiệu bản thân…"></textarea>
-          </label>
-          <label class="form-field">
-            <span class="form-label" data-i18n="m.notes">Ghi chú (admin)</span>
-            <textarea name="notes" rows="2" data-i18n-ph="m.notesPh" placeholder="Ghi chú nội bộ…"></textarea>
-          </label>
+
+            <!-- Cột phải: Thẻ Avatar Nhân vật -->
+            <div class="user-avatar-card">
+              <span class="user-avatar-title" data-i18n="m.sprite">Sprite nhân vật</span>
+              <div class="user-avatar-display">
+                <img id="user-sprite-img" src="/sprites/previews/main-128.png" alt="Preview" />
+              </div>
+              <div class="user-avatar-controls">
+                <button type="button" class="btn btn-ghost btn-sm" id="user-sprite-view-toggle">
+                  ▶ Xem động
+                </button>
+              </div>
+              <div class="user-avatar-info">
+                <span id="user-sprite-label">—</span>
+              </div>
+              <div style="width: 100%;">
+                <label class="form-field" style="margin-bottom: 0;">
+                  <span class="form-label" style="text-align: left;" data-i18n="m.sprite">Chọn sprite</span>
+                  <select name="spriteId" id="user-sprite" class="input-search">
+                    <option value="" data-i18n="m.spriteDefault">Mặc định (hero)</option>
+                  </select>
+                </label>
+              </div>
+              <span class="user-avatar-hint" data-i18n="m.spriteHint">
+                Sprite đã gán sẽ hiển thị trong game cho cả bạn và người chơi khác.
+              </span>
+            </div>
+          </div>
+
           <div id="modal-msg" class="msg hidden"></div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" id="modal-cancel" data-i18n="btn.cancel">
@@ -503,6 +523,27 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- ═══ SPRITE 256PX PREVIEW MODAL ═══ -->
+    <div id="sprite-preview-modal" class="modal hidden">
+      <div class="modal-box modal-box-sprite-view">
+        <div class="modal-header">
+          <h3 id="sprite-preview-title">Xem trước Sprite</h3>
+          <button class="modal-close" id="sprite-preview-close">×</button>
+        </div>
+        <div class="sprite-large-preview">
+          <img id="sprite-preview-img" src="" alt="Sprite preview 256px" />
+        </div>
+        <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;">
+          <button type="button" class="btn btn-ghost btn-sm" id="sprite-preview-toggle-mode">
+            ▶ Xem animation đi bộ
+          </button>
+        </div>
+        <div class="modal-actions" style="justify-content: center; margin-top: 0;">
+          <button type="button" class="btn btn-primary btn-sm" id="sprite-preview-ok">Đóng</button>
+        </div>
       </div>
     </div>
 

@@ -61,14 +61,17 @@ export class PlayerHud {
     this.relayout();
   }
 
-  constructor(scene: Phaser.Scene, sheetKey: string) {
+  private _avatarFrameSize = 32;
+
+  constructor(scene: Phaser.Scene, sheetKey: string, frame: string | number = 0, frameSize = 32) {
     this.scene = scene;
+    this._avatarFrameSize = frameSize;
 
     this.graphics = drawPanel(scene, 0, 0, 0, 0, 100);
     this.objs.push(this.graphics);
 
     this.avatar = scene.add
-      .image(0, 0, sheetKey, 0)
+      .image(0, 0, sheetKey, frame)
       .setOrigin(0.5, 0.5)
       .setDepth(101)
       .setScrollFactor(0);
@@ -100,6 +103,14 @@ export class PlayerHud {
     scene.scale.on('resize', () => this.relayout());
   }
 
+  /** Đổi avatar nhân vật hiển thị trên Player Info. */
+  setAvatar(sheetKey: string, frame: string | number = 0, frameSize = 64): void {
+    if (!this.scene.textures.exists(sheetKey)) return;
+    this._avatarFrameSize = frameSize;
+    this.avatar.setTexture(sheetKey, frame);
+    this.relayout();
+  }
+
   setUiZoomManager(m: UiZoomManager): void {
     this._uiZoomManager = m;
     this.scene.scale.on('ui-zoom-change', () => this.relayout());
@@ -124,7 +135,9 @@ export class PlayerHud {
 
     // Avatar: chiếm trọng cột trái, cao gần hết panel
     const avatarSize = h - 12 * z;
-    this.avatar.setPosition(x + avatarSize / 2 + 6 * z, y + h / 2).setScale(avatarSize / 32);
+    this.avatar
+      .setPosition(x + avatarSize / 2 + 6 * z, y + h / 2)
+      .setScale(avatarSize / (this._avatarFrameSize || 32));
 
     // Cột phải: tên → tiền game → tiền thật (từ trên xuống)
     const colX = x + avatarSize + 16 * z;

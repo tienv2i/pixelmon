@@ -698,32 +698,153 @@ select.input-search option,
   white-space: nowrap;
 }
 
-/* Chọn sprite trong modal user (select + preview canvas) */
-.sprite-picker {
+/* ── Sprite Library Thumb Preview (bảng danh sách sprite) ── */
+.sprite-thumb-preview {
+  width: 56px;
+  height: 56px;
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
+  background: repeating-conic-gradient(#232748 0% 25%, #1c1f3a 0% 50%) 0 0 / 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.sprite-thumb-preview:hover {
+  transform: scale(1.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.35);
+}
+.sprite-thumb-preview img {
   width: 100%;
-  box-sizing: border-box;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
-.sprite-picker select {
-  flex: 1 1 0%;
-  width: auto !important;
-  min-width: 0;
+
+.sprite-table-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 13px;
 }
-.sprite-picker-preview {
-  flex-shrink: 0;
+
+/* ── Modal User thiết kế lại 2 cột (Edit/Create User) ── */
+.modal-box-user {
+  width: 780px;
+  max-width: 95vw;
+}
+
+.user-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 270px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .user-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.user-modal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Thẻ Avatar Showcase bên phải trong Modal User */
+.user-avatar-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
+  text-align: center;
 }
-#user-sprite-canvas {
-  width: 64px;
-  height: 64px;
+
+.user-avatar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  width: 100%;
+  text-align: left;
+}
+
+.user-avatar-display {
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-conic-gradient(#232748 0% 25%, #1c1f3a 0% 50%) 0 0 / 10px 10px;
+  border: 2px solid rgba(99, 102, 241, 0.4);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.user-avatar-display img,
+.user-avatar-display canvas {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  background: repeating-conic-gradient(#232748 0% 25%, #1c1f3a 0% 50%) 0 0 / 8px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  transition: opacity 0.15s;
+}
+
+.user-avatar-controls {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+}
+
+.user-avatar-info {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.user-avatar-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.3;
+  margin-top: 4px;
+}
+
+/* ── Modal Preview phóng to 256px cho Sprite ── */
+.modal-box-sprite-view {
+  width: 380px;
+  text-align: center;
+}
+.sprite-large-preview {
+  width: 256px;
+  height: 256px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-conic-gradient(#232748 0% 25%, #1c1f3a 0% 50%) 0 0 / 12px 12px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+  overflow: hidden;
+}
+.sprite-large-preview img {
+  width: 256px;
+  height: 256px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }

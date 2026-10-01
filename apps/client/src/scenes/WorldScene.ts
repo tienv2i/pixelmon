@@ -66,6 +66,8 @@ export class WorldScene extends Phaser.Scene {
   private minimap!: Minimap;
   private chatLog!: ChatLog;
   private menuPanel!: MenuPanel;
+  private playerSheetKey: string = TEX.hero;
+  private playerFrameCount = 16;
 
   /** Bảng hướng dẫn — toggle bằng nút `?` hoặc phím H. */
   private hintText?: Phaser.GameObjects.Text;
@@ -194,6 +196,8 @@ export class WorldScene extends Phaser.Scene {
 
     // Register anim với frame count tương ứng
     registerPlayerAnims(this, sheetKey, frameCount);
+    this.playerSheetKey = sheetKey;
+    this.playerFrameCount = frameCount;
 
     this.player = new PlayerSprite(this, spawnX, spawnY, sheetKey, seed, frameCount);
     this.player.setDisplayName(network.name || 'Guest');
@@ -551,7 +555,10 @@ export class WorldScene extends Phaser.Scene {
 
     // PlayerHud (trái-trên) — bảng: avatar lớn bên trái, tên + 2 loại tiền bên phải
     const name = ColyseusManager.getInstance().name || 'Trainer';
-    this.hud = new PlayerHud(this, TEX.trainer);
+    const is16 = this.playerFrameCount === 16;
+    const hudFrame = is16 ? '0_0' : 0;
+    const hudFrameSize = is16 ? 64 : 32;
+    this.hud = new PlayerHud(this, this.playerSheetKey, hudFrame, hudFrameSize);
     this.hud.setUiZoomManager(this.uiZoom);
     this.hud.update({
       name,

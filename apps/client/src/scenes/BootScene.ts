@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { C } from '../ui/theme';
 import { ColyseusManager } from '../network/ColyseusManager';
 import { DEV_CREDENTIALS, DEV_MODE } from '../config';
-// @ts-ignore -- file PNG import qua Vite, trả về URL
+// Kiểu `*.png?url` đã khai báo trong `src/vite-env.d.ts` → không cần ts-ignore.
 import heroSheetUrl from '@pixelmon/shared/assets/sprites/hero_64.png?url';
 
 export const TEX = {

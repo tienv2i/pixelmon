@@ -28,6 +28,13 @@ export class PlayerState extends Schema {
   @type('uint32') money: number = 0;
   @type('string') status: string = 'online';
   @type('float32') moving: number = 0; // 0=idle, 1=moving
+  /**
+   * Sprite nhân vật được gán trong thư viện admin (empty = sheet mặc định).
+   * Client load sheet theo URL này và đăng ký frame theo `spriteFrameCount`.
+   */
+  @type('string') spriteUrl: string = '';
+  @type('uint8') spriteFrame: number = 64; // kích thước 1 frame (px)
+  @type('uint8') spriteFrameCount: number = 16; // 12 (3f/hướng) hoặc 16 (4f/hướng)
 }
 
 // ===== Battle State =====

@@ -89,12 +89,17 @@ export async function initDatabase(): Promise<void> {
         frames JSONB NOT NULL DEFAULT '[]'::jsonb,
         frame_w INTEGER NOT NULL DEFAULT 32,
         frame_h INTEGER NOT NULL DEFAULT 32,
+        frame_count SMALLINT NOT NULL DEFAULT 12,   -- 12 = 384×32 (3f/dir), 16 = 256×256 (4f/dir)
         created_by UUID REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
       CREATE INDEX IF NOT EXISTS idx_sprite_catalog_name ON sprite_catalog(name);
+
+      -- Gán sprite cho user: trỏ tới thư viện, xóa sprite → user tự quay về mặc định
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS sprite_id UUID REFERENCES sprite_catalog(id) ON DELETE SET NULL;
+      ALTER TABLE sprite_catalog ADD COLUMN IF NOT EXISTS frame_count SMALLINT NOT NULL DEFAULT 12;
     `);
 
     // ── Migration: cột role / language (DB cũ đã tạo trước các cột này) ──

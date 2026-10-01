@@ -8,6 +8,16 @@ const LS_TOKEN = 'pixelmon.token';
 const LS_USER_ID = 'pixelmon.userId';
 const LS_NAME = 'pixelmon.displayName';
 
+/** Sprite user được gán trong admin (từ `GET /api/auth/me`). */
+export interface UserSprite {
+  id: string;
+  name: string;
+  sheetUrl: string;
+  frameW: number;
+  frameH: number;
+  frameCount: number;
+}
+
 export class ColyseusManager {
   private static instance: ColyseusManager;
   private client: Client;
@@ -16,6 +26,8 @@ export class ColyseusManager {
   private authToken: string = '';
   private userId: string = '';
   private displayName: string = '';
+  /** Sprite nhân vật user được gán (null = dùng sheet mặc định). */
+  private sprite: UserSprite | null = null;
 
   private constructor() {
     this.client = new Client(SERVER_URL);
@@ -45,6 +57,30 @@ export class ColyseusManager {
     return this.displayName;
   }
 
+  get userSprite(): UserSprite | null {
+    return this.sprite;
+  }
+
+  /** Cập nhật sprite user (gọi từ `/api/auth/me`). */
+  setSpriteFromMe(user: Record<string, unknown> | null | undefined): void {
+    const s = user?.sprite as UserSprite | undefined;
+    this.sprite = s && typeof s.sheetUrl === 'string' && s.sheetUrl ? s : null;
+  }
+
+  /** Fetch `/api/auth/me` và lưu sprite (best-effort, không ném lỗi). */
+  private async loadSprite(): Promise<void> {
+    try {
+      const res = await fetch(`${HTTP_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${this.authToken}` },
+      });
+      if (!res.ok) return;
+      const me = await res.json();
+      this.setSpriteFromMe(me?.user);
+    } catch {
+      this.sprite = null;
+    }
+  }
+
   async connect(username: string, password?: string): Promise<void> {
     this.displayName = username;
     const pass = password ?? 'guest';
@@ -62,6 +98,9 @@ export class ColyseusManager {
         this.userId = data.userId;
         if (data.displayName) this.displayName = data.displayName;
         this.saveSession();
+        // Lấy sprite user được gán (best-effort — lỗi thì dùng sheet mặc định).
+        // Await để WorldScene đọc được ngay sau khi connect() resolve.
+        await this.loadSprite();
       } else {
         // 401 = sai thông tin → báo lỗi rõ ràng cho UI
         const err = await loginRes.json().catch(() => ({}));
@@ -106,6 +145,13 @@ export class ColyseusManager {
         // Token hết hạn / không hợp lệ → xoá phiên, buộc đăng nhập lại
         this.clearSession();
         return false;
+      }
+      // Đọc sprite user ngay từ response này (không fetch thêm)
+      try {
+        const me = await res.json();
+        this.setSpriteFromMe(me?.user);
+      } catch {
+        /* ignore */
       }
     } catch {
       // Không gọi được server → coi như offline, vẫn cho vào game

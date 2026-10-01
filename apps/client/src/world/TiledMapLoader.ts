@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-// @ts-ignore — import JSON + PNG asset qua Vite, không cần type khai báo
+// Kiểu `*.png?url` đã khai báo trong `src/vite-env.d.ts` → không cần ts-ignore.
 import outdoorTilesetUrl from '@pixelmon/shared/assets/tilesets/Outdoor.png?url';
 import palletTownMap from '@pixelmon/shared/data/maps/tiled/pallet-town.tmj';
 import map1Map from '@pixelmon/shared/data/maps/tiled/map-1.tmj';
@@ -7,7 +7,8 @@ import map3Map from '@pixelmon/shared/data/maps/tiled/map-3.tmj';
 import interiorLabMap from '@pixelmon/shared/data/maps/tiled/interior-lab.tmj';
 import interiorPlayerHouseMap from '@pixelmon/shared/data/maps/tiled/interior-player-house.tmj';
 import interiorRivalHouseMap from '@pixelmon/shared/data/maps/tiled/interior-rival-house.tmj';
-// @ts-ignore — import type từ JSON file
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — TS6059: type nằm ngoài rootDir của client (packages/shared/data)
 import type { TiledMapJSON, TiledTileset } from '@pixelmon/shared/data/maps/tiled/types';
 
 /**
@@ -94,7 +95,14 @@ export async function loadTiledMap(
   });
 
   // 2. Add tileset image vào Tilemap
-  const tileset = tilemap.addTilesetImage(ts.name, 'tileset_outdoor', ts.tilewidth, ts.tileheight, ts.margin ?? 0, ts.spacing ?? 0);
+  const tileset = tilemap.addTilesetImage(
+    ts.name,
+    'tileset_outdoor',
+    ts.tilewidth,
+    ts.tileheight,
+    ts.margin ?? 0,
+    ts.spacing ?? 0,
+  );
   if (!tileset) throw new Error(`Failed to add tileset image for "${mapId}"`);
 
   // 3. Tạo layer cho mỗi tilelayer (bỏ qua objectgroup)
@@ -124,7 +132,14 @@ export async function loadTiledMap(
   const widthPx = mapJson.width * mapJson.tilewidth;
   const heightPx = mapJson.height * mapJson.tileheight;
 
-  return { tilemap, layers, width: widthPx, height: heightPx, tileWidth: mapJson.tilewidth, tileHeight: mapJson.tileheight };
+  return {
+    tilemap,
+    layers,
+    width: widthPx,
+    height: heightPx,
+    tileWidth: mapJson.tilewidth,
+    tileHeight: mapJson.tileheight,
+  };
 }
 
 /**

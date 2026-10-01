@@ -275,6 +275,7 @@
                       <th data-i18n="u.colLanguage">Ngôn ngữ</th>
                       <th data-i18n="u.colLevel">Cấp</th>
                       <th data-i18n="u.colMoney">Tiền</th>
+                      <th data-i18n="u.colSprite">Sprite</th>
                       <th data-i18n="u.colLastLogin">Đăng nhập gần nhất</th>
                       <th data-i18n="u.colActions">Thao tác</th>
                     </tr>
@@ -363,8 +364,8 @@
               </div>
               <p class="dim" style="margin-bottom: 16px; font-size: 13px">
                 <span data-i18n="sp.hint"
-                  >Upload sheet hoàn chỉnh (12 frame: 4 hướng × 3 frame) hoặc upload từng lát,
-                  điều chỉnh vào khung sẵn rồi xuất ra sheet 384×32 cho game.</span
+                  >Upload sheet hoàn chỉnh (12 frame: 4 hướng × 3 frame) hoặc upload từng lát, điều
+                  chỉnh vào khung sẵn rồi xuất ra sheet 384×32 cho game.</span
                 >
               </p>
               <div class="table-wrap">
@@ -462,6 +463,26 @@
             </label>
           </div>
           <label class="form-field">
+            <span class="form-label" data-i18n="m.sprite">Sprite nhân vật</span>
+            <div class="sprite-picker">
+              <select
+                name="spriteId"
+                id="user-sprite"
+                class="input-search"
+                style="width: 100%; padding: 10px 12px"
+              >
+                <option value="" data-i18n="m.spriteDefault">Mặc định (hero)</option>
+              </select>
+              <div class="sprite-picker-preview">
+                <canvas id="user-sprite-canvas" width="64" height="64"></canvas>
+                <span class="dim" id="user-sprite-label" style="font-size: 12px">—</span>
+              </div>
+            </div>
+            <span class="dim" style="font-size: 11px" data-i18n="m.spriteHint">
+              Sprite đã gán sẽ hiển thị trong game cho cả nhân vật của bạn và người chơi khác.
+            </span>
+          </label>
+          <label class="form-field">
             <span class="form-label" data-i18n="m.birthday">Ngày sinh</span>
             <input name="birthday" type="date" />
           </label>
@@ -519,8 +540,14 @@
             </div>
 
             <div class="sprite-preview-bar">
-              <button class="btn btn-sm" id="sprite-play-btn" data-i18n="sp.play">▶ Xem trước</button>
-              <select id="sprite-preview-dir" class="input-search" style="width: 110px; padding: 6px 8px">
+              <button class="btn btn-sm" id="sprite-play-btn" data-i18n="sp.play">
+                ▶ Xem trước
+              </button>
+              <select
+                id="sprite-preview-dir"
+                class="input-search"
+                style="width: 110px; padding: 6px 8px"
+              >
                 <option value="down" data-i18n="sp.dirDown">↓ Xuống</option>
                 <option value="up" data-i18n="sp.dirUp">↑ Lên</option>
                 <option value="left" data-i18n="sp.dirLeft">← Trái</option>
@@ -552,7 +579,7 @@
               <span class="form-label" data-i18n="sp.mode">Loại đầu ra</span>
               <select id="sprite-mode" class="input-search" style="width: 100%; padding: 8px 10px">
                 <option value="baked" data-i18n="sp.modeBaked">
-                  Baked — xuất sheet PNG 384×32
+                  Baked — xuất sheet PNG đã ghép
                 </option>
                 <option value="atlas" data-i18n="sp.modeAtlas">
                   Atlas — giữ ảnh gốc + file toạ độ
@@ -571,6 +598,22 @@
               </label>
             </div>
 
+            <label class="form-field">
+              <span class="form-label" data-i18n="sp.frameCount">Số frame trong sheet</span>
+              <select
+                id="sprite-frame-count"
+                class="input-search"
+                style="width: 100%; padding: 8px 10px"
+              >
+                <option value="12" data-i18n="sp.fc12">
+                  12 frame — dải ngang 384×32 (3 frame/hướng)
+                </option>
+                <option value="16" data-i18n="sp.fc16">
+                  16 frame — lưới 4×4 256×256 (4 frame/hướng)
+                </option>
+              </select>
+            </label>
+
             <div class="form-row">
               <label class="form-field">
                 <span class="form-label" data-i18n="sp.upload">Upload ảnh gốc</span>
@@ -578,9 +621,13 @@
               </label>
               <label class="form-field">
                 <span class="form-label" data-i18n="sp.uploadMode">Cách đọc file</span>
-                <select id="sprite-read-mode" class="input-search" style="width: 100%; padding: 8px 10px">
+                <select
+                  id="sprite-read-mode"
+                  class="input-search"
+                  style="width: 100%; padding: 8px 10px"
+                >
                   <option value="sheet" data-i18n="sp.readSheet">
-                    Sheet hoàn chỉnh (12 frame ngang)
+                    Sheet hoàn chỉnh (dải ngang / lưới 4×4)
                   </option>
                   <option value="slices" data-i18n="sp.readSlices">
                     Từng lát (mỗi file 1 frame)
@@ -596,16 +643,26 @@
                 file. Thứ tự: Down×3 → Up×3 → Left×3 → Right×3.
               </p>
               <div id="sprite-slice-grid" class="sprite-slice-grid"></div>
-              <button class="btn btn-ghost btn-sm" id="sprite-slice-clear" data-i18n="sp.clearSlices">
+              <button
+                class="btn btn-ghost btn-sm"
+                id="sprite-slice-clear"
+                data-i18n="sp.clearSlices"
+              >
                 Xoá tất cả lát
               </button>
             </div>
 
-            <!-- Bảng toạ độ 12 frame -->
+            <!-- Bảng toạ độ frame -->
             <div style="margin-top: 14px">
               <div class="panel-head" style="margin-bottom: 6px">
-                <h3 class="panel-title" style="font-size: 13px" data-i18n="sp.frames">Toạ độ 12 frame</h3>
-                <button class="btn btn-ghost btn-sm" id="sprite-frames-reset" data-i18n="sp.resetFrames">
+                <h3 class="panel-title" style="font-size: 13px" id="sprite-frames-title">
+                  Toạ độ frame
+                </h3>
+                <button
+                  class="btn btn-ghost btn-sm"
+                  id="sprite-frames-reset"
+                  data-i18n="sp.resetFrames"
+                >
                   Đặt lại
                 </button>
               </div>
@@ -628,13 +685,23 @@
 
             <div id="sprite-modal-msg" class="msg hidden"></div>
             <div class="modal-actions">
-              <button type="button" class="btn btn-ghost" id="sprite-modal-cancel" data-i18n="btn.cancel">
+              <button
+                type="button"
+                class="btn btn-ghost"
+                id="sprite-modal-cancel"
+                data-i18n="btn.cancel"
+              >
                 Hủy
               </button>
               <button type="button" class="btn" id="sprite-export-btn" data-i18n="sp.export">
                 Xuất sheet PNG
               </button>
-              <button type="submit" class="btn btn-primary" id="sprite-modal-submit" data-i18n="btn.save">
+              <button
+                type="submit"
+                class="btn btn-primary"
+                id="sprite-modal-submit"
+                data-i18n="btn.save"
+              >
                 Lưu vào thư viện
               </button>
             </div>

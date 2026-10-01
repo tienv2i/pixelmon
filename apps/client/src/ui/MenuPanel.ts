@@ -194,33 +194,67 @@ export class MenuPanel {
   show(): void {
     this.open = true;
     this.updateZoomLabel();
-    [this.overlay, this.panel, this.title, this.hint, this.hudCheck, this.mmCheck,
-      this.uiZoomLabel].forEach((o) => o.setVisible(true));
-    [this.btnLogout, this.btnClose, this.btnZoomIn, this.btnZoomOut].forEach((c) => c.setVisible(true));
+    [
+      this.overlay,
+      this.panel,
+      this.title,
+      this.hint,
+      this.hudCheck,
+      this.mmCheck,
+      this.uiZoomLabel,
+    ].forEach((o) => o.setVisible(true));
+    [this.btnLogout, this.btnClose, this.btnZoomIn, this.btnZoomOut].forEach((c) =>
+      c.setVisible(true),
+    );
   }
 
   close(): void {
     this.open = false;
-    [this.overlay, this.panel, this.title, this.hint, this.hudCheck, this.mmCheck,
-      this.uiZoomLabel].forEach((o) => o.setVisible(false));
-    [this.btnLogout, this.btnClose, this.btnZoomIn, this.btnZoomOut].forEach((c) => c.setVisible(false));
+    [
+      this.overlay,
+      this.panel,
+      this.title,
+      this.hint,
+      this.hudCheck,
+      this.mmCheck,
+      this.uiZoomLabel,
+    ].forEach((o) => o.setVisible(false));
+    [this.btnLogout, this.btnClose, this.btnZoomIn, this.btnZoomOut].forEach((c) =>
+      c.setVisible(false),
+    );
     this.opts.onClose();
   }
 
   /** Danh sách object để WorldScene gán vào camera UI. */
   getGameObjects(): Phaser.GameObjects.GameObject[] {
     return [
-      this.overlay, this.panel, this.title, this.hint, this.hudCheck,
-      this.mmCheck, this.uiZoomLabel, this.btnLogout, this.btnClose,
-      this.btnZoomIn, this.btnZoomOut,
+      this.overlay,
+      this.panel,
+      this.title,
+      this.hint,
+      this.hudCheck,
+      this.mmCheck,
+      this.uiZoomLabel,
+      this.btnLogout,
+      this.btnClose,
+      this.btnZoomIn,
+      this.btnZoomOut,
     ];
   }
 
   destroy(): void {
     [
-      this.overlay, this.panel, this.title, this.hint, this.hudCheck,
-      this.mmCheck, this.uiZoomLabel, this.btnLogout, this.btnClose,
-      this.btnZoomIn, this.btnZoomOut,
+      this.overlay,
+      this.panel,
+      this.title,
+      this.hint,
+      this.hudCheck,
+      this.mmCheck,
+      this.uiZoomLabel,
+      this.btnLogout,
+      this.btnClose,
+      this.btnZoomIn,
+      this.btnZoomOut,
     ].forEach((o) => o.destroy());
   }
 }

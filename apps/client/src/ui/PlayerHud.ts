@@ -139,8 +139,7 @@ export class PlayerHud {
   update(d: Partial<PlayerHudData>): void {
     if (d.name !== undefined) this.nameText.setText(d.name);
     if (d.money !== undefined) this.moneyText.setText(`$ ${d.money.toLocaleString()}`);
-    if (d.realMoney !== undefined)
-      this.realMoneyText.setText(`₿ ${d.realMoney.toLocaleString()}`);
+    if (d.realMoney !== undefined) this.realMoneyText.setText(`₿ ${d.realMoney.toLocaleString()}`);
   }
 
   setVisible(v: boolean): void {

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PlayerSprite, registerPlayerAnims, type Dir } from '../entities/PlayerSprite';
+import { loadSpriteSheet } from '../entities/SpriteSheetLoader';
 import { ColyseusManager } from '../network/ColyseusManager';
 import { TILE_SIZE, PLAYER_SPEED } from '@pixelmon/shared';
 import { loadTiledMap, DEFAULT_MAP_ID, TILED_MAPS } from '../world/TiledMapLoader';
@@ -21,6 +22,17 @@ const DEBUG = false;
 
 /** Bật để dùng Tiled map thật (thay vì PlaceholderMap). */
 let USE_TILED_MAP = true;
+
+/**
+ * Origin server (khớp `ColyseusManager`).
+ *
+ * `spriteUrl` trả về từ API là đường dẫn tương đối `/sprites/...`; game client
+ * chạy ở origin khác (Vite :5173) nên phải nối absolute trước khi load.
+ */
+const SERVER_ORIGIN: string = (() => {
+  const url: string = (import.meta as any).env?.VITE_SERVER_URL ?? 'ws://localhost:2567';
+  return url.replace(/^ws/, 'http');
+})();
 
 /**
  * WorldScene — bản demo bộ khung UI:
@@ -123,7 +135,9 @@ export class WorldScene extends Phaser.Scene {
         mapWidth = loaded.width;
         mapHeight = loaded.height;
         this.tiledLayers = mapLayers; // Lưu lại để getWorldObjects() include
-        console.log(`[world] loaded Tiled map "${DEFAULT_MAP_ID}": ${mapWidth}×${mapHeight}, ${mapLayers.length} layers`);
+        console.log(
+          `[world] loaded Tiled map "${DEFAULT_MAP_ID}": ${mapWidth}×${mapHeight}, ${mapLayers.length} layers`,
+        );
       } catch (err) {
         console.warn('[world] failed to load Tiled map, fallback to placeholder:', err);
         USE_TILED_MAP = false;
@@ -149,11 +163,33 @@ export class WorldScene extends Phaser.Scene {
     const spawnX = mapWidth / 2;
     const spawnY = mapHeight / 2;
 
-    // Tạo sprite — ưu tiên hero sheet nếu đã load
+    // Tạo sprite — ưu tiên sprite user được gán trong thư viện admin,
+    // nếu không có → hero sheet (đã load ở BootScene), cuối cùng → trainer.
     const network = ColyseusManager.getInstance();
     const seed = (network.id || '').length || 1;
-    const sheetKey = this.textures.exists(TEX.hero) ? TEX.hero : TEX.trainer;
-    const frameCount = sheetKey === TEX.hero ? 16 : 12;
+    let sheetKey: string = this.textures.exists(TEX.hero) ? TEX.hero : TEX.trainer;
+    let frameCount = sheetKey === TEX.hero ? 16 : 12;
+
+    const userSprite = network.userSprite;
+    if (userSprite) {
+      // sheetUrl là đường dẫn tương đối `/sprites/...` do server Express trả về —
+      // game client chạy ở origin khác (Vite :5173) nên phải nối absolute.
+      const absUrl = userSprite.sheetUrl.startsWith('/')
+        ? SERVER_ORIGIN + userSprite.sheetUrl
+        : userSprite.sheetUrl;
+      const loaded = await loadSpriteSheet(
+        this,
+        'user_sprite',
+        absUrl,
+        userSprite.frameW || 64,
+        userSprite.frameCount || 16,
+      );
+      if (loaded) {
+        sheetKey = loaded;
+        frameCount = userSprite.frameCount || 16;
+        console.log(`[world] using assigned sprite "${userSprite.name}" (${frameCount} frames)`);
+      }
+    }
 
     // Register anim với frame count tương ứng
     registerPlayerAnims(this, sheetKey, frameCount);
@@ -711,7 +747,7 @@ export class WorldScene extends Phaser.Scene {
 
       let rp = this.remotePlayers.get(sessionId);
       if (!rp) {
-        // Remote players cũng dùng hero sheet nếu có
+        // Remote player chưa có sprite → dùng hero sheet trước, nâng cấp sau khi load xong
         const sheetKey = this.textures.exists(TEX.hero) ? TEX.hero : TEX.trainer;
         const frameCount = sheetKey === TEX.hero ? 16 : 12;
         rp = new PlayerSprite(this, ps.x, ps.y, sheetKey, ps.username?.length ?? 1, frameCount);
@@ -720,6 +756,19 @@ export class WorldScene extends Phaser.Scene {
         // Sprite tạo SAU setupUiCamera() → phải ignore thủ công ở UI camera,
         // nếu không nó bị render bởi cả 2 camera → nhân đôi + sai vị trí khi zoom.
         this.registerWorldObject(rp, ...rp.getChildObjects());
+
+        // Nếu server trả sprite được gán → load sheet thay thế (async)
+        if (ps.spriteUrl) {
+          const key = `remote_sprite_${sessionId}`;
+          const url = ps.spriteUrl.startsWith('/') ? SERVER_ORIGIN + ps.spriteUrl : ps.spriteUrl;
+          loadSpriteSheet(this, key, url, ps.spriteFrame || 64, ps.spriteFrameCount || 16).then(
+            (loaded) => {
+              if (loaded) {
+                rp!.swapSheet(loaded, ps.spriteFrameCount || 16);
+              }
+            },
+          );
+        }
       }
       rp.setPosition(ps.x, ps.y);
       if (ps.direction) rp.setDirection(ps.direction);

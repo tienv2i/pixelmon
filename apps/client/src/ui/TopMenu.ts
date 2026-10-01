@@ -145,15 +145,10 @@ export class TopMenu {
     const y0 = 8;
 
     ICONS.forEach((def, i) => {
-      const b = new IconButton(
-        scene,
-        def,
-        onIcon,
-        (label) => {
-          this.hoverLabel = label;
-          this.updateHint();
-        },
-      );
+      const b = new IconButton(scene, def, onIcon, (label) => {
+        this.hoverLabel = label;
+        this.updateHint();
+      });
       b.setPosition(x0 + i * (ICON_SIZE + GAP), y0);
       this.buttons.push(b);
     });

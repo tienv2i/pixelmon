@@ -58,7 +58,14 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
   /** Sheet nào đang dùng: 'legacy' (12 frame) hay 'hero' (16 frame). */
   private sheet: keyof typeof FRAMES_PER_DIR;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, sheetKey: string, hueSeed = 0, frameCount = 12) {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    sheetKey: string,
+    hueSeed = 0,
+    frameCount = 12,
+  ) {
     super(scene, x, y, sheetKey, frameName('down', 0));
     scene.add.existing(this);
     // Origin Y theo từng loại sheet (xem HERO_FRAME_SIZE / trainer sheet):
@@ -109,6 +116,18 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
 
   getDirection(): Dir {
     return this.dir;
+  }
+
+  /**
+   * Đổi sang sheet khác (sprite user được gán trong admin, load bất đồng bộ).
+   * Giữ nguyên hướng/frame hiện tại để không nhảy về mặc định khi đổi sheet.
+   */
+  swapSheet(sheetKey: string, frameCount = 12): void {
+    if (!this.scene.textures.exists(sheetKey)) return;
+    this.sheet = frameCount === 16 ? 'hero' : 'legacy';
+    this.setTexture(sheetKey, frameName(this.dir, this.walkFrame));
+    // Sheet mới có thể khác frame size → canh chân lại cho đúng
+    this.setOrigin(0.5, this.sheet === 'hero' ? 1.0 : 0.7);
   }
 
   /** Tint nhẹ để phân biệt người chơi (hash hueSeed). */

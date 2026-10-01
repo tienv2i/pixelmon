@@ -15,12 +15,7 @@ export type HudDockMode = 'docked' | 'floating';
 
 /** Góc neo của thanh công cụ khi ở chế độ `docked`. */
 export type HudAnchor =
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right'
-  | 'top-center'
-  | 'bottom-center';
+  'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center';
 
 const LS_KEY = 'pixelmon.hud';
 const MARGIN = 8;

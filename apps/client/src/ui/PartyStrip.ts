@@ -129,14 +129,7 @@ export class PartyStrip {
     return o;
   }
 
-  private drawSlot(
-    x: number,
-    y: number,
-    i: number,
-    size: number,
-    z: number,
-    _gap?: number,
-  ): void {
+  private drawSlot(x: number, y: number, i: number, size: number, z: number, _gap?: number): void {
     const m = this.members[i];
     const g = this.scene.add.graphics().setDepth(101).setScrollFactor(0);
     this.track(g);

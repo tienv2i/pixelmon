@@ -57,6 +57,16 @@ function parseFrames(raw: unknown): Array<{ x: number; y: number; w: number; h: 
     .filter((f) => f.w > 0 && f.h > 0);
 }
 
+/**
+ * `frameCount` chỉ nhận 12 (sheet ngang 384×32, 3f/dir) hoặc 16 (sheet lưới
+ * 256×256, 4f/dir) — 2 layout mà `PlayerSprite` hỗ trợ (`FRAMES_PER_DIR`).
+ */
+function parseFrameCount(v: unknown): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return n === 16 ? 16 : 12;
+}
+
 function toRow(r: Record<string, unknown>) {
   return {
     id: r.id,
@@ -67,8 +77,29 @@ function toRow(r: Record<string, unknown>) {
     frames: r.frames ?? [],
     frameW: r.frame_w,
     frameH: r.frame_h,
+    frameCount: r.frame_count ?? SPRITES.FRAME_COUNT,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+  };
+}
+
+/** Sprite đủ điều kiện dùng trong game: phải có sheet baked + frame hợp lệ. */
+function isUsable(s: Record<string, unknown>): boolean {
+  const fw = Number(s.frame_w) || 0;
+  const fc = Number(s.frame_count) || SPRITES.FRAME_COUNT;
+  return !!s.sheet_url && fw >= 8 && fc >= 12;
+}
+
+/** Tạo object `sprite` gửi kèm user — null nếu không dùng được. */
+export function toUserSprite(s: Record<string, unknown> | null | undefined) {
+  if (!s || !isUsable(s)) return null;
+  return {
+    id: s.id,
+    name: s.name,
+    sheetUrl: s.sheet_url,
+    frameW: s.frame_w,
+    frameH: s.frame_h,
+    frameCount: s.frame_count ?? SPRITES.FRAME_COUNT,
   };
 }
 
@@ -76,11 +107,16 @@ function toRow(r: Record<string, unknown>) {
 export async function listAdminSprites(_req: Request, res: Response): Promise<void> {
   try {
     const { rows } = await pool.query(
-      `SELECT id, name, mode, sheet_url, source_url, frames, frame_w, frame_h, created_at, updated_at
+      `SELECT id, name, mode, sheet_url, source_url, frames, frame_w, frame_h, frame_count, created_at, updated_at
          FROM sprite_catalog
         ORDER BY created_at DESC`,
     );
-    res.json({ ok: true, sprites: rows.map(toRow), dirs: SPRITES.DIRS, frameCount: SPRITES.FRAME_COUNT });
+    res.json({
+      ok: true,
+      sprites: rows.map(toRow),
+      dirs: SPRITES.DIRS,
+      frameCount: SPRITES.FRAME_COUNT,
+    });
   } catch (err) {
     console.error('[admin:sprites:list]', err);
     res.status(500).json({ ok: false, code: 'INTERNAL' });
@@ -105,7 +141,9 @@ export async function createAdminSprite(req: Request, res: Response): Promise<vo
     const b = (req.body ?? {}) as Record<string, unknown>;
     const name = String(b.name || '').trim();
     if (!name) {
-      res.status(400).json({ ok: false, code: 'MISSING_FIELDS', message: 'Tên sprite là bắt buộc' });
+      res
+        .status(400)
+        .json({ ok: false, code: 'MISSING_FIELDS', message: 'Tên sprite là bắt buộc' });
       return;
     }
     if (name.length > 64) {
@@ -116,6 +154,7 @@ export async function createAdminSprite(req: Request, res: Response): Promise<vo
     const mode = b.mode === 'atlas' ? 'atlas' : 'baked';
     const frameW = parseFrameSize(b.frameW) ?? SPRITES.FRAME_SIZE;
     const frameH = parseFrameSize(b.frameH) ?? SPRITES.FRAME_SIZE;
+    const frameCount = parseFrameCount(b.frameCount) ?? SPRITES.FRAME_COUNT;
     const frames = mode === 'atlas' ? parseFrames(parseFramesInput(b.frames)) : [];
 
     const dup = await pool.query('SELECT 1 FROM sprite_catalog WHERE name = $1', [name]);
@@ -139,13 +178,13 @@ export async function createAdminSprite(req: Request, res: Response): Promise<vo
     if (file) {
       const buf = file.buffer;
       if (!isPng(buf)) {
-        res.status(400).json({ ok: false, code: 'INVALID_FILE', message: 'Chỉ chấp nhận file PNG' });
+        res
+          .status(400)
+          .json({ ok: false, code: 'INVALID_FILE', message: 'Chỉ chấp nhận file PNG' });
         return;
       }
       if (buf.length > SPRITES.MAX_UPLOAD_BYTES) {
-        res
-          .status(413)
-          .json({ ok: false, code: 'TOO_LARGE', message: 'File vượt quá 4 MB' });
+        res.status(413).json({ ok: false, code: 'TOO_LARGE', message: 'File vượt quá 4 MB' });
         return;
       }
 
@@ -178,9 +217,9 @@ export async function createAdminSprite(req: Request, res: Response): Promise<vo
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO sprite_catalog (id, name, mode, sheet_url, source_url, frames, frame_w, frame_h, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, name, mode, sheet_url, source_url, frames, frame_w, frame_h, created_at, updated_at`,
+      `INSERT INTO sprite_catalog (id, name, mode, sheet_url, source_url, frames, frame_w, frame_h, frame_count, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, name, mode, sheet_url, source_url, frames, frame_w, frame_h, frame_count, created_at, updated_at`,
       [
         id,
         name,
@@ -190,6 +229,7 @@ export async function createAdminSprite(req: Request, res: Response): Promise<vo
         JSON.stringify(frames),
         frameW,
         frameH,
+        frameCount,
         asAuth(req).user?.userId ?? null,
       ],
     );
@@ -201,13 +241,33 @@ export async function createAdminSprite(req: Request, res: Response): Promise<vo
   }
 }
 
-/** PATCH /api/admin/sprites/:id — đổi tên / đổi metadata. */
+/** GET /api/admin/sprites/:id — chi tiết 1 sprite (dùng cho nút Sửa). */
+export async function getAdminSprite(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      `SELECT id, name, mode, sheet_url, source_url, frames, frame_w, frame_h, frame_count, created_at, updated_at
+         FROM sprite_catalog WHERE id = $1`,
+      [id],
+    );
+    if (rows.length === 0) {
+      res.status(404).json({ ok: false, code: 'NOT_FOUND', message: 'Sprite không tồn tại' });
+      return;
+    }
+    res.json({ ok: true, sprite: toRow(rows[0]) });
+  } catch (err) {
+    console.error('[admin:sprites:get]', err);
+    res.status(500).json({ ok: false, code: 'INTERNAL' });
+  }
+}
+
+/** PATCH /api/admin/sprites/:id — đổi tên / metadata / sheet mới (FormData hoặc JSON). */
 export async function updateAdminSprite(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     const b = (req.body ?? {}) as Record<string, unknown>;
 
-    const check = await pool.query('SELECT 1 FROM sprite_catalog WHERE id = $1', [id]);
+    const check = await pool.query('SELECT id FROM sprite_catalog WHERE id = $1', [id]);
     if (check.rows.length === 0) {
       res.status(404).json({ ok: false, code: 'NOT_FOUND', message: 'Sprite không tồn tại' });
       return;
@@ -219,6 +279,16 @@ export async function updateAdminSprite(req: Request, res: Response): Promise<vo
       const name = String(b.name).trim();
       if (!name) {
         res.status(400).json({ ok: false, code: 'INVALID', message: 'Tên không được rỗng' });
+        return;
+      }
+      const dup = await pool.query('SELECT 1 FROM sprite_catalog WHERE name = $1 AND id <> $2', [
+        name,
+        id,
+      ]);
+      if (dup.rows.length > 0) {
+        res
+          .status(409)
+          .json({ ok: false, code: 'SPRITE_EXISTS', message: `Sprite "${name}" đã tồn tại` });
         return;
       }
       params.push(name);
@@ -246,6 +316,48 @@ export async function updateAdminSprite(req: Request, res: Response): Promise<vo
       params.push(v);
       updates.push(`frame_h = $${params.length}`);
     }
+    if (b.frameCount !== undefined) {
+      const v = parseFrameCount(b.frameCount);
+      if (!v) {
+        res
+          .status(400)
+          .json({ ok: false, code: 'INVALID', message: 'frameCount phải là 12 hoặc 16' });
+        return;
+      }
+      params.push(v);
+      updates.push(`frame_count = $${params.length}`);
+    }
+
+    // Sheet mới export từ trình duyệt (chế độ sửa) → ghi đè file sheet cũ.
+    if (typeof b.bakedSheet === 'string' && b.bakedSheet.startsWith('data:image/png;base64,')) {
+      try {
+        const url = await writeBakedSheet(b.bakedSheet, id);
+        params.push(url);
+        updates.push(`sheet_url = $${params.length}`);
+      } catch {
+        res
+          .status(400)
+          .json({ ok: false, code: 'INVALID_SHEET', message: 'bakedSheet phải là PNG hợp lệ' });
+        return;
+      }
+    }
+
+    // Ảnh gốc mới (tuỳ chọn) — thay file `{id}.png` và cập nhật source_url.
+    const file = (req.file ?? undefined) as Express.Multer.File | undefined;
+    if (file) {
+      if (!isPng(file.buffer)) {
+        res
+          .status(400)
+          .json({ ok: false, code: 'INVALID_FILE', message: 'Chỉ chấp nhận file PNG' });
+        return;
+      }
+      await mkdir(SPRITE_DIR, { recursive: true });
+      const sourceUrl = `${SPRITES.BASE_URL}/${id}.png`;
+      await writeFile(path.join(SPRITE_DIR, `${id}.png`), file.buffer);
+      params.push(sourceUrl);
+      updates.push(`source_url = $${params.length}`);
+    }
+
     if (updates.length === 0) {
       res.json({ ok: true, message: 'Không có gì thay đổi' });
       return;
@@ -255,7 +367,7 @@ export async function updateAdminSprite(req: Request, res: Response): Promise<vo
     params.push(id);
     const { rows } = await pool.query(
       `UPDATE sprite_catalog SET ${updates.join(', ')} WHERE id = $${params.length}
-       RETURNING id, name, mode, sheet_url, source_url, frames, frame_w, frame_h, created_at, updated_at`,
+       RETURNING id, name, mode, sheet_url, source_url, frames, frame_w, frame_h, frame_count, created_at, updated_at`,
       params,
     );
 
@@ -270,18 +382,17 @@ export async function updateAdminSprite(req: Request, res: Response): Promise<vo
 export async function deleteAdminSprite(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { rows } = await pool.query(
-      'SELECT name FROM sprite_catalog WHERE id = $1',
-      [id],
-    );
+    const { rows } = await pool.query('SELECT name FROM sprite_catalog WHERE id = $1', [id]);
     if (rows.length === 0) {
       res.status(404).json({ ok: false, code: 'NOT_FOUND', message: 'Sprite không tồn tại' });
       return;
     }
 
     await pool.query('DELETE FROM sprite_catalog WHERE id = $1', [id]);
-    // File có thể đã bị admin xoá tay — bỏ qua lỗi ENOENT.
+    // Xoá cả ảnh gốc lẫn sheet đã bake. File có thể đã bị admin xoá tay — bỏ qua ENOENT.
+    // `users.sprite_id` có ON DELETE SET NULL → user tự quay về sprite mặc định.
     await unlink(path.join(SPRITE_DIR, `${id}.png`)).catch(() => {});
+    await unlink(path.join(SPRITE_DIR, `${id}-sheet.png`)).catch(() => {});
 
     res.json({ ok: true, message: `Đã xoá sprite "${rows[0].name}"` });
   } catch (err) {

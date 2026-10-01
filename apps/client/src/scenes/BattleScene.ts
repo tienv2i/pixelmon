@@ -119,8 +119,17 @@ export class BattleScene extends Phaser.Scene {
     this.skillButtons = [];
 
     // Destroy tất cả objects cũ
-    [this.bg, this.foeSprite, this.foeLabel, this.allySprite, this.allyLabel, this.foeHpBar,
-     this.allyHpBar, this.turnText, this.logText].forEach((o) => o?.destroy());
+    [
+      this.bg,
+      this.foeSprite,
+      this.foeLabel,
+      this.allySprite,
+      this.allyLabel,
+      this.foeHpBar,
+      this.allyHpBar,
+      this.turnText,
+      this.logText,
+    ].forEach((o) => o?.destroy());
 
     this.buildLayout();
 

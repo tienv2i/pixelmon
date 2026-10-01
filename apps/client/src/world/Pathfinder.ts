@@ -22,7 +22,13 @@ export function findPath(fromX: number, fromY: number, toX: number, toY: number)
   const key = (c: number, r: number) => r * MAP_COLS + c;
 
   const h = (a: Pt, b: Pt) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
-  const startNode: Node = { col: start.col, row: start.row, g: 0, f: h(start, target), parent: null };
+  const startNode: Node = {
+    col: start.col,
+    row: start.row,
+    g: 0,
+    f: h(start, target),
+    parent: null,
+  };
   open.set(key(start.col, start.row), startNode);
 
   let guard = 0;

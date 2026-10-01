@@ -1,6 +1,7 @@
 import { Room, type Client } from '@colyseus/core';
 import { WorldState, PlayerState } from '@pixelmon/shared/schema';
 import { MAPS } from '@pixelmon/shared';
+import { pool } from '../../config/index.js';
 
 export class WorldRoom extends Room<WorldState> {
   maxClients = 50;
@@ -52,7 +53,10 @@ export class WorldRoom extends Room<WorldState> {
     }, 500);
   }
 
-  onJoin(client: Client, options: { userId: string; displayName: string; x: number; y: number }) {
+  async onJoin(
+    client: Client,
+    options: { userId: string; displayName: string; x: number; y: number },
+  ) {
     const mapData = MAPS[this.state.mapId];
     const spawn = mapData?.spawn ?? { x: 0, y: 0 };
 
@@ -66,8 +70,45 @@ export class WorldRoom extends Room<WorldState> {
     player.direction = 'down';
     player.moving = 0;
 
+    // Sprite nhân vật được gán trong admin (rỗng → client dùng sheet mặc định).
+    // Query lỗi (offline/DB down) không được làm hỏng lúc join.
+    const sprite = await this.loadSprite(options.userId);
+    player.spriteUrl = sprite.url;
+    player.spriteFrame = sprite.frame;
+    player.spriteFrameCount = sprite.frameCount;
+
     this.state.players.set(client.sessionId, player);
-    console.log(`[world] ${player.displayName} joined (session=${client.sessionId})`);
+    console.log(
+      `[world] ${player.displayName} joined (session=${client.sessionId}` +
+        (sprite.url ? `, sprite=${sprite.url}` : ')'),
+    );
+  }
+
+  /** Tra `sheet_url` + layout của sprite user (null → dùng mặc định). */
+  private async loadSprite(
+    userId: string,
+  ): Promise<{ url: string; frame: number; frameCount: number }> {
+    const fallback = { url: '', frame: 64, frameCount: 16 };
+    if (!userId) return fallback;
+    try {
+      const { rows } = await pool.query(
+        `SELECT sc.sheet_url, sc.frame_w, sc.frame_h, sc.frame_count
+           FROM users u
+           JOIN sprite_catalog sc ON sc.id = u.sprite_id
+          WHERE u.id = $1`,
+        [userId],
+      );
+      const r = rows[0];
+      if (!r?.sheet_url) return fallback;
+      return {
+        url: String(r.sheet_url),
+        frame: Number(r.frame_w) || 64,
+        frameCount: Number(r.frame_count) === 12 ? 12 : 16,
+      };
+    } catch (err) {
+      console.warn('[world] sprite lookup failed:', err);
+      return fallback;
+    }
   }
 
   onLeave(client: Client) {

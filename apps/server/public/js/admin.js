@@ -60,6 +60,8 @@
   var SPRITE_DIRS = ['down', 'up', 'left', 'right'];
   var SPRITE_DIR_LABEL = ['↓ down', '↑ up', '← left', '→ right'];
   var SPRITE_FRAME_COUNT = 12;
+  // Cache danh sách sprite từ thư viện (dùng cho select trong modal user).
+  var spritesCache = [];
   var spriteState = {
     sourceImage: null, // HTMLImageElement đã load (nếu có)
     slices: [], // 12 HTMLImageElement|null (mode "từng lát")
@@ -68,6 +70,7 @@
     previewDir: 'down',
     previewFrame: 0,
     editingId: null, // null = tạo mới
+    frameCount: 12, // 12 (3f/hd, ngang) hoặc 16 (4f/hd, lưới 4×4)
   };
 
   // ── Helpers ──
@@ -341,6 +344,96 @@
       .catch(function () {});
   }
 
+  // ── Sprite helpers (dùng bởi bảng users + modal user) ──
+  /** Ô hiển thị sprite đã gán (thumb + tên), hoặc "mặc định" nếu chưa gán. */
+  function spriteCell(u) {
+    if (u.sprite && u.sprite.sheetUrl) {
+      return (
+        '<div class="sprite-thumb-cell" title="' +
+        esc(u.sprite.name) +
+        '"><img src="' +
+        esc(u.sprite.sheetUrl) +
+        '" alt="" /><span class="sprite-name dim">' +
+        esc(u.sprite.name) +
+        '</span></div>'
+      );
+    }
+    return '<span class="dim">—</span>';
+  }
+
+  /** Load (và cache) danh sách sprite từ thư viện — cho select trong modal user. */
+  function ensureSprites() {
+    return getJSON('/api/admin/sprites')
+      .then(function (d) {
+        spritesCache = (d.sprites || []).filter(function (s) {
+          return s.sheetUrl; // chỉ sprite có sheet dùng được trong game
+        });
+        return spritesCache;
+      })
+      .catch(function () {
+        spritesCache = [];
+        return spritesCache;
+      });
+  }
+
+  /** Điền <select id="user-sprite"> từ cache + chọn đúng spriteId. */
+  function fillSpriteSelect(selectedId) {
+    var sel = $('user-sprite');
+    if (!sel) return;
+    var html = '<option value="">' + esc(t('m.spriteDefault')) + '</option>';
+    spritesCache.forEach(function (s) {
+      html +=
+        '<option value="' +
+        esc(s.id) +
+        '"' +
+        (s.id === selectedId ? ' selected' : '') +
+        '>' +
+        esc(s.name) +
+        ' (' +
+        esc(s.frameW) +
+        '×' +
+        esc(s.frameH) +
+        ' · ' +
+        esc(s.frameCount) +
+        'f)</option>';
+    });
+    sel.innerHTML = html;
+    sel.value = selectedId || '';
+    updateSpritePreview(sel.value);
+  }
+
+  /** Vẽ frame 0 (hướng down) của sprite đang chọn lên canvas preview. */
+  function updateSpritePreview(spriteId) {
+    var canvas = $('user-sprite-canvas');
+    var label = $('user-sprite-label');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    var s = spritesCache.find(function (x) {
+      return x.id === spriteId;
+    });
+    if (!s || !s.sheetUrl) {
+      if (label) label.textContent = t('m.spriteDefault');
+      return;
+    }
+    var frame = s.frameW || 32;
+    var perDir = Math.max(1, Math.floor((s.frameCount || 12) / 4));
+    // 16 frame = lưới 4×4 (frame đầu ở (0,0)); 12 frame = dải ngang (frame 0 ở x=0).
+    // Cả 2 đều lấy frame 0 → toạ độ (0,0) → vẽ frame down đầu tiên.
+    var img = new Image();
+    img.onload = function () {
+      var zoom = Math.floor(64 / frame) || 1;
+      canvas.width = frame * zoom;
+      canvas.height = frame * zoom;
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, frame, frame, 0, 0, frame * zoom, frame * zoom);
+      if (label) label.textContent = s.name + ' · ' + perDir + 'f/' + t('m.spritePerDir');
+    };
+    img.src = s.sheetUrl;
+  }
+
   // ── Users ──
   function loadUsers() {
     var q = usersState.q;
@@ -402,6 +495,9 @@
             '</td>' +
             '<td class="mono">' +
             (u.money !== null ? Number(u.money).toLocaleString('vi-VN') : '—') +
+            '</td>' +
+            '<td>' +
+            spriteCell(u) +
             '</td>' +
             '<td class="dim">' +
             fmtDate(u.lastLoginAt) +
@@ -487,6 +583,10 @@
     form.querySelector('[name=role]').value = 'player';
     form.querySelector('[name=language]').value = window.I18N.getLang();
     hideMsg($('modal-msg'));
+    // Load sprite library rồi điền select (mặc định = chưa gán)
+    ensureSprites().then(function () {
+      fillSpriteSelect('');
+    });
     $('user-modal').classList.remove('hidden');
   }
 
@@ -514,6 +614,10 @@
     form.querySelector('[name=bio]').value = user.bio || '';
     form.querySelector('[name=notes]').value = user.notes || '';
     hideMsg($('modal-msg'));
+    // Load sprite library rồi chọn đúng sprite user đang có
+    ensureSprites().then(function () {
+      fillSpriteSelect(user.spriteId || '');
+    });
     $('user-modal').classList.remove('hidden');
   }
 
@@ -535,6 +639,8 @@
         language: String(fd.get('language') || 'en'),
         bio: String(fd.get('bio') || ''),
         notes: String(fd.get('notes') || ''),
+        // '' = bỏ gán (về sprite mặc định), '' → server hiểu là null
+        spriteId: String(fd.get('spriteId') || ''),
       };
       // Cập nhật user_info riêng (birthday)
       var birthday = String(fd.get('birthday') || '');
@@ -569,6 +675,7 @@
         level: parseInt(fd.get('level') || '5', 10),
         money: parseInt(fd.get('money') || '5000', 10),
         role: String(fd.get('role') || 'player'),
+        spriteId: String(fd.get('spriteId') || ''),
       };
       postJSON('/api/admin/users', body, 'POST')
         .then(function (d) {
@@ -705,9 +812,14 @@
       .then(function (d) {
         var list = d.sprites || [];
         fillTable('sprites-table', 'sprites-empty', list, function (s) {
+          // 16 frame = lưới 4×4, 12 frame = dải ngang → crop ô đầu tiên (frame 0_0)
           var thumb = s.sheetUrl || s.sourceUrl;
           var thumbHtml = thumb
-            ? '<img class="sprite-thumb" src="' + esc(thumb) + '" alt="" />'
+            ? '<img class="sprite-thumb-frame" src="' +
+              esc(thumb) +
+              '" alt="" title="' +
+              esc(s.name) +
+              '" />'
             : '<span class="dim">—</span>';
           var modeColor =
             s.mode === 'atlas'
@@ -726,17 +838,25 @@
             esc(s.frameW) +
             '×' +
             esc(s.frameH) +
-            '</td><td class="dim">' +
+            ' · ' +
+            esc(s.frameCount || 12) +
+            'f</td><td class="dim">' +
             esc(fmtDate(s.createdAt)) +
             '</td><td>' +
-            '<button class="btn btn-ghost btn-sm" onclick="_spriteEdit()">✏️</button> ' +
+            '<button class="btn btn-ghost btn-sm" onclick="_spriteEdit(\'' +
+            esc(s.id) +
+            '\')">✏️</button> ' +
             '<button class="btn btn-ghost btn-sm" onclick="_spriteDelete(\'' +
             esc(s.id) +
             "','" +
             esc(s.name) +
-            "')\">🗑</button>" +
+            '\')">🗑</button>' +
             '</td></tr>'
           );
+        });
+        // Cập nhật cache cho select sprite trong modal user
+        spritesCache = list.filter(function (s) {
+          return s.sheetUrl;
         });
       })
       .catch(function () {
@@ -748,23 +868,42 @@
 
   // ── Sprite editor ───────────────────────────────────────────────────────
   function defaultFrames() {
-    // Khung chuẩn 12 frame xếp ngang: x = i*32, y = 0 (phù hợp PlayerSprite)
+    // Khung chuẩn theo layout của sheet:
+    // - 12 frame (dải ngang): x = i*32, y = 0 → khớp PlayerSprite legacy
+    // - 16 frame (lưới 4×4):  x = cột*F, y = hàng*F → khớp hero sheet
     var w = parseInt($('sprite-frame-w').value, 10) || 32;
     var h = parseInt($('sprite-frame-h').value, 10) || 32;
+    var count = frameCount();
+    var perDir = count / 4;
     var frames = [];
-    for (var i = 0; i < SPRITE_FRAME_COUNT; i++) {
-      frames.push({ x: i * w, y: 0, w: w, h: h });
+    for (var i = 0; i < count; i++) {
+      var di = Math.floor(i / perDir);
+      var ci = i % perDir;
+      frames.push(
+        count >= 16 ? { x: ci * w, y: di * h, w: w, h: h } : { x: i * w, y: 0, w: w, h: h },
+      );
     }
     return frames;
   }
 
-  function openSpriteModal() {
-    spriteState.editingId = null;
+  /** Số frame đang chọn trong editor (12 dải ngang | 16 lưới 4×4). */
+  function frameCount() {
+    return spriteState.frameCount === 16 ? 16 : SPRITE_FRAME_COUNT;
+  }
+
+  /** Số frame mỗi hướng (3 | 4). */
+  function framesPerDir() {
+    return frameCount() / 4;
+  }
+
+  function openSpriteModal(spriteId) {
+    spriteState.editingId = spriteId || null;
     spriteState.sourceImage = null;
-    spriteState.slices = new Array(SPRITE_FRAME_COUNT).fill(null);
+    spriteState.slices = new Array(frameCount()).fill(null);
     spriteState.frames = defaultFrames();
     spriteState.previewFrame = 0;
     spriteState.previewDir = 'down';
+    spriteState.frameCount = SPRITE_FRAME_COUNT;
 
     $('sprite-modal-title').textContent = t('sp.create');
     $('sprite-name').value = '';
@@ -773,10 +912,53 @@
     $('sprite-read-mode').value = 'sheet';
     $('sprite-frame-w').value = '32';
     $('sprite-frame-h').value = '32';
+    if ($('sprite-frame-count')) $('sprite-frame-count').value = '12';
     hideMsg($('sprite-modal-msg'));
     stopPreview();
 
     $('sprite-slice-drop').classList.add('hidden');
+
+    if (spriteId) {
+      // Chế độ sửa: load metadata từ thư viện + sheet PNG vào preview
+      $('sprite-modal-title').textContent = t('sp.edit');
+      getJSON('/api/admin/sprites/' + spriteId)
+        .then(function (d) {
+          var s = d.sprite;
+          if (!s) return;
+          // set input TRƯỚC khi tính defaultFrames() — nếu không frame W/H
+          // vẫn là giá trị mặc định 32 (defaultFrames đọc từ input).
+          spriteState.frameCount = s.frameCount || 12;
+          $('sprite-name').value = s.name || '';
+          $('sprite-mode').value = s.mode || 'baked';
+          $('sprite-frame-w').value = s.frameW || 32;
+          $('sprite-frame-h').value = s.frameH || 32;
+          if ($('sprite-frame-count'))
+            $('sprite-frame-count').value = String(spriteState.frameCount);
+          spriteState.frames = (s.frames && s.frames.length ? s.frames : defaultFrames()).slice(
+            0,
+            spriteState.frameCount,
+          );
+          renderFramesTable();
+          drawSpriteCanvas();
+          updatePreview();
+
+          // Load sheet làm ảnh nguồn để preview/kéo frame
+          var src = s.sheetUrl || s.sourceUrl;
+          if (src) {
+            var img = new Image();
+            img.onload = function () {
+              spriteState.sourceImage = img;
+              drawSpriteCanvas();
+              updatePreview();
+            };
+            img.src = src;
+          }
+        })
+        .catch(function (e) {
+          showMsg($('sprite-modal-msg'), e.message || 'Không tải được sprite.', 'error');
+        });
+    }
+
     renderSliceGrid();
     renderFramesTable();
     drawSpriteCanvas();
@@ -792,10 +974,18 @@
 
   function renderFramesTable() {
     var tbody = $('sprite-frames-table').querySelector('tbody');
+    var count = frameCount();
+    var perDir = count / 4;
+    // Tiêu đề bảng động theo layout đang chọn
+    var titleEl = $('sprite-frames-title');
+    if (titleEl) {
+      titleEl.textContent = count >= 16 ? t('sp.frames16') : t('sp.frames');
+    }
     tbody.innerHTML = spriteState.frames
+      .slice(0, count)
       .map(function (f, i) {
-        var dirIdx = Math.floor(i / 3);
-        var frameIdx = i % 3;
+        var dirIdx = Math.floor(i / perDir);
+        var frameIdx = i % perDir;
         return (
           '<tr data-index="' +
           i +
@@ -856,18 +1046,14 @@
   function renderSliceGrid() {
     var grid = $('sprite-slice-grid');
     grid.innerHTML = '';
-    for (var i = 0; i < SPRITE_FRAME_COUNT; i++) {
+    var perDir = framesPerDir();
+    for (var i = 0; i < frameCount(); i++) {
       (function (idx) {
         var cell = document.createElement('div');
         cell.className = 'sprite-slice-cell';
-        var dirIdx = Math.floor(idx / 3);
-        var frameIdx = idx % 3;
-        cell.innerHTML =
-          '<span>' +
-          SPRITE_DIR_LABEL[dirIdx] +
-          ' #' +
-          frameIdx +
-          '</span>';
+        var dirIdx = Math.floor(idx / perDir);
+        var frameIdx = idx % perDir;
+        cell.innerHTML = '<span>' + SPRITE_DIR_LABEL[dirIdx] + ' #' + frameIdx + '</span>';
         if (spriteState.slices[idx]) {
           cell.classList.add('has-img');
           var img = document.createElement('img');
@@ -900,16 +1086,24 @@
   }
 
   function composeSlicesToSheet() {
-    // Ghép 12 lát vào 1 canvas 384×32 → dùng làm ảnh nguồn cho preview/export
+    // Ghép N lát vào canvas theo layout đang chọn
+    // (12 → 384×32 dải ngang; 16 → lưới 4×4 256×256) → làm ảnh nguồn preview/export
     var fw = parseInt($('sprite-frame-w').value, 10) || 32;
     var fh = parseInt($('sprite-frame-h').value, 10) || 32;
+    var count = frameCount();
+    var cols = count >= 16 ? 4 : count;
+    var rows = count >= 16 ? 4 : 1;
+    var perDir = framesPerDir();
     var canvas = document.createElement('canvas');
-    canvas.width = fw * SPRITE_FRAME_COUNT;
-    canvas.height = fh;
+    canvas.width = fw * cols;
+    canvas.height = fh * rows;
     var ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     spriteState.slices.forEach(function (img, i) {
-      if (img) ctx.drawImage(img, i * fw, 0, fw, fh);
+      if (!img) return;
+      var dx = count >= 16 ? (i % perDir) * fw : i * fw;
+      var dy = count >= 16 ? Math.floor(i / perDir) * fh : 0;
+      ctx.drawImage(img, dx, dy, fw, fh);
     });
 
     var src = canvas.toDataURL('image/png');
@@ -942,12 +1136,17 @@
     var ctx = canvas.getContext('2d');
     var fw = parseInt($('sprite-frame-w').value, 10) || 32;
     var fh = parseInt($('sprite-frame-h').value, 10) || 32;
-    var totalW = fw * SPRITE_FRAME_COUNT;
+    var count = frameCount();
+    // 16 frame = lưới 4×4 (khổ 4F × 4F); 12 frame = dải ngang (12F × F)
+    var cols = count >= 16 ? 4 : count;
+    var rows = count >= 16 ? 4 : 1;
+    var totalW = fw * cols;
+    var totalH = fh * rows;
 
-    // Zoom cho vừa chiều rộng panel (384px gốc)
+    // Zoom cho vừa panel (384px gốc theo chiều rộng)
     var zoom = Math.max(1, Math.min(6, Math.floor(384 / totalW) || 1));
     canvas.width = totalW * zoom;
-    canvas.height = fh * zoom + 30;
+    canvas.height = totalH * zoom + 30;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = false;
@@ -968,9 +1167,9 @@
       );
     }
 
-    // 2. Vẽ overlay 12 frame
+    // 2. Vẽ overlay frame
     var sx = canvas.width / totalW;
-    spriteState.frames.forEach(function (f, i) {
+    spriteState.frames.slice(0, count).forEach(function (f, i) {
       var x = f.x * sx;
       var y = f.y * sx;
       var w = f.w * sx;
@@ -1005,20 +1204,11 @@
     var zoom = 4;
     canvas.width = f.w * zoom;
     canvas.height = f.h * zoom;
-    ctx.drawImage(
-      spriteState.sourceImage,
-      f.x,
-      f.y,
-      f.w,
-      f.h,
-      0,
-      0,
-      f.w * zoom,
-      f.h * zoom,
-    );
+    ctx.drawImage(spriteState.sourceImage, f.x, f.y, f.w, f.h, 0, 0, f.w * zoom, f.h * zoom);
 
-    var dirIdx = Math.floor(idx / 3);
-    var frameIdx = idx % 3;
+    var perDir = framesPerDir();
+    var dirIdx = Math.floor(idx / perDir);
+    var frameIdx = idx % perDir;
     $('sprite-frame-label').textContent =
       SPRITE_DIR_LABEL[dirIdx] + ' frame ' + frameIdx + ' (' + f.w + '×' + f.h + ')';
   }
@@ -1027,12 +1217,13 @@
     stopPreview();
     spriteState.previewTimer = setInterval(function () {
       if (spriteState.previewDir === 'all') {
-        spriteState.previewFrame = (spriteState.previewFrame + 1) % SPRITE_FRAME_COUNT;
+        spriteState.previewFrame = (spriteState.previewFrame + 1) % frameCount();
       } else {
         var dirIdx = SPRITE_DIRS.indexOf(spriteState.previewDir);
         if (dirIdx < 0) dirIdx = 0;
-        var base = dirIdx * 3;
-        spriteState.previewFrame = base + ((spriteState.previewFrame - base + 1) % 3);
+        var perDir = framesPerDir();
+        var base = dirIdx * perDir;
+        spriteState.previewFrame = base + ((spriteState.previewFrame - base + 1) % perDir);
       }
       renderFramesTable();
       drawSpriteCanvas();
@@ -1058,15 +1249,24 @@
   function exportSheet() {
     var fw = parseInt($('sprite-frame-w').value, 10) || 32;
     var fh = parseInt($('sprite-frame-h').value, 10) || 32;
+    var count = frameCount();
     var canvas = document.createElement('canvas');
-    canvas.width = fw * SPRITE_FRAME_COUNT;
-    canvas.height = fh;
+    // 16 frame → lưới 4×4 (256×256); 12 frame → dải ngang (384×32).
+    // PHẢI khớp layout client `SpriteSheetLoader` đọc theo `frameCount`,
+    // nếu không sprite sẽ quay sai hướng / trỏ nhầm frame.
+    var cols = count >= 16 ? 4 : count;
+    var rows = count >= 16 ? 4 : 1;
+    canvas.width = fw * cols;
+    canvas.height = fh * rows;
     var ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
 
     if (spriteState.sourceImage) {
+      var perDir = framesPerDir();
       spriteState.frames.forEach(function (f, i) {
-        ctx.drawImage(spriteState.sourceImage, f.x, f.y, f.w, f.h, i * fw, 0, fw, fh);
+        var dx = count >= 16 ? (i % perDir) * fw : i * fw;
+        var dy = count >= 16 ? Math.floor(i / perDir) * fh : 0;
+        ctx.drawImage(spriteState.sourceImage, f.x, f.y, f.w, f.h, dx, dy, fw, fh);
       });
     }
 
@@ -1086,15 +1286,20 @@
     var mode = $('sprite-mode').value;
     var fw = parseInt($('sprite-frame-w').value, 10) || 32;
     var fh = parseInt($('sprite-frame-h').value, 10) || 32;
+    var fc = parseInt(($('sprite-frame-count') && $('sprite-frame-count').value) || '12', 10);
+    if (fc !== 12 && fc !== 16) fc = 12;
 
     var fd = new FormData();
     fd.append('name', name);
     fd.append('mode', mode);
     fd.append('frameW', String(fw));
     fd.append('frameH', String(fh));
+    fd.append('frameCount', String(fc));
     fd.append('frames', JSON.stringify(spriteState.frames));
 
-    // Ghép sheet ngay ở trình duyệt rồi upload dưới dạng bakedSheet (dataURL)
+    // Ghép sheet ngay ở trình duyệt rồi upload dưới dạng bakedSheet (dataURL).
+    // Khi sửa sprite có sẵn mà KHÔNG tải ảnh mới → giữ sheet cũ (server nhận
+    // bakedSheet mới sẽ ghi đè file sheet cũ bằng bản export mới).
     var sheetDataUrl = null;
     if (spriteState.sourceImage) {
       sheetDataUrl = exportSheet();
@@ -1107,10 +1312,12 @@
       fd.append('image', fileInput.files[0]);
     }
 
-    var opts = { method: 'POST', body: fd };
+    var isEdit = !!spriteState.editingId;
+    var url = isEdit ? '/api/admin/sprites/' + spriteState.editingId : '/api/admin/sprites';
+    var opts = { method: isEdit ? 'PATCH' : 'POST', body: fd };
     if (TOKEN) opts.headers = { Authorization: 'Bearer ' + TOKEN };
 
-    fetch(API + '/api/admin/sprites', opts)
+    fetch(API + url, opts)
       .then(function (r) {
         if (r.status === 401) {
           logout();
@@ -1168,8 +1375,8 @@
   window._adminDelete = function (id, name) {
     deleteUser(id, name);
   };
-  window._spriteEdit = function () {
-    openSpriteModal();
+  window._spriteEdit = function (id) {
+    openSpriteModal(id);
   };
   window._spriteDelete = function (id, name) {
     deleteSprite(id, name);
@@ -1258,6 +1465,11 @@
       submitUserForm();
     });
 
+    // Đổi sprite trong modal user → cập nhật preview ngay (không cần bấm Lưu)
+    $('user-sprite').addEventListener('change', function () {
+      updateSpritePreview(this.value);
+    });
+
     // Confirm
     $('confirm-close').addEventListener('click', function () {
       $('confirm-modal').classList.add('hidden');
@@ -1279,7 +1491,7 @@
     $('sprite-preview-dir').addEventListener('change', function () {
       spriteState.previewDir = this.value;
       var dirIdx = SPRITE_DIRS.indexOf(this.value);
-      if (dirIdx >= 0) spriteState.previewFrame = dirIdx * 3;
+      if (dirIdx >= 0) spriteState.previewFrame = dirIdx * framesPerDir();
       else spriteState.previewFrame = 0;
       renderFramesTable();
       drawSpriteCanvas();
@@ -1292,7 +1504,7 @@
       updatePreview();
     });
     $('sprite-slice-clear').addEventListener('click', function () {
-      spriteState.slices = new Array(SPRITE_FRAME_COUNT).fill(null);
+      spriteState.slices = new Array(frameCount()).fill(null);
       renderSliceGrid();
     });
     $('sprite-file').addEventListener('change', function () {
@@ -1337,5 +1549,16 @@
       drawSpriteCanvas();
       updatePreview();
     });
+
+    // Đổi layout sheet (12 dải ngang ↔ 16 lưới 4×4) → dựng lại toạ độ frame
+    if ($('sprite-frame-count')) {
+      $('sprite-frame-count').addEventListener('change', function () {
+        spriteState.frameCount = parseInt(this.value, 10) === 16 ? 16 : 12;
+        spriteState.frames = defaultFrames();
+        renderFramesTable();
+        drawSpriteCanvas();
+        updatePreview();
+      });
+    }
   });
 })();

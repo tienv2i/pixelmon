@@ -8,6 +8,8 @@ export default tseslint.config(
       '**/dist/**',
       '**/node_modules/**',
       '**/.turbo/**',
+      '**/.venv/**',
+      '**/temp/**',
       'packages/shared/data/**',
       'packages/shared/assets/**',
     ],

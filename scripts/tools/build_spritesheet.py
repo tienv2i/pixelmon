@@ -36,6 +36,10 @@ except ImportError as e:  # pragma: no cover
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT_DIR = ROOT / "packages/shared/assets/sprites"
 
+# Nơi Express phục vụ file tĩnh. Sheet ở đây mới load được từ client theo URL
+# (`/sprites/<tên>.png`) và gán cho user qua thư viện sprite trong admin.
+SERVER_PUBLIC_SPRITES = ROOT / "apps/server/public/sprites"
+
 # Thứ tự hàng chuẩn của game — PHẢI khớp DIRS trong
 # apps/client/src/entities/PlayerSprite.ts và HERO_DIRS trong BootScene.ts
 DEFAULT_DIR_ORDER = ["down", "up", "left", "right"]
@@ -279,6 +283,9 @@ def main() -> None:
     p.add_argument("--also-32", action="store_true", help="xuất thêm sheet 32px")
     p.add_argument("--preview", type=Path, default=None,
                    help="ghi ảnh preview có nhãn hướng ra file này (NÊN dùng)")
+    p.add_argument("--publish-name", default=None,
+                   help="copy sheet vừa sinh sang apps/server/public/sprites/<tên>.png "
+                        "để client load bằng URL và đăng ký vào thư viện sprite (admin)")
     args = p.parse_args()
 
     if not args.src.is_file():
@@ -304,6 +311,15 @@ def main() -> None:
         verify=args.verify,
         preview_path=args.preview,
     )
+
+    if args.publish_name:
+        src = args.out_dir / f"{args.name}.png"
+        dst = SERVER_PUBLIC_SPRITES / f"{args.publish_name}.png"
+        if not src.is_file():
+            raise SystemExit(f"không thấy sheet vừa sinh: {src}")
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(src.read_bytes())
+        print(f"  publish: /sprites/{args.publish_name}.png  ← {dst.relative_to(ROOT)}")
 
     if args.also_32:
         # hero_64 → hero_32 (bỏ hậu tố _64), để tên nhất quán với file cũ

@@ -15,10 +15,7 @@ Mục tiêu: dựng lại toàn bộ toolchain + dịch vụ nền (PostgreSQL, 
 ## Các bước
 
 - [x] **S1. pnpm** — `npm i -g pnpm@9.15.0` → `~/.nvm/versions/node/v24.21.0/bin/pnpm` (Node 24 chạy pnpm 9 OK, không cần corepack/fnm)
-- [x] **S2. PostgreSQL** — `dnf install postgresql-server postgresql` (PostgreSQL **18.6**), `postgresql-setup --initdb` → `/var/lib/pgsql/data`, enable + start
-      - `ALTER USER postgres WITH PASSWORD 'postgres'`
-      - `CREATE DATABASE pixelmon`
-      - `pg_hba.conf`: `local`/`127.0.0.1`/`::1` → `scram-sha-256` (mặc định Fedora là `peer`/`ident`, phải đổi mới login được bằng password)
+- [x] **S2. PostgreSQL** — `dnf install postgresql-server postgresql` (PostgreSQL **18.6**), `postgresql-setup --initdb` → `/var/lib/pgsql/data`, enable + start - `ALTER USER postgres WITH PASSWORD 'postgres'` - `CREATE DATABASE pixelmon` - `pg_hba.conf`: `local`/`127.0.0.1`/`::1` → `scram-sha-256` (mặc định Fedora là `peer`/`ident`, phải đổi mới login được bằng password)
 - [x] **S3. Redis** — `dnf install redis` → thực tế Fedora 44 cài **Valkey 9.0.6** (`valkey-compat-redis` shim), service name là `valkey.service` (`redis.service` là alias). `redis-cli ping` → `PONG`
 - [x] **S4. Env** — `.env` copy từ `.env.example`
 - [x] **S5. Deps** — `pnpm install` (lockfile v9 còn hợp lệ, store còn → 1.2s, không cần reinstall sạch)
@@ -29,19 +26,19 @@ Mục tiêu: dựng lại toàn bộ toolchain + dịch vụ nền (PostgreSQL, 
 
 Setup hoàn tất, toàn bộ stack chạy được:
 
-| Hạng mụng       | Trạng thái                                             |
-| --------------- | ------------------------------------------------------ |
-| OS              | Fedora Linux 44 Workstation (SELinux unconfined)        |
-| Node            | v24.21.0 qua **nvm** (không có fnm)                     |
-| pnpm            | 9.15.0 (`npm i -g`) — khớp `packageManager` trong root   |
-| PostgreSQL      | 18.6, service active, DB `pixelmon`, user `postgres/postgres` |
-| Redis           | Valkey 9.0.6 (`valkey.service`), `PONG`                |
-| Build           | 3/3 pass                                               |
-| Typecheck       | 4/4 pass                                               |
-| Lint            | 0 errors, 13 warnings (có sẵn từ trước)               |
-| Server :2567    | running, `/health` OK                                  |
-| Client :5173    | running (Vite 6.4.3), HTTP 200                         |
-| DB seed         | 11 accounts (admin + user01–10)                        |
+| Hạng mụng    | Trạng thái                                                    |
+| ------------ | ------------------------------------------------------------- |
+| OS           | Fedora Linux 44 Workstation (SELinux unconfined)              |
+| Node         | v24.21.0 qua **nvm** (không có fnm)                           |
+| pnpm         | 9.15.0 (`npm i -g`) — khớp `packageManager` trong root        |
+| PostgreSQL   | 18.6, service active, DB `pixelmon`, user `postgres/postgres` |
+| Redis        | Valkey 9.0.6 (`valkey.service`), `PONG`                       |
+| Build        | 3/3 pass                                                      |
+| Typecheck    | 4/4 pass                                                      |
+| Lint         | 0 errors, 13 warnings (có sẵn từ trước)                       |
+| Server :2567 | running, `/health` OK                                         |
+| Client :5173 | running (Vite 6.4.3), HTTP 200                                |
+| DB seed      | 11 accounts (admin + user01–10)                               |
 
 ### Ghi chú quan trọng cho session sau
 

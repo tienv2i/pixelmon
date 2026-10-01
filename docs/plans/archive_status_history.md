@@ -117,10 +117,12 @@ Mục tiêu: tách zoom thành **2 chức năng độc lập** và thêm chế �
 - **Auto-mini:** tự chuyển mini khi viewport <720px hoặc <540px (hoàn nguyên khi viewport lớn hơn).
 
 **Files mới:**
+
 - `src/ui/UiZoomManager.ts` — UI zoom state + keybinds
 - `src/ui/Toolbar.ts` — Normal/Mini/Hidden + Anchor/Float toggle
 
 **Files sửa:**
+
 - `src/ui/PanelFrame.ts` — thêm drag helper cho floating (save/load position)
 - `src/ui/PlayerHud.ts` — thêm `setUiZoomManager()`, `setHudMode()`, `relayout()` nhân uiZoom
 - `src/ui/Hotbar.ts` — thêm mini mode, slot co giãn theo uiZoom
@@ -131,6 +133,7 @@ Mục tiêu: tách zoom thành **2 chức năng độc lập** và thêm chế �
 - `src/scenes/WorldScene.ts` — wire UiZoomManager + Toolbar + phím `H`/`F`/`+`/`-`
 
 **Verify:**
+
 - `pnpm build` — 3/3 ✅
 - `pnpm typecheck` — 4/4 ✅
 - `pnpm lint` — 0 errors, 9 warnings ✅
@@ -147,7 +150,7 @@ vẫn còn type `HudMode = 'normal'|'mini'|'hidden'` nhưng **không còn ai g�
 
 1. Zoom tách làm **2 chức năng độc lập**: **game zoom** (camera) và **ui zoom** (toàn bộ HUD).
 2. Thêm **chế độ mini** cho các thanh công cụ — tự bật khi màn hình **quá nhỏ**.
-3. Thanh công cụ **neo ở góc màn hình** *hoặc* **kéo được tự do** → 2 chế độ: **Nép (docked)** / **Tự do (floating)**.
+3. Thanh công cụ **neo ở góc màn hình** _hoặc_ **kéo được tự do** → 2 chế độ: **Nép (docked)** / **Tự do (floating)**.
 4. Có chế độ **ẩn hết tất cả** thanh công cụ.
 
 **Thiết kế:**
@@ -159,24 +162,24 @@ vẫn còn type `HudMode = 'normal'|'mini'|'hidden'` nhưng **không còn ai g�
   - `visibility: 'normal' | 'mini' | 'hidden'` (phím `H` → cycle)
   - auto-mini: viewport `< 720×540` → ép mini (khi quay lại kích thước lớn → trở về `normal`)
   - Đăng ký các **thanh công cụ** (PlayerHud, PartyStrip, ChatLog, Minimap, InfoPanel, TopMenu, MenuPanel)
-    + **góc neo** (`anchor: 'tl'|'tr'|'bl'|'br'|'top'|'bottom'`), auto neo lại về góc khi chuyển về `docked`.
+    - **góc neo** (`anchor: 'tl'|'tr'|'bl'|'br'|'top'|'bottom'`), auto neo lại về góc khi chuyển về `docked`.
   - **Ẩn tất cả** = set visibility `hidden` cho mọi thanh + **tự ẩn HudManager**.
 - **Drag (chế độ floating):** `PanelFrame.makeDraggable()` — kéo bằng **title bar**, clamp trong viewport,
   lưu toạ độ `localStorage['pixelmon.hud.<id>']`. Chế độ `docked` → bỏ drag + về góc.
 
-| # | File | Nội dung |
-| -|------|----------|
-| 1 | `src/ui/HudManager.ts` | **MỚI** — state modes + registry thanh công cụ + auto-mini + anchor/drag + hidden |
-| 2 | `src/ui/PanelFrame.ts` | thêm `makeDraggable()` / `clearDraggable()` (title bar, clamp, persist) |
-| 3 | `src/ui/Minimap.ts` | thêm `setAnchor()` + `getBounds()`; wire `setHudMode()` từ HudManager |
-| 4 | `src/ui/ChatLog.ts` | thêm `getBounds()`; wire `setHudMode()` |
-| 5 | `src/ui/PlayerHud.ts` | thêm `getBounds()`, `setHudMode()` (mini → avatar+money ngắn) |
-| 6 | `src/ui/PartyStrip.ts` | thêm `getBounds()`, `setHudMode()` (mini → ẩn title, slot nhỏ) |
-| 7 | `src/ui/InfoPanel.ts` | thêm `getBounds()`, `setHudMode()` (mini → chỉ giờ) |
-| 8 | `src/ui/TopMenu.ts` | thêm `getBounds()`, `setHudMode()` (mini → icon nhỏ) |
-| 9 | `src/ui/MenuPanel.ts` | thêm toggle cho **Neo/Tự do**, **Ẩn tất cả**, **Mini/Normal**, nút Game Zoom |
-| 10 | `src/scenes/WorldScene.ts` | tạo `HudManager`, wire các thanh, phím `F`/`H`/`Shift+H`, auto-mini, drag |
-| 11 | `src/ui/UiZoomManager.ts` | (giữ) — có thể thêm nút +/- trong MenuPanel |
+| #   | File                       | Nội dung                                                                          |
+| --- | -------------------------- | --------------------------------------------------------------------------------- |
+| 1   | `src/ui/HudManager.ts`     | **MỚI** — state modes + registry thanh công cụ + auto-mini + anchor/drag + hidden |
+| 2   | `src/ui/PanelFrame.ts`     | thêm `makeDraggable()` / `clearDraggable()` (title bar, clamp, persist)           |
+| 3   | `src/ui/Minimap.ts`        | thêm `setAnchor()` + `getBounds()`; wire `setHudMode()` từ HudManager             |
+| 4   | `src/ui/ChatLog.ts`        | thêm `getBounds()`; wire `setHudMode()`                                           |
+| 5   | `src/ui/PlayerHud.ts`      | thêm `getBounds()`, `setHudMode()` (mini → avatar+money ngắn)                     |
+| 6   | `src/ui/PartyStrip.ts`     | thêm `getBounds()`, `setHudMode()` (mini → ẩn title, slot nhỏ)                    |
+| 7   | `src/ui/InfoPanel.ts`      | thêm `getBounds()`, `setHudMode()` (mini → chỉ giờ)                               |
+| 8   | `src/ui/TopMenu.ts`        | thêm `getBounds()`, `setHudMode()` (mini → icon nhỏ)                              |
+| 9   | `src/ui/MenuPanel.ts`      | thêm toggle cho **Neo/Tự do**, **Ẩn tất cả**, **Mini/Normal**, nút Game Zoom      |
+| 10  | `src/scenes/WorldScene.ts` | tạo `HudManager`, wire các thanh, phím `F`/`H`/`Shift+H`, auto-mini, drag         |
+| 11  | `src/ui/UiZoomManager.ts`  | (giữ) — có thể thêm nút +/- trong MenuPanel                                       |
 
 **Verify:** `pnpm build` / `pnpm typecheck` / `pnpm lint` + test browser (F, H, resize nhỏ, drag).
 
@@ -211,9 +214,9 @@ vẫn còn type `HudMode = 'normal'|'mini'|'hidden'` nhưng **không còn ai g�
   - **`src/scenes/WorldScene.ts`:** bỏ `Toolbar` + `applyHudMode()` + `lastHudMode`; thêm `topMenu`, `infoPanel`, `onTopMenuIcon(key)` switch. `getHudObjects()` include TopMenu + InfoPanel.
   - Xóa keybinds `H` (HUD mode) + `F` (Anchor/Float) vì đã bỏ toolbar.
   - **Verify:** GPS toggle `false → true`, `InfoPanel.getBottomY() = 62`, layout 7 icon ở giữa trên, InfoPanel 18:38 + ⛅. Build 3/3, typecheck 4/4, lint 0 errors/13 warnings.
-  **Root cause:** `hoverGfx` / `destGfx` tạo với `.setScrollFactor(0)` → vẽ ở **screen space** (0,0 = góc trái-trên màn hình), nhưng toạ độ truyền vào là **world coords** từ `getWorldPoint()`. Khi camera scroll khác 0 → highlight bị lệch đúng bằng vector `scroll × zoom`.
-  **Fix:** bỏ `.setScrollFactor(0)` ở `hoverGfx` (depth 6) và `destGfx` (depth 7) → giờ vẽ ở **world space**, khớp với toạ độ đã convert. Cả 2 đã `registerWorldObject()` để `uiCam` không render.
-  **Verify:** 3 vị trí chuột khác nhau → `correctTile: true` cả 3 (ô highlight = `floor(getWorldPoint(p)/32)`), `hoverIsSameTile: true` khi right-click. Build 3/3, typecheck 4/4, lint 0 errors/10 warnings.
+    **Root cause:** `hoverGfx` / `destGfx` tạo với `.setScrollFactor(0)` → vẽ ở **screen space** (0,0 = góc trái-trên màn hình), nhưng toạ độ truyền vào là **world coords** từ `getWorldPoint()`. Khi camera scroll khác 0 → highlight bị lệch đúng bằng vector `scroll × zoom`.
+    **Fix:** bỏ `.setScrollFactor(0)` ở `hoverGfx` (depth 6) và `destGfx` (depth 7) → giờ vẽ ở **world space**, khớp với toạ độ đã convert. Cả 2 đã `registerWorldObject()` để `uiCam` không render.
+    **Verify:** 3 vị trí chuột khác nhau → `correctTile: true` cả 3 (ô highlight = `floor(getWorldPoint(p)/32)`), `hoverIsSameTile: true` khi right-click. Build 3/3, typecheck 4/4, lint 0 errors/10 warnings.
 - **2026-09-30** — **Plan 11 (✅):** Fix 3 vấn đề render gameplay.
   - **(1) Nameplate chạy đôi:** `PlayerHud` render tên ở top-left trong khi `PlayerSprite.nameText` đã hiện tên nổi trên đầu nhân vật → thấy 2 bảng tên. Xoá `nameText` khỏi `PlayerHud` (đổi `name` thành optional, chỉ dùng nội bộ), `WorldScene` không truyền `name` nữa. Giữ `PlayerSprite.getChildObjects()` để register camera.
   - **(2) Chuột phải không track đúng ô:** trước đây chỉ đọc world point tại `pointerdown` → không có highlight, không feedback. Nay thêm `updateHoverTile(px, py)` gọi trong `pointermove` → `getWorldPoint` → `floor(x/TILE_SIZE)` → vẽ viền cyan 2px trên ô đó (depth 6, chỉ vẽ lại khi đổi ô qua `hoverTileX/hoverTileY`). Chuột phải → `drawDestination()` thay cho `drawPath()`: **không vẽ đường**, chỉ tô đen 40% ô đích + viền cyan + chấm nhỏ giữa ô (depth 7). Marker tự xoá khi nhân vật tới nơi.

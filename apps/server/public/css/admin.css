@@ -640,3 +640,55 @@
   border-radius: 3px;
   vertical-align: middle;
 }
+
+/* Ô sprite trong bảng users — hiển thị đủ tỉ lệ, không bị cắt bẹt */
+.sprite-thumb-cell {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.sprite-thumb-cell img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: repeating-conic-gradient(#232748 0% 25%, #1c1f3a 0% 50%) 0 0 / 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.sprite-thumb-cell .sprite-name {
+  font-size: 10px;
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Chọn sprite trong modal user (select + preview canvas) */
+.sprite-picker {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.sprite-picker select {
+  flex: 1;
+}
+.sprite-picker-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+#user-sprite-canvas {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: repeating-conic-gradient(#232748 0% 25%, #1c1f3a 0% 50%) 0 0 / 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}

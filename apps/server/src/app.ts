@@ -20,6 +20,7 @@ import {
 } from './modules/admin/index.js';
 import {
   listAdminSprites,
+  getAdminSprite,
   createAdminSprite,
   updateAdminSprite,
   deleteAdminSprite,
@@ -75,7 +76,14 @@ export function createApp(): Express {
     createAdminSprite,
   );
   app.get('/api/admin/sprites', requireAuth, requireAdmin, listAdminSprites);
-  app.patch('/api/admin/sprites/:id', requireAuth, requireAdmin, updateAdminSprite);
+  app.get('/api/admin/sprites/:id', requireAuth, requireAdmin, getAdminSprite);
+  app.patch(
+    '/api/admin/sprites/:id',
+    requireAuth,
+    requireAdmin,
+    spriteUploadMiddleware,
+    updateAdminSprite,
+  );
   app.delete('/api/admin/sprites/:id', requireAuth, requireAdmin, deleteAdminSprite);
 
   // ── User profile API (cùng mình hoặc admin) ──

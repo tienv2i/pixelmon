@@ -5,6 +5,7 @@
 **Nguyên nhân:** `WorldScene.setupUiCamera()` gọi `getWorldObjects()` **một lần duy nhất** lúc khởi tạo.
 `remotePlayers` lúc đó còn rỗng. Khi `syncRemotePlayers()` tạo sprite người chơi mới **sau đó**,
 sprite đó **không** nằm trong `uiCam.ignore(...)` → bị **cả 2 camera render**:
+
 - `cameras.main` render đúng (zoom theo world)
 - `uiCam` render sai (scroll 0,0 zoom 1) → nhân đôi, lệch vị trí
 
@@ -39,6 +40,7 @@ sinh bằng code, không phải pixel-art asset thật. Tăng font-size HUD cho 
 ## 5. Nút bấm
 
 Thêm `src/ui/Button.ts` — component nút bấm dùng chung:
+
 - `new Button(scene, { x, y, label, onClick, variant })`
 - Hỗ trợ `normal` / `primary` / `danger`
 - Hover đổi màu, cursor pointer
@@ -48,14 +50,14 @@ Dùng cho: Toolbar (thêm nút Zoom +/-, Reset), MenuPanel (đã có).
 
 ## Files
 
-| File | Thay đổi |
-|------|---------|
-| `src/main.ts` | `pixelArt: false`, `antialias: true` |
-| `src/ui/theme.ts` | tăng font size helper, thêm `resolution` |
-| `src/scenes/WorldScene.ts` | register động camera ignore, click-to-move, path draw, keyboard cancel |
-| `src/world/PlaceholderMap.ts` | export `isWalkableTile()`, grid walkable |
-| `src/world/Pathfinder.ts` | **MỚI** — A* trên grid |
-| `src/ui/Minimap.ts` | drag-to-view + viewport rect + tween về neo |
-| `src/ui/Button.ts` | **MỚI** — component nút bấm |
-| `src/ui/Toolbar.ts` | dùng Button component |
-| `src/ui/MenuPanel.ts` | dùng Button component |
+| File                          | Thay đổi                                                               |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `src/main.ts`                 | `pixelArt: false`, `antialias: true`                                   |
+| `src/ui/theme.ts`             | tăng font size helper, thêm `resolution`                               |
+| `src/scenes/WorldScene.ts`    | register động camera ignore, click-to-move, path draw, keyboard cancel |
+| `src/world/PlaceholderMap.ts` | export `isWalkableTile()`, grid walkable                               |
+| `src/world/Pathfinder.ts`     | **MỚI** — A* trên grid                                                 |
+| `src/ui/Minimap.ts`           | drag-to-view + viewport rect + tween về neo                            |
+| `src/ui/Button.ts`            | **MỚI** — component nút bấm                                            |
+| `src/ui/Toolbar.ts`           | dùng Button component                                                  |
+| `src/ui/MenuPanel.ts`         | dùng Button component                                                  |

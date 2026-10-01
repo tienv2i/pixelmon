@@ -37,6 +37,7 @@ cd /mnt/data/AI-Agent/pixelmon
   --name hero_64 \
   --verify \
   --preview /tmp/preview.png \
+  --publish-name <ten-trong-thu-vien> \
   --also-32
 ```
 
@@ -48,17 +49,19 @@ cd /mnt/data/AI-Agent/pixelmon
 
 **Tùy chọn:**
 
-| Flag | Ý nghĩa | Mặc định |
-|---|---|---|
-| `--name` | Tên file output (không `.png`) | `hero_64` |
-| `--frame` | Size 1 frame (px) | `64` |
-| `--dir-order` | **Thứ tự hàng của ẢNH NGUỒN** | `down,left,right,up` |
-| `--rows` | Khai tay `y0-y1,...` nếu auto-detect sai | tự dò |
-| `--cols` | Khai tay `x0-x1,...` nếu auto-detect sai | tự dò |
-| `--already-alpha` | Nguồn đã có alpha, bỏ qua unmatte | `off` |
-| `--verify` | Báo lỗi nếu có frame trống | `off` |
-| `--preview` | Ghi ảnh preview có nhãn hướng | `off` |
-| `--also-32` | Xuất thêm sheet 32px | `off` |
+| Flag              | Ý nghĩa                                                | Mặc định             |
+| ----------------- | ------------------------------------------------------ | -------------------- |
+| `--name`          | Tên file output (không `.png`)                         | `hero_64`            |
+| `--frame`         | Size 1 frame (px)                                      | `64`                 |
+| `--dir-order`     | **Thứ tự hàng của ẢNH NGUỒN**                          | `down,left,right,up` |
+| `--rows`          | Khai tay `y0-y1,...` nếu auto-detect sai               | tự dò                |
+| `--cols`          | Khai tay `x0-x1,...` nếu auto-detect sai               | tự dò                |
+| `--already-alpha` | Nguồn đã có alpha, bỏ qua unmatte                      | `off`                |
+| `--verify`        | Báo lỗi nếu có frame trống                             | `off`                |
+| `--preview`       | Ghi ảnh preview có nhãn hướng                          | `off`                |
+| `--publish-name`  | Copy sheet sang `apps/server/public/sprites/<tên>.png` | không copy           |
+| `--also-32`       | Xuất thêm sheet 32px                                   | `off`                |
+| `--also-32`       | Xuất thêm sheet 32px                                   | `off`                |
 
 Output mặc định: `packages/shared/assets/sprites/<name>.png`
 
@@ -66,10 +69,10 @@ Output mặc định: `packages/shared/assets/sprites/<name>.png`
 
 **Hai thứ tự khác nhau, phải phân biệt rõ:**
 
-| | Thứ tự | Ý nghĩa |
-|---|---|---|
+|                               | Thứ tự                  | Ý nghĩa                                |
+| ----------------------------- | ----------------------- | -------------------------------------- |
 | **Ảnh nguồn** (`--dir-order`) | `down, left, right, up` | Thứ tự hàng trong file PNG bạn đưa vào |
-| **Sheet game** (cố định) | `down, up, left, right` | Layout chuẩn, khớp `DIRS` |
+| **Sheet game** (cố định)      | `down, up, left, right` | Layout chuẩn, khớp `DIRS`              |
 
 Tool tự **đảo hàng** từ thứ tự nguồn sang thứ tự game. Đây chính là chỗ từng
 sai: khi bỏ bước remap, sheet sinh ra y hệt ảnh nguồn → nhấn ↑ thì nhân vật
@@ -88,12 +91,12 @@ Nếu ảnh nguồn của bạn khác, khai lại:
 
 Mở ảnh `--preview` và kiểm tra đúng 4 dòng:
 
-| Nhãn trong preview | Phải thấy |
-|---|---|
-| `0:down` | mặt trước (thấy mắt) |
-| `1:up` | lưng (không thấy mặt) |
-| `2:left` | mặt bên trái |
-| `3:right` | mặt bên phải |
+| Nhãn trong preview | Phải thấy             |
+| ------------------ | --------------------- |
+| `0:down`           | mặt trước (thấy mắt)  |
+| `1:up`             | lưng (không thấy mặt) |
+| `2:left`           | mặt bên trái          |
+| `3:right`          | mặt bên phải          |
 
 ---
 
@@ -107,11 +110,44 @@ Không cần sửa gì — `BootScene.loadHeroSheet()` tự đọc
 Kiểm tra lại sau khi chạy (trong browser console hoặc qua Playwright):
 
 ```js
-window.__game.textures.get('hero_sheet').frames['3_0']
+window.__game.textures.get('hero_sheet').frames['3_0'];
 // phải cho cutX=192, cutY=192 (với frame 64, grid 4×4)
 ```
 
-### 3b. Nếu **thêm sheet mới** (khác `hero_64`)
+### 3b. Nếu **đưa sprite vào thư viện admin** (khuyến nghị — không cần sửa code)
+
+Đây là cách dùng cho sprite **có thể gán cho nhiều user**. Sheet được serve tĩnh
+từ `apps/server/public/sprites/` và đăng ký trong bảng `sprite_catalog`; client
+đọc URL từ API nên **không cần import file trong code**.
+
+```bash
+# 1. Sinh sheet + copy sang thư mục public (dùng --verify + --preview BẮT BUỘC)
+.venv/bin/python3 scripts/tools/build_spritesheet.py sprites_import/jin-yuichi.png \
+  --name hero_jin_64 --verify --preview /tmp/preview.png \
+  --publish-name jin-yuichi
+
+# 2. Đăng ký vào sprite_catalog (bằng SQL hoặc POST /api/admin/sprites)
+PGPASSWORD=postgres psql -h localhost -U postgres -d pixelmon -c "
+  INSERT INTO sprite_catalog (id, name, mode, sheet_url, frame_w, frame_h, frame_count)
+  VALUES (gen_random_uuid(), 'jin-yuichi', 'baked', '/sprites/jin-yuichi.png', 64, 64, 16)
+  ON CONFLICT (name) DO UPDATE SET sheet_url = EXCLUDED.sheet_url;"
+```
+
+Sau đó vào **Admin → Người chơi → Sửa → Character sprite** để gán cho user.
+
+Loader phía client: `apps/client/src/entities/SpriteSheetLoader.ts`
+(`loadSpriteSheet`) — đăng ký frame theo `frameCount`:
+
+| `frameCount` | Layout sheet     | Cut của frame `${di}_${f}` |
+| ------------ | ---------------- | -------------------------- |
+| 12           | ngang 384×32     | `F*(di*3+f), 0`            |
+| 16           | lưới 4×4 256×256 | `F*f, F*di`                |
+
+> ⚠️ `frame_count` trong DB **phải khớp** layout file. Ghi sai (vd sheet lưới 4×4
+> nhưng để `frame_count = 12`) → client đọc frame như dải ngang → **sprite quay
+> sai hướng**, và đây là lỗi âm thầm (không có warning nào).
+
+### 3c. Nếu **hardcode** sprite mặc định (sheet nhúng trong client)
 
 Thêm một key mới trong `TEX` (BootScene.ts):
 
@@ -153,9 +189,11 @@ private async loadNinjaSheet(): Promise<void> {
 ```
 
 > **LỖI THƯỜNG GẶP #1 — truyền 1D thay vì 2D**
+>
 > ```ts
-> tex.add(`${di}_${i}`, 0, F * (di * 4 + i), 0, F, F);   // ❌ index vượt 256
+> tex.add(`${di}_${i}`, 0, F * (di * 4 + i), 0, F, F); // ❌ index vượt 256
 > ```
+>
 > Sheet giờ là lưới 4×4 (256×256), không phải dải ngang (1024×64). Chỉ số
 > `di*4+i` vượt quá 256 → Phaser clamp về 0 → **tất cả frame trỏ ô 0_0**,
 > sprite không bao giờ đổi hướng.
@@ -199,10 +237,10 @@ this.setFrame(4);
 
 ```js
 // x/y là rendering offset → LUÔN 0 (sai nếu dùng để kiểm tra)
-f.x, f.y            // ❌ luôn 0,0
+(f.x, f.y); // ❌ luôn 0,0
 
 // toạ độ cắt thật trong texture grid
-f.cutX, f.cutY      // ✅ phải phân bố đều theo lưới
+(f.cutX, f.cutY); // ✅ phải phân bố đều theo lưới
 ```
 
 Nếu `cutX/cutY` đều = 0 → xem lại Lỗi thường gặp #1 ở trên.
@@ -231,12 +269,12 @@ thật**. Chỉ dùng flip khi source chỉ có một hàng hướng và bạn p
 
 **Triệu chứng** (ví dụ cụ thể đã gặp):
 
-| Nhấn | Thấy |
-|---|---|
-| ↓ | đúng (mặt trước) |
-| ↑ | **mặt bên trái** |
-| → | **lưng** |
-| ← | **mặt bên phải** |
+| Nhấn | Thấy             |
+| ---- | ---------------- |
+| ↓    | đúng (mặt trước) |
+| ↑    | **mặt bên trái** |
+| →    | **lưng**         |
+| ←    | **mặt bên phải** |
 
 **Nguyên nhân:** sheet có thứ tự hàng **y hệt ảnh nguồn** (`down, left, right,
 up`) trong khi code giả định layout chuẩn (`down, up, left, right`). Nghĩa là
@@ -276,33 +314,35 @@ bash scripts/pm.sh restart client
 
 ```js
 // 4. Console — không được còn "Texture has no frame"
-window.__game.textures.get('hero_sheet').frames['3_0']
+window.__game.textures.get('hero_sheet').frames['3_0'];
 // 5. Walk advance — 6 mẫu liên tiếp phải thấy *_0→*_1→*_2→*_3→*_0
 ```
 
 Kiểm tra bằng mắt trong game (Playwright):
 
-| Hướng | Frame mong đợi | Nội dung |
-|---|---|---|
-| ↓ | `0_*` | mặt trước |
-| ↑ | `1_*` | lưng |
-| ← | `2_*` | mặt bên trái |
-| → | `3_*` | mặt bên phải |
+| Hướng | Frame mong đợi | Nội dung     |
+| ----- | -------------- | ------------ |
+| ↓     | `0_*`          | mặt trước    |
+| ↑     | `1_*`          | lưng         |
+| ←     | `2_*`          | mặt bên trái |
+| →     | `3_*`          | mặt bên phải |
 
 **Cách kiểm 4 hướng trong game (đã dùng và hiệu quả):**
 
 ```js
 // Di chuyểi tới góc vắng người, rồi đóng băng từng hướng và chụp lại
-ws.animateWalk = () => {};                       // tắt tự đổi frame
-ws.player.setFrame(di + '_0');                   // di = 0..3
+ws.animateWalk = () => {}; // tắt tự đổi frame
+ws.player.setFrame(di + '_0'); // di = 0..3
 ```
 
 Rồi crop quanh vị trí player trên màn hình:
 
 ```js
 const ws = window.__game.scene.getScene('World');
-({ sx: ws.player.x - ws.cameras.main.scrollX,
-   sy: ws.player.y - ws.cameras.main.scrollY })
+({
+  sx: ws.player.x - ws.cameras.main.scrollX,
+  sy: ws.player.y - ws.cameras.main.scrollY,
+});
 ```
 
 Ghép 4 ảnh lại thành dải có nhãn rồi **mở xem** — đây mới là bước xác nhận
@@ -319,11 +359,15 @@ Chỉ chạy `typecheck` và kiểm tra thủ công bằng browser.
 
 ## 7. File liên quan
 
-| File | Vai trò |
-|---|---|
-| `scripts/tools/build_spritesheet.py` | Cắt sprite nguồn → sheet 4×4 |
-| `sprites_import/*.png` | Ảnh nguồn nguyên bản |
-| `packages/shared/assets/sprites/hero_64.png` | Sheet xuất ra (256×256) |
-| `apps/client/src/scenes/BootScene.ts` | `TEX`, `HERO_DIRS`, `loadHeroSheet()` |
-| `apps/client/src/entities/PlayerSprite.ts` | `DIRS`, `frameName()`, `setDirection()` |
-| `apps/client/src/scenes/WorldScene.ts` | Chọn sheet + `registerPlayerAnims()` |
+| File                                            | Vai trò                                                          |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| `scripts/tools/build_spritesheet.py`            | Cắt sprite nguồn → sheet 4×4 (+ `--publish-name`)                |
+| `sprites_import/*.png`                          | Ảnh nguồn nguyên bản                                             |
+| `packages/shared/assets/sprites/hero_64.png`    | Sheet mặc định (256×256, nhúng trong client)                     |
+| `apps/server/public/sprites/*.png`              | Sheet thư viện (Express serve tĩnh, `frame_count` khai trong DB) |
+| `apps/server/src/modules/admin/sprite.ts`       | CRUD `/api/admin/sprites` + `toUserSprite()`                     |
+| `apps/client/src/entities/SpriteSheetLoader.ts` | Load sheet theo URL + đăng ký frame theo layout                  |
+| `apps/client/src/network/ColyseusManager.ts`    | `userSprite` — đọc `user.sprite` từ `/api/auth/me`               |
+| `apps/client/src/scenes/BootScene.ts`           | `TEX`, `HERO_DIRS`, `loadHeroSheet()` (mặc định)                 |
+| `apps/client/src/entities/PlayerSprite.ts`      | `DIRS`, `frameName()`, `swapSheet()`, `setDirection()`           |
+| `apps/client/src/scenes/WorldScene.ts`          | Chọn sheet (user sprite → hero → trainer) + remote sprites       |

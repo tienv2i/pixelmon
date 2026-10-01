@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { pool, redis } from '../../config/index.js';
+import { toUserSprite } from './sprite.js';
 
 const LIMIT_MAX = 500;
 
@@ -15,6 +16,45 @@ function parseLimit(raw: unknown, fallback: number): number {
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.min(Math.floor(n), LIMIT_MAX);
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Kiểm tra `spriteId` có tồn tại trong `sprite_catalog` và dùng được cho game
+ * (có sheet baked). Trả `null` nếu hợp lệ để xóa gán (về sprite mặc định).
+ *
+ * - `undefined` → không đổi (không thêm vào UPDATE)
+ * - `null` / `''` → bỏ gán sprite
+ * - string → phải là UUID có trong catalog
+ * - khác → throw `AdminApiError` (400/404) — caller bắt và trả lỗi
+ */
+async function validateSpriteId(raw: unknown): Promise<string | null | undefined> {
+  if (raw === undefined) return undefined;
+  if (raw === null || raw === '') return null;
+  const id = String(raw);
+  if (!UUID_RE.test(id)) {
+    throw new AdminApiError(400, 'INVALID_SPRITE', 'spriteId phải là UUID hợp lệ');
+  }
+  const { rows } = await pool.query(
+    `SELECT id FROM sprite_catalog WHERE id = $1 AND sheet_url IS NOT NULL AND frame_w >= 8 AND frame_count >= 12`,
+    [id],
+  );
+  if (rows.length === 0) {
+    throw new AdminApiError(404, 'SPRITE_NOT_FOUND', 'Sprite không tồn tại trong thư viện');
+  }
+  return id;
+}
+
+/** Lỗi API có sẵn mã HTTP — dùng trong handler để tránh code 400/404 lặp lại. */
+class AdminApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 /** GET /api/admin/status — health của DB/Redis + số liệu tổng. */
@@ -110,10 +150,15 @@ export async function listAdminUsers(req: Request, res: Response): Promise<void>
     const dataQuery = `
       SELECT u.id, u.username, u.display_name, u.role, u.language, u.created_at, u.last_login_at,
              p.level, p.money, p.map_id,
-             ui.birthday, ui.bio, ui.notes
+             ui.birthday, ui.bio, ui.notes,
+             u.sprite_id,
+             sc.name AS sprite_name, sc.sheet_url AS sprite_sheet_url,
+             sc.frame_w AS sprite_frame_w, sc.frame_h AS sprite_frame_h,
+             sc.frame_count AS sprite_frame_count
       FROM users u
       LEFT JOIN players p ON p.id = u.id
       LEFT JOIN user_info ui ON ui.user_id = u.id
+      LEFT JOIN sprite_catalog sc ON sc.id = u.sprite_id
       ${where}
       ORDER BY u.${sort === 'level' ? 'username' : sort} ${sort === 'level' ? 'ASC' : 'DESC NULLS LAST'}
       LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}
@@ -136,6 +181,19 @@ export async function listAdminUsers(req: Request, res: Response): Promise<void>
         level: r.level ?? null,
         money: r.money ?? null,
         mapId: r.map_id ?? null,
+        spriteId: r.sprite_id ?? null,
+        sprite: toUserSprite(
+          r.sprite_id
+            ? {
+                id: r.sprite_id,
+                name: r.sprite_name,
+                sheet_url: r.sprite_sheet_url,
+                frame_w: r.sprite_frame_w,
+                frame_h: r.sprite_frame_h,
+                frame_count: r.sprite_frame_count,
+              }
+            : null,
+        ),
       })),
       pagination: {
         page,
@@ -154,7 +212,7 @@ export async function listAdminUsers(req: Request, res: Response): Promise<void>
 /** POST /api/admin/users — tạo user mới */
 export async function createAdminUser(req: Request, res: Response): Promise<void> {
   try {
-    const { username, password, displayName, level = 5, money = 5000 } = req.body || {};
+    const { username, password, displayName, level = 5, money = 5000, spriteId } = req.body || {};
     if (!username || !password) {
       res
         .status(400)
@@ -174,6 +232,18 @@ export async function createAdminUser(req: Request, res: Response): Promise<void
       return;
     }
 
+    // Validate sprite (nếu có) trước khi insert để không tạo user rác.
+    let sprite: string | null | undefined;
+    try {
+      sprite = await validateSpriteId(spriteId);
+    } catch (err) {
+      if (err instanceof AdminApiError) {
+        res.status(err.status).json({ ok: false, code: err.code, message: err.message });
+        return;
+      }
+      throw err;
+    }
+
     const bcrypt = await import('bcryptjs');
     const { v4: uuid } = await import('uuid');
     const id = uuid();
@@ -183,8 +253,8 @@ export async function createAdminUser(req: Request, res: Response): Promise<void
     try {
       await client.query('BEGIN');
       await client.query(
-        `INSERT INTO users (id, username, password_hash, display_name) VALUES ($1, $2, $3, $4)`,
-        [id, username, hash, displayName || username],
+        `INSERT INTO users (id, username, password_hash, display_name, sprite_id) VALUES ($1, $2, $3, $4, $5)`,
+        [id, username, hash, displayName || username, sprite ?? null],
       );
       await client.query(
         `INSERT INTO players (id, x, y, map_id, direction, level, exp, money)
@@ -206,11 +276,11 @@ export async function createAdminUser(req: Request, res: Response): Promise<void
   }
 }
 
-/** PATCH /api/admin/users/:id — update user (displayName, level, money, role, language, bio, notes) */
+/** PATCH /api/admin/users/:id — update user (displayName, level, money, role, language, bio, notes, spriteId) */
 export async function updateAdminUser(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { displayName, level, money, role, language, bio, notes } = req.body || {};
+    const { displayName, level, money, role, language, bio, notes, spriteId } = req.body || {};
 
     // Validate role
     if (role !== undefined && !isRole(role)) {
@@ -232,6 +302,18 @@ export async function updateAdminUser(req: Request, res: Response): Promise<void
       return;
     }
 
+    // Validate spriteId (undefined = không đổi; null = bỏ gán)
+    let sprite: string | null | undefined;
+    try {
+      sprite = await validateSpriteId(spriteId);
+    } catch (err) {
+      if (err instanceof AdminApiError) {
+        res.status(err.status).json({ ok: false, code: err.code, message: err.message });
+        return;
+      }
+      throw err;
+    }
+
     // Check user exists
     const check = await pool.query('SELECT id, role FROM users WHERE id = $1', [id]);
     if (check.rows.length === 0) {
@@ -239,7 +321,7 @@ export async function updateAdminUser(req: Request, res: Response): Promise<void
       return;
     }
 
-    // ── Update users table (display_name + role + language) ──
+    // ── Update users table (display_name + role + language + sprite_id) ──
     const userUpdates: string[] = [];
     const userParams: unknown[] = [];
     if (displayName !== undefined) {
@@ -253,6 +335,10 @@ export async function updateAdminUser(req: Request, res: Response): Promise<void
     if (language !== undefined) {
       userParams.push(language);
       userUpdates.push(`language = $${userParams.length}`);
+    }
+    if (sprite !== undefined) {
+      userParams.push(sprite);
+      userUpdates.push(`sprite_id = $${userParams.length}`);
     }
     if (userUpdates.length > 0) {
       userParams.push(id);

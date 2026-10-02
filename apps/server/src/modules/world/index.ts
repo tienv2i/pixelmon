@@ -85,6 +85,11 @@ export class WorldRoom extends Room<WorldState> {
       });
     });
 
+    // ── Debug: /spawn <dexNum> — gọi trận wild hoạts động (moderator+). ──
+    this.onMessage('debug_spawn', (client, data: { dexNum?: number }) => {
+      void this.handleDebugSpawn(client, data);
+    });
+
     // BattleRoom xong trận → gỡ chặn encounter cho session này.
     this.presence.subscribe('battle_end', (msg: { sessionId?: string }) => {
       if (msg?.sessionId) this.inBattleSessions.delete(String(msg.sessionId));
@@ -231,6 +236,96 @@ export class WorldRoom extends Room<WorldState> {
     if (!rolled) return;
 
     await this.initiateWildBattle(client, rolled.species, rolled.level);
+  }
+
+  /**
+   * Debug `/spawn <dexNum>` — mở trận wild với 1 loài Pokémon cụ thể.
+   *
+   * - Chỉ moderator+ (kiểm tra role từ DB mỗi lần gọi → không cache để tránh lạm dụng).
+   * - `dexNum` bỏ trống / không hợp lệ → chọn ngẫu nhiên trong bảng encounter của map.
+   * - Level lấy từ `players.level` (nếu có), fallback 5.
+   */
+  private async handleDebugSpawn(
+    client: Client,
+    data: { dexNum?: number } | undefined,
+  ): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    // ── Kiểm tra quyền (moderator trở lên) ──
+    let role = 'player';
+    if (player.userId) {
+      try {
+        const { rows } = await pool.query(`SELECT role FROM users WHERE id = $1`, [player.userId]);
+        if (rows.length > 0) role = String(rows[0].role ?? 'player');
+      } catch {
+        role = 'player';
+      }
+    }
+    if (role !== 'admin' && role !== 'moderator') {
+      client.send('debug_msg', {
+        type: 'debug_msg',
+        level: 'error',
+        message: 'Permission denied: /spawn requires moderator access.',
+      });
+      return;
+    }
+
+    // ── Chọn loài Pokémon ──
+    await gameData.load();
+    let species = undefined as ReturnType<typeof gameData.getSpecies>;
+    let chosenLabel = '';
+    const dexNum = Number(data?.dexNum);
+
+    if (Number.isInteger(dexNum) && dexNum >= 1 && dexNum <= 1025) {
+      species = gameData.getSpeciesByDexNum(dexNum);
+      chosenLabel = species ? `#${species.dexNum} ${species.name}` : `dex#${dexNum} (không tìm thấy)`;
+    } else {
+      // Bỏ trống / sai → random trong bảng encounter của map (nếu có), ngược lại random toàn bộ.
+      const table = this.grid.map.encounters ?? [];
+      const entries = Array.isArray(table) ? table : [];
+      if (entries.length > 0) {
+        const pick = entries[Math.floor(Math.random() * entries.length)] as { species?: string };
+        const id = pick?.species ?? '';
+        species = gameData.getSpecies(id);
+        chosenLabel = species ? `random (encounter): ${species.name}` : 'random (encounter): bảng rỗng';
+      } else {
+        const r = gameData.getRandomSpecies();
+        species = r;
+        chosenLabel = r ? `random (global): ${r.name}` : 'random: không có species';
+      }
+    }
+
+    if (!species) {
+      client.send('debug_msg', {
+        type: 'debug_msg',
+        level: 'error',
+        message: `Không tìm thấy Pokémon cho dexNum=${data?.dexNum ?? '(random)'}.`,
+      });
+      return;
+    }
+
+    // ── Level: lấy từ DB player (nếu có), fallback 5 ──
+    let level = 5;
+    if (player.userId) {
+      try {
+        const { rows } = await pool.query(`SELECT level FROM players WHERE id = $1`, [player.userId]);
+        if (rows.length > 0) {
+          const lv = Number(rows[0].level);
+          if (Number.isInteger(lv) && lv >= 1 && lv <= 100) level = lv;
+        }
+      } catch {
+        /* giữ level mặc định */
+      }
+    }
+
+    await this.initiateWildBattle(client, species.id, level);
+
+    client.send('debug_msg', {
+      type: 'debug_msg',
+      level: 'info',
+      message: `[debug] /spawn → ${chosenLabel} Lv.${level}`,
+    });
   }
 
   /**

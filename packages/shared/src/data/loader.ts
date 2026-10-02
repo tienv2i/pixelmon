@@ -118,6 +118,15 @@ export class GameData {
   getSpecies(id: string): Species | undefined {
     return this.species.get(id);
   }
+  /** Tra cứu theo số Pokédex (dexNum). */
+  getSpeciesByDexNum(dexNum: number): Species | undefined {
+    return this.getAllSpecies().find((s) => s.dexNum === dexNum);
+  }
+  /** Chọn 1 loài ngẫu nhiên (dùng cho lệnh debug `/spawn`). */
+  getRandomSpecies(): Species {
+    const all = this.getAllSpecies();
+    return all[Math.floor(Math.random() * all.length)];
+  }
   getAllSpecies(): Species[] {
     return [...this.species.values()];
   }

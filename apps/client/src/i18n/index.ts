@@ -131,7 +131,10 @@ const MESSAGES = {
   // ── ChatLog ─────────────────────────────────────────────────────────────
   CHAT_TITLE: ['💬 TRÒ CHUYỆN', '💬 CHAT'],
   CHAT_WELCOME: ['--- Chào mừng đến với Pixelmon! ---', '--- Welcome to Pixelmon! ---'],
-  CHAT_PLACEHOLDER: ['Nhắn tin... (Enter để gửi, Esc để huỷ)', 'Type a message... (Enter to send, Esc to cancel)'],
+  CHAT_PLACEHOLDER: ['Nhắn tin...', 'Type a message...'],
+  CHAT_PLACEHOLDER_DEBUG: ['Nhắn tin hoặc gõ lệnh /help...', 'Type a message or /help...'],
+  CHAT_CMD_DENIED: ['[debug] Bạn cần quyền moderator trở lên để dùng lệnh này.', '[debug] Moderator+ access required for this command.'],
+  CHAT_CMD_DENIED_PREFIX: ['[debug] Lệnh chỉ dành cho moderator. Đây là chat thường — không gửi lệnh debug.', '[debug] Moderator only. This is normal chat — debug commands are not sent.'],
 
   // ── InfoPanel ───────────────────────────────────────────────────────────
   INFO_WEATHER: ['🌤 THỜI TIẾT', '🌤 WEATHER'],
@@ -366,6 +369,9 @@ const MESSAGES = {
   WS_HELP_OVERLAY: ['/overlay <grid|collision|warp> [on|off] : Bật/tắt overlay', '/overlay <grid|collision|warp> [on|off] : Toggle overlay'],
   WS_HELP_LAYER: ['/layer <ground|decoration|overhead> [on|off] : Bật/tắt tầng tilemap', '/layer <ground|decoration|overhead> [on|off] : Toggle tilemap layer'],
   WS_HELP_CLEAR: ['/clear : Xoá trắng cửa sổ console', '/clear : Clear console window'],
+  WS_HELP_SPAWN: ['/spawn [số Pokédex] : Gọi trận wild (bỏ trống = ngẫu nhiên)', '/spawn [dexNum] : Trigger a wild battle (empty = random)'],
+  WS_HELP_SPAWN_USAGE: ['/spawn <số 1..1025> | /spawn | /spawn random', '/spawn <1..1025> | /spawn | /spawn random'],
+  WS_HELP_NO_ARGS: ['/spawn không có tham số → chọn ngẫu nhiên từ bảng encounter của map.', '/spawn with no argument → random from this map encounter table.'],
 
   // ── DebugTrackerWidget / DebugConsole / TopMenu / LoginScene ───────────
   TRK_MOUSE_INIT: ['🐭 Chuột: [--, --] (0, 0)', '🐭 Mouse: [--, --] (0, 0)'],
@@ -415,6 +421,12 @@ const MESSAGES = {
   BATTLE_WILD: ['Wild', 'Wild'],
   BATTLE_USE_BALL: ['Ném {ball}!', 'Throw {ball}!'],
   BATTLE_NO_ITEMS: ['Không có vật phẩm trong trận này!', 'No items in this battle!'],
+  BATTLE_BALL: ['🔮 BẮT', '🔮 BALL'],
+  BATTLE_CONNECTION_FAILED: ['Không kết nối được trận đấu...', 'Battle connection failed...'],
+  BATTLE_TURN: ['Lượt', 'Turn'],
+  BATTLE_SUPER_EFFECTIVE: ['Rất hiệu quả!', 'Super effective!'],
+  BATTLE_CRITICAL_HIT: ['Đòn đánh chí mạng!', 'Critical hit!'],
+  BATTLE_MISSED: ['Trượt rồi!', 'Missed!'],
 
 } as const satisfies Record<string, Entry>;
 

@@ -5,16 +5,14 @@ import { ColyseusManager } from '../network/ColyseusManager';
 import { t, mkText, onLangChange } from '../i18n';
 
 /**
- * BattleModal — **Cửa sổ battle dạng popup** (Plan 44 Phase 3b).
+ * BattleModal — **Cửa sổ battle dạng popup** (Plan 44 Phase 3b, hoàn thiện layout).
  *
- * Thay cho BattleScene riêng, trận wild hiện dưới dạng modal `lockUi` (khóa
- * gameplay phía dưới), tái sử dụng khung `UiModal` thống nhất của game.
- *
- * - Toàn bộ dữ liệu lấy từ **Colyseus state** của BattleRoom (server tính
- *   damage/EXP) — modal chỉ render + gửi lệnh.
- * - Sprite thật: `battlers/front|back/{species}.png` + battleback `grass_*`.
- * - Menu: FIGHT (4 chiêu + PP/type) / POKEMON (đổi người) / BAG / RUN.
- * - Khi kết thúc: overlay OK → `onFinished()` (WorldScene đóng modal + refresh).
+ * Layout chuẩn Pokémon:
+ * - Foe plate: góc trên trái (tên/level/HP)
+ * - Ally plate: góc dưới phải trên menu (tên/level/HP/EXP)
+ * - Sprite foe: bên phải, ally: bên trái
+ * - Menu: góc dưới phải (FIGHT/POKEMON/BALL/RUN)
+ * - Message box: đáy modal (2 dòng log)
  */
 
 export interface BattleInitData {
@@ -58,6 +56,28 @@ const COL = {
   btn: '#2f3f5f',
   btnHover: '#4a608c',
   btnOff: '#1e2636',
+  track: 0x1a2030,
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  normal: '#A8A878',
+  fire: '#F08030',
+  water: '#6890F0',
+  electric: '#F8D030',
+  grass: '#78C850',
+  ice: '#98D8D8',
+  fighting: '#C03028',
+  poison: '#A040A0',
+  ground: '#E0C068',
+  flying: '#A890F0',
+  psychic: '#F85888',
+  bug: '#A8B820',
+  rock: '#B8A038',
+  ghost: '#705898',
+  dragon: '#7038F8',
+  dark: '#705848',
+  steel: '#B8B8D0',
+  fairy: '#EE99AC',
 };
 
 export class BattleModal extends UiModal {
@@ -67,35 +87,41 @@ export class BattleModal extends UiModal {
   private ended = false;
   private unsubState?: () => void;
   private unsubLang?: () => void;
+  private stateListener?: (state: unknown) => void;
   private built = false;
 
-  /** moveId → thông tin chiêu (từ payload). */
   private moveInfo = new Map<string, MoveView>();
 
-  // ── Objects trong contentContainer ──
+  // ── Objects ──
   private bg?: Phaser.GameObjects.Graphics;
+  private battlebackImg?: Phaser.GameObjects.TileSprite;
   private foeSprite?: Phaser.GameObjects.Image;
   private allySprite?: Phaser.GameObjects.Image;
+  private foeShadow?: Phaser.GameObjects.Ellipse;
+  private allyShadow?: Phaser.GameObjects.Ellipse;
   private foeHp?: Phaser.GameObjects.Rectangle;
   private allyHp?: Phaser.GameObjects.Rectangle;
   private allyExp?: Phaser.GameObjects.Rectangle;
+  private foeHpTrack?: Phaser.GameObjects.Rectangle;
+  private allyHpTrack?: Phaser.GameObjects.Rectangle;
   private foeName?: Phaser.GameObjects.Text;
   private allyName?: Phaser.GameObjects.Text;
   private foeLvl?: Phaser.GameObjects.Text;
   private allyLvl?: Phaser.GameObjects.Text;
+  private foeHpText?: Phaser.GameObjects.Text;
+  private allyHpText?: Phaser.GameObjects.Text;
   private msgText?: Phaser.GameObjects.Text;
+  private msgText2?: Phaser.GameObjects.Text;
   private turnText?: Phaser.GameObjects.Text;
+  private popText?: Phaser.GameObjects.Text;
   private menuObjs: Phaser.GameObjects.GameObject[] = [];
   private endObjs: Phaser.GameObjects.GameObject[] = [];
   private lastFoeHp = -1;
   private lastAllyHp = -1;
   private lastLogLen = 0;
   private needSwitch = false;
+  private keyboardHandler?: (e: KeyboardEvent) => void;
 
-    /**
-   * Tải sprite battle (foe front / ally back / battleback) trước khi mở modal.
-   * Gọi 1 lần trước `new BattleModal(...)` — texture được cache theo key.
-   */
   static async loadTextures(scene: Phaser.Scene, data: BattleInitData): Promise<void> {
     const origin = (() => {
       const url: string = (import.meta as any).env?.VITE_SERVER_URL ?? 'ws://localhost:2567';
@@ -128,7 +154,6 @@ export class BattleModal extends UiModal {
     });
   }
 
-  /** Texture thiếu (404) → placeholder tròn. */
   private static ensureFallback(scene: Phaser.Scene, key: string, color: number): void {
     if (scene.textures.exists(key)) return;
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
@@ -147,7 +172,7 @@ export class BattleModal extends UiModal {
       width: M_W,
       height: M_H,
       lockUi: true,
-      showClose: false, // không cho đóng giữa trận
+      showClose: false,
       showMinimize: false,
       showDock: false,
       draggable: false,
@@ -158,18 +183,23 @@ export class BattleModal extends UiModal {
     this.init = data ?? {};
     this.collectMoveInfo();
 
-    // Đăng ký đồng bộ state ngay khi vào.
     const room = this.net.battle;
     if (room) {
-      room.onStateChange(() => this.syncFromState());
+      this.stateListener = () => this.syncFromState();
+      room.onStateChange(this.stateListener);
+      this.unsubState = () => {
+        if (this.stateListener) room.onStateChange.remove(this.stateListener);
+      };
     }
     this.unsubLang = onLangChange(() => this.refreshLabels());
     this.buildContent();
     this.show();
 
-    // Nếu không join được room → không kẹt người chơi.
+    this.keyboardHandler = (e: KeyboardEvent) => this.handleKey(e);
+    window.addEventListener('keydown', this.keyboardHandler);
+
     if (!room) {
-      this.msgText?.setText('Battle connection failed...');
+      this.msgText?.setText(t('BATTLE_CONNECTION_FAILED'));
       scene.time.delayedCall(1500, () => this.finish('error'));
     }
   }
@@ -203,46 +233,126 @@ export class BattleModal extends UiModal {
     BattleModal.ensureFallback(this.scene, 'battle_ally_back', 0x2980b9);
 
     const w = M_W;
-    const h = M_H - 34; // trừ header
-    const cc = this.contentContainer;
+    const h = M_H - 34; // 406
 
-    // Nền trời + mặt đất.
+    // Background: sky (0-60%) + ground (60-100%).
     this.bg = this.add(this.scene.add.graphics());
     this.bg.fillStyle(COL.sky, 1);
-    this.bg.fillRect(0, 0, w, h * 0.62);
+    this.bg.fillRect(0, 0, w, h * 0.6);
     this.bg.fillStyle(COL.ground, 1);
-    this.bg.fillRect(0, h * 0.62, w, h * 0.38);
+    this.bg.fillRect(0, h * 0.6, w, h * 0.4);
     this.bg.lineStyle(1, COL.border, 0.5);
     this.bg.strokeRect(0.5, 0.5, w - 1, h - 1);
 
-    // Sprite (đã load qua Image async ở open()).
-    this.foeSprite = this.add(this.scene.add.image(w * 0.72, h * 0.4, 'battle_foe_front'));
-    this.allySprite = this.add(this.scene.add.image(w * 0.26, h * 0.66, 'battle_ally_back'));
+    // Battleback overlay: dùng TileSprite giữ nguyên tỉ lệ pixel (không stretch
+// toàn khung → tránh hiệu ứng cỏ bị nhòe như bản cũ).
+    if (this.scene.textures.exists('battleback_ground')) {
+      const tex = this.scene.textures.get('battleback_ground').getSourceImage();
+      const groundH = h * 0.4;
+      this.battlebackImg = this.add(
+        this.scene.add
+          .tileSprite(0, h * 0.6, w, groundH, 'battleback_ground')
+          .setOrigin(0, 0)
+          .setAlpha(0.35),
+      );
+      // Căn giữa 1 lần tile theo trục X để không có mép cắt rõ.
+      if (tex && tex.width > 0) {
+        (this.battlebackImg as Phaser.GameObjects.TileSprite).tilePositionX = -(w % tex.width) / 2;
+      }
+    }
 
-    // Plates.
-    this.foeName = this.mkPlateLabel(14, 10, '');
-    this.foeLvl = this.mkPlateLabel(14, 30, '', 0.62);
-    this.foeHp = this.mkBar(14, 54, w * 0.42, COL.hpGreen);
+    // Platform shadows.
+    this.foeShadow = this.add(this.scene.add.ellipse(w * 0.7, h * 0.38 + 55, 120, 24, 0x000000, 0.35));
+    this.allyShadow = this.add(this.scene.add.ellipse(w * 0.25, h * 0.62 + 55, 120, 24, 0x000000, 0.35));
 
-    this.allyName = this.mkPlateLabel(w - 250, h * 0.66 + 20, '');
-    this.allyLvl = this.mkPlateLabel(w - 250, h * 0.66 + 40, '', 0.62);
-    this.allyHp = this.mkBar(w - 250, h * 0.66 + 64, 230, COL.hpGreen);
-    this.allyExp = this.mkBar(w - 250, h * 0.66 + 78, 230, COL.expBar);
+    // Sprites.
+    this.foeSprite = this.add(this.scene.add.image(w * 0.7, h * 0.38, 'battle_foe_front'));
+    this.allySprite = this.add(this.scene.add.image(w * 0.25, h * 0.62, 'battle_ally_back'));
+    this.fitSprite(this.foeSprite, 140);
+    this.fitSprite(this.allySprite, 140);
 
-    // Turn indicator + message box (đáy modal).
-    this.turnText = mkText(this.scene, 'BATTLE_CHOOSE_MOVE', ts(13, '#ffd76a', FONT.ui));
-    this.turnText.setPosition(14, h - 66);
-    this.add(this.turnText);
+    // ── FOE PLATE (góc trên trái) ──
+    const foePlateX = 14;
+    const foePlateY = 14;
+    const foePlateW = 240;
+    const foePlateH = 78;
+    this.drawPlate(foePlateX, foePlateY, foePlateW, foePlateH);
+    this.foeName = this.mkPlateLabel(foePlateX + 10, foePlateY + 8, '');
+    this.foeLvl = this.mkPlateLabel(foePlateX + 10, foePlateY + 28, '', 0.62);
+    this.foeHpTrack = this.mkBarTrack(foePlateX + 10, foePlateY + 50, foePlateW - 20);
+    this.foeHp = this.mkBar(foePlateX + 10, foePlateY + 50, foePlateW - 20, COL.hpGreen);
+    this.foeHpText = this.mkPlateLabel(foePlateX + foePlateW - 10, foePlateY + 62, '', 1);
 
+    // ── ALLY PLATE (góc dưới phải, TRÊN menu) ──
+    const allyPlateW = 240;
+    const allyPlateH = 95;
+    const allyPlateX = w - allyPlateW - 14;
+    const allyPlateY = h - 160 - allyPlateH; // h-160 = 246 → y = 246-95 = 151
+    this.drawPlate(allyPlateX, allyPlateY, allyPlateW, allyPlateH);
+    this.allyName = this.mkPlateLabel(allyPlateX + 10, allyPlateY + 8, '');
+    this.allyLvl = this.mkPlateLabel(allyPlateX + 10, allyPlateY + 28, '', 0.62);
+    this.allyHpTrack = this.mkBarTrack(allyPlateX + 10, allyPlateY + 50, allyPlateW - 20);
+    this.allyHp = this.mkBar(allyPlateX + 10, allyPlateY + 50, allyPlateW - 20, COL.hpGreen);
+    this.allyHpText = this.mkPlateLabel(allyPlateX + allyPlateW - 10, allyPlateY + 62, '', 1);
+    this.allyExp = this.mkBar(allyPlateX + 10, allyPlateY + 78, allyPlateW - 20, COL.expBar);
+
+    // ── MENU (góc dưới phải, DƯỚI ally plate) ──
+    // Menu Y starts at h - 140 = 266, 2 rows × 44px = 88 → ends at 354
+    // Message box: h - 50 = 356 → 406 (50px)
+    // Turn text: h - 66 = 340 → 354 (above message box)
+
+    // ── MESSAGE BOX (đáy) ──
     const msgBg = this.scene.add.rectangle(0, h - 50, w, 50, 0x0b101c).setOrigin(0, 0);
     msgBg.setStrokeStyle(1, COL.border);
     this.add(msgBg);
     this.msgText = mkText(this.scene, '', ts(14, '#f4f6fb', FONT.ui));
-    this.msgText.setPosition(14, h - 34);
+    this.msgText.setPosition(14, h - 44);
     this.add(this.msgText);
+    this.msgText2 = mkText(this.scene, '', ts(12, '#9aa0c3', FONT.ui));
+    this.msgText2.setPosition(14, h - 22);
+    this.add(this.msgText2);
+
+    // Turn text (trên message box).
+    this.turnText = mkText(this.scene, 'BATTLE_CHOOSE_MOVE', ts(13, '#ffd76a', FONT.ui));
+    this.turnText.setPosition(14, h - 66);
+    this.add(this.turnText);
+
+    // Pop text (effectiveness/crit).
+    this.popText = this.scene.add
+      .text(w / 2, h * 0.25, '', ts(20, '#ffd76a', FONT.ui))
+      .setOrigin(0.5)
+      .setAlpha(0);
+    this.add(this.popText);
 
     this.buildMenu();
     this.syncFromState();
+  }
+
+  private drawPlate(x: number, y: number, w: number, h: number): Phaser.GameObjects.Graphics {
+    const g = this.scene.add.graphics();
+    g.fillStyle(COL.plate, 0.85);
+    g.fillRoundedRect(x, y, w, h, 6);
+    g.lineStyle(1, COL.border, 0.8);
+    g.strokeRoundedRect(x, y, w, h, 6);
+    this.add(g);
+    return g;
+  }
+
+  /** Vẽ nền plate cho menu switch (tự xoá bản cũ, luôn nằm dưới buttons). */
+  private menuPlateGfx?: Phaser.GameObjects.Graphics;
+
+  private drawMenuPlate(x: number, y: number, w: number, h: number): void {
+    this.menuPlateGfx?.destroy();
+    this.menuPlateGfx = this.drawPlate(x, y, w, h);
+    // Đưa xuống đáy container (index 0) để không che các button.
+    this.contentContainer.moveTo(this.menuPlateGfx, 0);
+  }
+
+  private fitSprite(sprite: Phaser.GameObjects.Image, maxSize: number): void {
+    const tex = sprite.texture.getSourceImage();
+    if (!tex) return;
+    const scale = Math.min(maxSize / tex.width, maxSize / tex.height, 1);
+    sprite.setScale(scale);
   }
 
   private mkPlateLabel(x: number, y: number, text: string, originX = 0): Phaser.GameObjects.Text {
@@ -251,6 +361,13 @@ export class BattleModal extends UiModal {
       .setOrigin(originX, 0);
     this.add(txt);
     return txt;
+  }
+
+  private mkBarTrack(x: number, y: number, w: number): Phaser.GameObjects.Rectangle {
+    const track = this.scene.add.rectangle(x, y, w, 9, COL.track).setOrigin(0, 0);
+    track.setStrokeStyle(1, COL.border, 0.5);
+    this.add(track);
+    return track;
   }
 
   private mkBar(x: number, y: number, w: number, color: number): Phaser.GameObjects.Rectangle {
@@ -272,36 +389,48 @@ export class BattleModal extends UiModal {
     if (foe && this.foeHp) {
       this.foeName?.setText(foe.nickname || foe.speciesId);
       this.foeLvl?.setText(`Lv.${foe.level}`);
-      this.setBar(this.foeHp, foe.currentHp, foe.maxHp);
+      this.foeHpText?.setText(`${foe.currentHp}/${foe.maxHp}`);
+      this.tweenBar(this.foeHp, foe.currentHp, foe.maxHp);
       if (this.lastFoeHp >= 0 && foe.currentHp < this.lastFoeHp) this.flashHit(this.foeSprite);
       this.lastFoeHp = foe.currentHp;
     }
     if (ally && this.allyHp) {
       this.allyName?.setText(ally.nickname || ally.speciesId);
       this.allyLvl?.setText(`Lv.${ally.level}`);
-      this.setBar(this.allyHp, ally.currentHp, ally.maxHp);
+      this.allyHpText?.setText(`${ally.currentHp}/${ally.maxHp}`);
+      this.tweenBar(this.allyHp, ally.currentHp, ally.maxHp);
       const expPct =
         ally.expToNext > 0 ? Math.min(1, Math.max(0, (ally.exp ?? 0) / ally.expToNext)) : 1;
-      if (this.allyExp) this.allyExp.width = Math.max(0, 230 * expPct);
+      if (this.allyExp) this.allyExp.width = Math.max(0, 220 * expPct);
       if (this.lastAllyHp >= 0 && ally.currentHp < this.lastAllyHp) this.flashHit(this.allySprite);
       this.lastAllyHp = ally.currentHp;
     }
 
     if (this.turnText && !this.ended) {
       if (state.phase === 'switch' || this.needSwitch) this.turnText.setText(t('BATTLE_CHOOSE_POKÉMON'));
-      else if (state.phase === 'select') this.turnText.setText(`${t('BATTLE_CHOOSE_MOVE')} · Turn ${state.turn}`);
+      else if (state.phase === 'select') this.turnText.setText(`${t('BATTLE_CHOOSE_MOVE')} · ${t('BATTLE_TURN')} ${state.turn}`);
       else this.turnText.setText('');
     }
 
-    // Log mới → dòng cuối.
     const logArr: any[] = state.log ? Array.from(state.log) : [];
     if (logArr.length > this.lastLogLen) {
-      const entry = logArr[logArr.length - 1];
-      if (entry && this.msgText) this.msgText.setText(String(entry.text ?? ''));
+      const last = logArr[logArr.length - 1];
+      const prev = logArr.length > 1 ? logArr[logArr.length - 2] : null;
+      if (last && this.msgText) this.msgText.setText(String(last.text ?? ''));
+      if (prev && this.msgText2) this.msgText2.setText(String(prev.text ?? ''));
+      else if (this.msgText2) this.msgText2.setText('');
       this.lastLogLen = logArr.length;
+
+      const text = String(last?.text ?? '');
+      if (text.includes('super effective') || text.includes('Super effective')) {
+        this.showPop(t('BATTLE_SUPER_EFFECTIVE'));
+      } else if (text.includes('critical') || text.includes('Critical')) {
+        this.showPop(t('BATTLE_CRITICAL_HIT'));
+      } else if (text.includes('missed') || text.includes('Missed')) {
+        this.showPop(t('BATTLE_MISSED'));
+      }
     }
 
-    // Menu theo phase.
     if (state.phase === 'switch' && !this.needSwitch) {
       this.needSwitch = true;
       this.setMode('switch');
@@ -318,11 +447,17 @@ export class BattleModal extends UiModal {
     }
   }
 
-  private setBar(bar: Phaser.GameObjects.Rectangle, hp: number, max: number): void {
+  private tweenBar(bar: Phaser.GameObjects.Rectangle, hp: number, max: number): void {
     const pct = max > 0 ? Math.max(0, Math.min(1, hp / max)) : 0;
-    const wFull = (bar.getData('full') as number) ?? 230;
+    const wFull = (bar.getData('full') as number) ?? 220;
+    const targetW = Math.max(0, wFull * pct);
     bar.setData('full', wFull);
-    bar.width = Math.max(0, wFull * pct);
+    this.scene.tweens.add({
+      targets: bar,
+      width: targetW,
+      duration: 300,
+      ease: 'Power2',
+    });
     bar.fillColor = pct > 0.5 ? COL.hpGreen : pct > 0.2 ? COL.hpYellow : COL.hpRed;
   }
 
@@ -341,6 +476,41 @@ export class BattleModal extends UiModal {
       },
     });
     this.scene.time.delayedCall(240, () => sprite.clearTint());
+    this.spawnParticles(sprite.x, sprite.y);
+  }
+
+  private spawnParticles(x: number, y: number): void {
+    for (let i = 0; i < 8; i++) {
+      const p = this.scene.add.circle(x, y, 3, 0xffd76a, 0.8);
+      this.add(p);
+      const angle = (Math.PI * 2 * i) / 8;
+      this.scene.tweens.add({
+        targets: p,
+        x: x + Math.cos(angle) * 30,
+        y: y + Math.sin(angle) * 30,
+        alpha: 0,
+        scale: 0,
+        duration: 400,
+        ease: 'Power2',
+        onComplete: () => p.destroy(),
+      });
+    }
+  }
+
+  private showPop(text: string): void {
+    if (!this.popText) return;
+    this.popText.setText(text);
+    this.popText.setAlpha(0);
+    this.popText.setScale(0.5);
+    this.scene.tweens.add({
+      targets: this.popText,
+      alpha: 1,
+      scale: 1,
+      duration: 200,
+      ease: 'Back.easeOut',
+      yoyo: true,
+      hold: 600,
+    });
   }
 
   // ── Menu ────────────────────────────────────────────────────────────────
@@ -354,6 +524,8 @@ export class BattleModal extends UiModal {
   private clearMenu(): void {
     for (const o of this.menuObjs) o.destroy();
     this.menuObjs = [];
+    this.menuPlateGfx?.destroy();
+    this.menuPlateGfx = undefined;
   }
 
   private btn(
@@ -362,20 +534,24 @@ export class BattleModal extends UiModal {
     y: number,
     onClick?: () => void,
     disabled = false,
+    bgColor?: string,
+    width?: number,
   ): Phaser.GameObjects.Text {
     const txt = mkText(this.scene, label, {
       fontSize: '14px',
       fontFamily: FONT.ui,
       color: disabled ? '#6b7a94' : '#f4f6fb',
-      backgroundColor: disabled ? COL.btnOff : COL.btn,
+      backgroundColor: disabled ? COL.btnOff : (bgColor ?? COL.btn),
       padding: { x: 10, y: 8 },
-      align: 'left',
+      align: 'center',
+      fixedWidth: width ?? undefined,
     });
-    txt.setPosition(x, y).setOrigin(0, 0);
+    // Neo về mép phải khi width được cấp (originX=1) để không tràn khỏi modal.
+    txt.setPosition(x, y).setOrigin(width ? 1 : 0, 0);
     if (onClick && !disabled) {
       txt.setInteractive({ useHandCursor: true });
       txt.on('pointerover', () => txt.setStyle({ backgroundColor: COL.btnHover }));
-      txt.on('pointerout', () => txt.setStyle({ backgroundColor: COL.btn }));
+      txt.on('pointerout', () => txt.setStyle({ backgroundColor: bgColor ?? COL.btn }));
       txt.on('pointerdown', onClick);
     }
     this.contentContainer.add(txt);
@@ -386,20 +562,29 @@ export class BattleModal extends UiModal {
   private buildMenu(): void {
     this.clearMenu();
     if (this.ended) return;
-    const h = M_H - 34;
-    const baseY = h - 106;
+    const h = M_H - 34; // 406
+
+    // Menu area: bottom-right, above message box (h-50=356) and below ally plate.
+    // Ally plate ends at y = 151 + 95 = 246
+    // Menu starts at y = 266, 2 rows × 44 = 88 → ends at 354 (2px gap to msg box)
+    const menuBaseY = h - 140; // 266
     const state = this.net.battle?.state as any;
 
     if (this.mode === 'command') {
-      const x1 = M_W - 240;
-      const x2 = M_W - 120;
-      this.btn(t('BATTLE_FIGHT'), x1, baseY, () => this.setMode('move'));
-      this.btn(t('BATTLE_POKÉMON'), x2, baseY, () => this.setMode('switch'));
-      this.btn(t('BATTLE_BAG'), x1, baseY + 44, () => this.msgText?.setText(t('BATTLE_NO_ITEMS')), true);
-      this.btn(t('BATTLE_RUN'), x2, baseY + 44, () => {
+      const btnH = 36;
+      const gap = 10;
+      const rightEdge = M_W - 14;
+      const colW = 120;
+      // Nền menu: 2 cột × 2 hàng + padding — neo phải.
+      this.drawMenuPlate(rightEdge - colW * 2 - gap - 12, menuBaseY - 8, colW * 2 + gap + 24, btnH * 2 + gap + 16);
+
+      this.btn(t('BATTLE_FIGHT'), rightEdge - colW, menuBaseY, () => this.setMode('move'), false, undefined, colW);
+      this.btn(t('BATTLE_POKÉMON'), rightEdge, menuBaseY, () => this.setMode('switch'), false, undefined, colW);
+      this.btn(t('BATTLE_BALL'), rightEdge - colW, menuBaseY + btnH + gap, () => this.net.sendBattleCatch('poke_ball'), false, undefined, colW);
+      this.btn(t('BATTLE_RUN'), rightEdge, menuBaseY + btnH + gap, () => {
         this.net.sendBattleRun();
         this.setMode('command');
-      });
+      }, false, undefined, colW);
       return;
     }
 
@@ -407,14 +592,22 @@ export class BattleModal extends UiModal {
       const ally = state?.ally?.team?.[state.ally.activeIndex ?? 0];
       const moves: string[] = ally?.moves ? Array.from(ally.moves) : [];
       const pp: number[] = ally?.pp ? Array.from(ally.pp) : [];
-      const x1 = M_W - 340;
-      const x2 = M_W - 175;
+      const btnH = 36;
+      const gap = 6;
+      const rightEdge = M_W - 14;
+      const colW = 150;
+      const rows = Math.max(2, Math.ceil(Math.max(moves.length, 3) / 2));
+      // Nền menu: rows hàng moves + 1 hàng Back.
+      const plateH = (rows + 1) * (btnH + gap) + gap + 4;
+      this.drawMenuPlate(rightEdge - colW * 2 - gap - 12, menuBaseY - 8, colW * 2 + gap + 24, plateH);
+
       moves.forEach((id, i) => {
-        const cx = i % 2 === 0 ? x1 : x2;
-        const cy = baseY + Math.floor(i / 2) * 44;
+        const cx = i % 2 === 0 ? rightEdge - colW - gap : rightEdge;
+        const cy = menuBaseY + Math.floor(i / 2) * (btnH + gap);
         const left = pp[i] ?? 0;
         const info = this.moveInfo.get(id);
-        const label = info ? `${info.name} [${info.type}] ${left}/${info.maxPp}` : `${id} ${left}`;
+        const typeColor = info ? (TYPE_COLORS[info.type] ?? COL.btn) : COL.btn;
+        const label = info ? `${info.name} ${left}/${info.maxPp}` : `${id} ${left}`;
         this.btn(
           label,
           cx,
@@ -424,30 +617,78 @@ export class BattleModal extends UiModal {
             this.setMode('command');
           },
           left <= 0,
+          typeColor,
+          colW,
         );
       });
-      this.btn(t('BATTLE_BACK'), x1, baseY + 96, () => this.setMode('command'));
+
+      // Back button ở hàng cuối — neo phải.
+      this.btn(t('BATTLE_BACK'), rightEdge, menuBaseY + rows * (btnH + gap), () => this.setMode('command'), false, undefined, colW);
       return;
     }
 
     if (this.mode === 'switch') {
       const team: any[] = state?.ally?.team ? Array.from(state.ally.team) : [];
       const activeIdx = state?.ally?.activeIndex ?? 0;
-      const startY = Math.max(6, h - 106 - 200);
+      const btnH = 36;
+      const gap = 6;
+
+      // Panel chiếm bên trái (menu vẫn neo phải).
+      const panelW = 340;
+      const panelH = Math.min(team.length * (btnH + gap) + gap * 2, h - 140);
+      const panelX = 14;
+      const panelY = h - 100 - panelH; // Fit above message box (h-50)
+
+      this.drawMenuPlate(panelX, panelY, panelW, panelH);
+
       team.forEach((p, i) => {
         const disabled = i === activeIdx || p.currentHp <= 0;
+        const btnY = panelY + gap + i * (btnH + gap);
+        if (btnY + btnH > panelY + panelH - gap) return; // Không tràn panel
         this.btn(
           `${p.nickname || p.speciesId} Lv.${p.level}  ${p.currentHp}/${p.maxHp}`,
-          14,
-          startY + i * 38,
+          panelX + panelW - gap,
+          btnY,
           () => {
             this.net.sendBattleSwitch(i);
             this.setMode('command');
           },
           disabled,
+          undefined,
+          panelW - gap * 2,
         );
       });
-      this.btn(t('BATTLE_BACK'), 14, startY + team.length * 38 + 4, () => this.setMode('command'));
+
+      // Back button ở đáy panel — neo phải.
+      const backY = panelY + panelH - btnH - gap;
+      this.btn(t('BATTLE_BACK'), panelX + panelW - gap, backY, () => this.setMode('command'), false, undefined, panelW - gap * 2);
+    }
+  }
+
+  // ── Keyboard ────────────────────────────────────────────────────────────
+
+  private handleKey(e: KeyboardEvent): void {
+    if (this.ended) return;
+    if (this.mode === 'command') {
+      if (e.key === '1') this.setMode('move');
+      else if (e.key === '2') this.setMode('switch');
+      else if (e.key === '3') this.net.sendBattleCatch('poke_ball');
+      else if (e.key === '4') {
+        this.net.sendBattleRun();
+        this.setMode('command');
+      }
+    } else if (this.mode === 'move') {
+      const idx = parseInt(e.key) - 1;
+      if (idx >= 0 && idx < 4) {
+        this.net.sendBattleMove(idx);
+        this.setMode('command');
+      } else if (e.key === 'Escape' || e.key === 'Backspace') {
+        this.setMode('command');
+      }
+    } else if (this.mode === 'switch') {
+      if (e.key === 'Escape' || e.key === 'Backspace') {
+        this.setMode('command');
+      }
     }
   }
 
@@ -512,6 +753,9 @@ export class BattleModal extends UiModal {
     super.close();
     this.unsubState?.();
     this.unsubLang?.();
+    if (this.keyboardHandler) {
+      window.removeEventListener('keydown', this.keyboardHandler);
+    }
     for (const o of this.endObjs) o.destroy();
     this.endObjs = [];
     this.destroy();

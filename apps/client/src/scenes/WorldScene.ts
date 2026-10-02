@@ -381,6 +381,16 @@ export class WorldScene extends Phaser.Scene {
     remote.onMessage('move_rejected', (data) => this.onMoveRejected(data));
     // Server roll encounter xong → vào trận wild (Plan 44 Phase 0).
     remote.onMessage('battle_init', (data) => this.onBattleInit(data));
+    // Server phản hồi lệnh debug `/spawn` (đã qua kiểm tra role).
+    remote.onMessage('debug_msg', (data) => this.onDebugMsg(data));
+  }
+
+  /** Server trả kết quả lệnh debug (`/spawn`) → hiện vào khung chat. */
+  private onDebugMsg(data: any): void {
+    const msg = String(data?.message ?? '').trim();
+    if (!msg) return;
+    const color = data?.level === 'error' ? '#ff7675' : '#55efc4';
+    this.chatLog?.addSystemLine(msg, color);
   }
 
   /** Server đã roll encounter → dừng di chuyển, vào battle room bằng token. */
@@ -1036,15 +1046,18 @@ export class WorldScene extends Phaser.Scene {
     // Nạp dữ liệu Pokémon của người chơi từ server
     this.loadPlayerPokemon();
 
-    // ChatLog (phải-dưới)
+    // ChatLog (phải-dưới) — có ô nhập chữ cố định, nhận chat + lệnh `/`.
     this.chatLog = new ChatLog(
       this,
-      (msg) => {
-        ColyseusManager.getInstance().sendChat(msg);
-      },
+      (msg) => this.handleChatInput(msg),
       () => this.settingsPanel?.setHudCheckbox('chat', false),
     );
     this.chatLog.setUiZoomManager(this.uiZoom);
+    // Moderator+ → ô chat gợi ý lệnh debug (bấm Enter để focus nhanh).
+    this.chatLog.setDebugMode(ColyseusManager.getInstance().hasDebugAccess());
+    if (this.input.keyboard) {
+      this.input.keyboard.on('keydown-ENTER', () => this.chatLog?.focusInput());
+    }
 
     // Minimap (popup dưới InfoPanel — mặc định ẩn, bật qua icon GPS)
     this.minimap = new Minimap(this);
@@ -2618,11 +2631,43 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Xử lý nội dung gõ trong ô chat.
+   *
+   * - Bắt đầu bằng `/` → **lệnh debug**, chỉ chạy khi tài khoản đủ quyền
+   *   (moderator+). Không đủ quyền → báo lỗi, KHÔNG gửi lên server.
+   * - Còn lại → chat thường qua WorldRoom.
+   */
+  private handleChatInput(msg: string): void {
+    const text = msg.trim();
+    if (!text) return;
+    const net = ColyseusManager.getInstance();
+
+    if (!text.startsWith('/')) {
+      net.sendChat(text);
+      return;
+    }
+
+    // Lệnh debug — yêu cầu moderator+.
+    if (!net.hasDebugAccess()) {
+      this.chatLog?.addSystemLine(`${t('CHAT_CMD_DENIED')}  ${text}`, '#ff7675');
+      return;
+    }
+
+    const result = this.handleDebugCommand(text);
+    if (result) {
+      // `handleDebugCommand` trả về 1 chuỗi (có thể nhiều dòng) → hiện nguyên khối
+      // trong chat (tự tạm mở rộng số dòng nếu output dài).
+      this.chatLog?.addSystemBlock(String(result));
+    }
+  }
+
   private handleDebugCommand(cmd: string): string | void {
     const parts = cmd.trim().split(/\s+/);
     const action = parts[0]?.toLowerCase();
 
     if (action === '/help') {
+      // `/help` hiển thị mọi lệnh (gồm cả các cửa sổ debug có sẵn).
       return [
         t('WS_HELP_HEADER'),
         t('WS_HELP_HELP'),
@@ -2635,7 +2680,31 @@ export class WorldScene extends Phaser.Scene {
         t('WS_HELP_OVERLAY'),
         t('WS_HELP_LAYER'),
         t('WS_HELP_CLEAR'),
+        t('WS_HELP_SPAWN'),
       ].join('\n');
+    }
+
+    // `/spawn [dexNum]` — gọi cửa sổ battle với 1 Pokémon wild (server-authoritative).
+    if (action === '/spawn') {
+      const arg = parts[1];
+      let dexNum: number | undefined;
+      if (arg !== undefined && arg.toLowerCase() !== 'random') {
+        const n = parseInt(arg, 10);
+        if (!Number.isInteger(n) || n < 1 || n > 1025) {
+          return t('WS_HELP_SPAWN_USAGE');
+        }
+        dexNum = n;
+      } else if (arg === undefined) {
+        // Bỏ trống → server tự random (trong encounter table của map).
+        dexNum = undefined;
+      } else {
+        // `/spawn random` → ép server random.
+        dexNum = undefined;
+      }
+      ColyseusManager.getInstance().sendDebugSpawn(dexNum);
+      return dexNum !== undefined
+        ? `[debug] Đang gọi /spawn ${dexNum}...`
+        : `${t('WS_HELP_NO_ARGS')}`;
     }
 
     if (action === '/map') {

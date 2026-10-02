@@ -381,6 +381,11 @@ export class ColyseusManager {
     this.worldRoom?.send('chat', { message });
   }
 
+  /** Debug: yêu cầu server mở trận wild với dexNum cụ thể (bỏ trống = random). */
+  sendDebugSpawn(dexNum?: number): void {
+    this.worldRoom?.send('debug_spawn', { dexNum });
+  }
+
   sendBattleMove(moveIndex: number): void {
     this.battleRoom?.send('battle_move', { moveIndex });
   }

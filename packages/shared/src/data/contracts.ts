@@ -74,6 +74,8 @@ export type LearnSetEntry = z.infer<typeof LearnSetEntrySchema>;
 // ===== Species =====
 export const SpeciesSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
+  /** Số thứ tự trong Pokédex (1-1025) — dùng cho lệnh debug `/spawn <dexNum>`. */
+  dexNum: z.number().int().min(1).max(1025).optional(),
   name: z.string().min(1).max(32),
   category: z.string().min(1).max(64),
   types: z.array(ElementTypeSchema).min(1).max(2),

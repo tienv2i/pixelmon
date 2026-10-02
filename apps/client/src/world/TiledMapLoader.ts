@@ -2,11 +2,6 @@ import Phaser from 'phaser';
 // Kiểu `*.png?url` đã khai báo trong `src/vite-env.d.ts` → không cần ts-ignore.
 import outdoorTilesetUrl from '@pixelmon/shared/assets/tilesets/Outdoor.png?url';
 import interiorTilesetUrl from '@pixelmon/shared/assets/tilesets/Interior general.png?url';
-import lappetTownMap from '@pixelmon/shared/data/maps/tiled/lappet-town.tmj';
-import route1Map from '@pixelmon/shared/data/maps/tiled/route-1.tmj';
-import pokemonLabMap from '@pixelmon/shared/data/maps/tiled/pokemon-lab.tmj';
-import playersHouseMap from '@pixelmon/shared/data/maps/tiled/players-house.tmj';
-import daisysHouseMap from '@pixelmon/shared/data/maps/tiled/daisys-house.tmj';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — TS6059: type nằm ngoài rootDir của client (packages/shared/data)
 import type { TiledMapJSON, TiledTileset } from '@pixelmon/shared/data/maps/tiled/types';
@@ -16,24 +11,61 @@ import type { TiledMapJSON, TiledTileset } from '@pixelmon/shared/data/maps/tile
  *
  * Dữ liệu map: `packages/shared/data/maps/tiled/*.tmj` + `assets/tilesets/Outdoor.png`.
  * Mỗi .tmj có 3 tilelayer: Ground, Decoration, Overhead + 1 objectgroup.
+ *
+ * QUY ƯỚC NGUỒN SỰ THẬT: mọi `.tmj` trong thư mục trên **tự động** được đăng ký bằng
+ * `import.meta.glob` — thêm map mới chỉ cần copy file `.tmj` vào thư mục rồi rebuild,
+ * KHÔNG phải sửa code (xem `plan-tiled-first.md` Phase 1).
  */
 
-/** Registry các map ID có sẵn trong repo (khớp MapInfos.rxdata). */
-export const TILED_MAPS: Record<string, TiledMapJSON> = {
-  'lappet-town': lappetTownMap,
-  'route-1': route1Map,
-  'pokemon-lab': pokemonLabMap,
-  'players-house': playersHouseMap,
-  'daisys-house': daisysHouseMap,
-  // Aliases
-  'pallet-town': lappetTownMap,
-  'interior-lab': pokemonLabMap,
-  'interior-player-house': playersHouseMap,
-  'interior-rival-house': daisysHouseMap,
-} as Record<string, TiledMapJSON>;
+// ─────────────────────────────────────────────────────────────────────────────
+// Registry map tự động
+// ─────────────────────────────────────────────────────────────────────────────
 
-/** Danh sách map ID có sẵn (dùng cho WorldScene dropdown + admin). */
-export const AVAILABLE_MAP_IDS = Object.keys(TILED_MAPS);
+/**
+ * Tự động nạp MỌI `.tmj` trong `packages/shared/data/maps/tiled/`.
+ * - Alias path `@pixelmon/shared/...` được Vite glob hỗ trợ (resolve qua `resolve.alias`).
+ * - `import: 'default'` → giá trị mỗi entry là chính object JSON (plugin `vite-plugin-tmj-json`
+ *   đã biến `.tmj` thành `export default JSON.parse(...)`).
+ * - `eager: true` → nạp đồng bộ, đồng thời để Vite đưa mọi map vào bundle.
+ */
+const TMJ_MODULES = import.meta.glob('@pixelmon/shared/data/maps/tiled/*.tmj', {
+  eager: true,
+  import: 'default',
+}) as Record<string, unknown>;
+
+/** File `.tmj` có tên thuần số (`2.tmj`, `5.tmj`…) = output cũ của converter RMXP. Bỏ qua. */
+const LEGACY_NUMERIC_FILE = /^\d+$/;
+
+/** Alias mapId cũ → mapId chính (giữ tương thích ngược cho client/server đã lưu DB). */
+export const TILED_MAP_ALIASES: Record<string, string> = {
+  'pallet-town': 'lappet-town',
+  'route_1': 'route-1',
+  'interior-lab': 'pokemon-lab',
+  'interior-player-house': 'players-house',
+  'interior-rival-house': 'daisys-house',
+  oak_lab: 'pokemon-lab',
+};
+
+/** Registry các map ID tự động phát hiện trong repo (khớp MapInfos.rxdata). */
+export const TILED_MAPS: Record<string, TiledMapJSON> = {};
+
+for (const [modulePath, mapJson] of Object.entries(TMJ_MODULES)) {
+  const fileName = modulePath.split('/').pop() ?? '';
+  const mapId = fileName.replace(/\.tmj$/, '');
+  if (!mapId || LEGACY_NUMERIC_FILE.test(mapId)) continue;
+  if (!mapJson || typeof mapJson !== 'object') continue;
+  TILED_MAPS[mapId] = mapJson as TiledMapJSON;
+}
+
+// Gắn alias sau khi đã nạp bản chính (tránh alias đè lên map thật).
+for (const [alias, target] of Object.entries(TILED_MAP_ALIASES)) {
+  if (TILED_MAPS[target] && !TILED_MAPS[alias]) TILED_MAPS[alias] = TILED_MAPS[target]!;
+}
+
+/** Danh sách map ID "thật" (bỏ alias) — dùng cho WorldScene dropdown + admin. */
+export const AVAILABLE_MAP_IDS: string[] = Object.keys(TILED_MAPS).filter(
+  (id) => !(id in TILED_MAP_ALIASES),
+);
 
 /** Map mặc định load khi vào game (khớp rxmapdata). */
 export const DEFAULT_MAP_ID = 'lappet-town';

@@ -49,6 +49,7 @@ import {
   getAdminMapDetail,
   updateAdminMap,
   importEssentialsMap,
+  regenerateAdminMap,
 } from './modules/admin/maps.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -78,6 +79,16 @@ export function createApp(): Express {
   // ── Static pages (landing + admin) ──
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
+  // ── Tiled maps (.tmj) — runtime fetch fallback cho client ──
+  // Client bundle dùng `import.meta.glob`; đây là bản backup nếu cần tải map
+  // ngoài bundle (xem plan-tiled-first.md Phase 1.3).
+  app.use(
+    '/maps/tiled',
+    express.static(
+      path.join(__dirname, '..', '..', '..', 'packages', 'shared', 'data', 'maps', 'tiled'),
+    ),
+  );
+
   // ── Auth ──
   app.use('/api/auth', authRouter);
 
@@ -106,6 +117,7 @@ export function createApp(): Express {
   app.get('/api/admin/maps', requireAuth, requireAdmin, listAdminMaps);
   app.get('/api/admin/maps/:id', requireAuth, requireAdmin, getAdminMapDetail);
   app.patch('/api/admin/maps/:id', requireAuth, requireAdmin, updateAdminMap);
+  app.post('/api/admin/maps/:id/regenerate', requireAuth, requireAdmin, regenerateAdminMap);
   app.post('/api/admin/maps/import', requireAuth, requireAdmin, importEssentialsMap);
 
   // ── Thư viện sprite nhân vật ──

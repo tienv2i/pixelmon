@@ -1,7 +1,7 @@
 {
   "mapId": "daisys-house",
   "name": "Daisy's House",
-  "description": "Daisy's House ported from Pok\u00e9mon Essentials.",
+  "description": "Daisy's House ported from Pokémon Essentials.",
   "mapType": "interior",
   "music": "daisys-house",
   "weather": "sunny",
@@ -320,65 +320,70 @@
     {
       "id": 1,
       "name": "Exit",
+      "x": 3,
+      "y": 9,
+      "width": 32,
+      "height": 32,
+      "visible": true,
       "type": "warp",
       "toMap": "lappet-town",
       "toX": 17,
-      "toY": 7,
-      "x": 3,
-      "y": 9,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "toY": 7
     },
     {
       "id": 2,
       "name": "Daisy",
-      "type": "event",
       "x": 5,
       "y": 4,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 3,
       "name": "Dr Footstep",
-      "type": "event",
       "x": 1,
       "y": 4,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 4,
       "name": "Effort ribbon giver",
-      "type": "event",
       "x": 2,
       "y": 4,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 5,
       "name": "Contest ribbon giver",
-      "type": "event",
       "x": 3,
       "y": 4,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 6,
       "name": "Stats judge",
-      "type": "event",
       "x": 8,
       "y": 4,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     }
   ],
   "encounters": [],

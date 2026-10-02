@@ -2,6 +2,7 @@
   "name": "pixelmon",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Pokemon MMORPG - Phaser 3 + Colyseus Monorepo",
   "scripts": {
     "dev": "turbo run dev",
@@ -15,6 +16,7 @@
     "pm:logs": "bash scripts/pm.sh logs",
     "pm:watch": "bash scripts/pm.sh watch",
     "build": "turbo run build",
+    "build:map": "node scripts/build-server-map.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

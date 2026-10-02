@@ -1,7 +1,7 @@
 {
   "mapId": "route-1",
   "name": "Route 1",
-  "description": "Route 1 ported from Pok\u00e9mon Essentials.",
+  "description": "Route 1 ported from Pokémon Essentials.",
   "mapType": "route",
   "music": "route-1",
   "weather": "sunny",
@@ -884,114 +884,210 @@
     {
       "id": 1,
       "name": "Kurt door",
-      "type": "event",
       "x": 11,
       "y": 6,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 2,
       "name": "BerryPlant",
-      "type": "event",
       "x": 9,
       "y": 16,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 3,
       "name": "BerryPlant",
-      "type": "event",
       "x": 10,
       "y": 16,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 4,
       "name": "BerryPlant",
-      "type": "event",
       "x": 9,
       "y": 18,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 5,
       "name": "BerryPlant",
-      "type": "event",
       "x": 10,
       "y": 18,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 6,
       "name": "BerryPlant",
-      "type": "event",
       "x": 14,
       "y": 16,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 7,
       "name": "BerryPlant",
-      "type": "event",
       "x": 15,
       "y": 16,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 8,
       "name": "BerryPlant",
-      "type": "event",
       "x": 14,
       "y": 18,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 9,
       "name": "BerryPlant",
-      "type": "event",
       "x": 15,
       "y": 18,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 10,
       "name": "Apricorn tree",
-      "type": "event",
       "x": 10,
       "y": 10,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     },
     {
       "id": 11,
       "name": "Item",
-      "type": "event",
       "x": 26,
       "y": 14,
-      "width": 1,
-      "height": 1,
-      "visible": true
+      "width": 32,
+      "height": 32,
+      "visible": true,
+      "type": "event",
+      "properties": []
     }
   ],
-  "encounters": [],
+  "encounters": [
+    {
+      "species": "patrat",
+      "minLevel": 9,
+      "maxLevel": 14,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "lillipup",
+      "minLevel": 8,
+      "maxLevel": 11,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "pikachu",
+      "minLevel": 9,
+      "maxLevel": 13,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "minccino",
+      "minLevel": 9,
+      "maxLevel": 12,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "deerling",
+      "minLevel": 8,
+      "maxLevel": 12,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "pidove",
+      "minLevel": 9,
+      "maxLevel": 13,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "gothita",
+      "minLevel": 7,
+      "maxLevel": 11,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "emolga",
+      "minLevel": 9,
+      "maxLevel": 12,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "axew",
+      "minLevel": 9,
+      "maxLevel": 9,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "axew",
+      "minLevel": 10,
+      "maxLevel": 11,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "mienfoo",
+      "minLevel": 8,
+      "maxLevel": 10,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "munna",
+      "minLevel": 13,
+      "maxLevel": 13,
+      "weight": 25,
+      "rarity": "common"
+    }
+  ],
   "requiredBadges": []
 }

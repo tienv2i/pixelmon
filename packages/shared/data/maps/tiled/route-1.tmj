@@ -2860,6 +2860,33 @@
   "nextlayerid": 5,
   "nextobjectid": 12,
   "orientation": "orthogonal",
+  "properties": [
+    {
+      "name": "name",
+      "type": "string",
+      "value": "Route 1"
+    },
+    {
+      "name": "mapType",
+      "type": "string",
+      "value": "route"
+    },
+    {
+      "name": "music",
+      "type": "string",
+      "value": "route-1"
+    },
+    {
+      "name": "weather",
+      "type": "string",
+      "value": "sunny"
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "value": "Route 1 ported from Pok\u00e9mon Essentials."
+    }
+  ],
   "renderorder": "right-down",
   "tiledversion": "1.10.2",
   "tileheight": 32,
@@ -2869,14 +2896,811 @@
       "columns": 8,
       "firstgid": 1,
       "image": "assets/tilesets/Outdoor.png",
-      "imageheight": 22080,
+      "imageheight": 16096,
       "imagewidth": 256,
       "margin": 0,
       "name": "outdoor",
       "spacing": 0,
-      "tilecount": 5520,
+      "tilecount": 4024,
       "tileheight": 32,
-      "tilewidth": 32
+      "tilewidth": 32,
+      "tiles": [
+        {
+          "id": 1,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 153,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 154,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 155,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 156,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 158,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "id": 161,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "id": 162,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "id": 163,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "id": 169,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "id": 170,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "id": 171,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "id": 172,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "id": 174,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "id": 416,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 417,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 418,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 419,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 420,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 421,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 424,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 425,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 426,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 427,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 434,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 435,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 616,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 617,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 618,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 624,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 625,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 626,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 810,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 4
+            }
+          ]
+        },
+        {
+          "id": 814,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 4
+            }
+          ]
+        },
+        {
+          "id": 828,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 13
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": 1272,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "terrain_tag",
+              "type": "int",
+              "value": 13
+            }
+          ]
+        },
+        {
+          "id": 1278,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1279,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1280,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1281,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1288,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1289,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1292,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1294,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1295,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1296,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1297,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1298,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1400,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1401,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1402,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1403,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1404,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1408,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1409,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1410,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1411,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1412,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1416,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1417,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1418,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1419,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1420,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1424,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1425,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1426,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1427,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1428,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        }
+      ]
     }
   ],
   "type": "map",

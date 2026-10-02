@@ -1,10 +1,67 @@
 # Project Status — Pixelmon (Pokémon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-02** (Sửa lỗi di chuyển Lappet Town 6,11→6,10: chuyển terrain tag 10 từ LEDGE_SOUTH sang GRASS theo script Essentials `TerrainTag` (`:TallGrass, :id_number=>10`); tag 2 cũng đổi sang GRASS; 7 ô ledge → 0; typecheck 4/4 sạch)  
+> Cập nhật lần cuối: **2026-10-02** (Plan 41 Phase 5 — Admin Maps: route `POST /api/admin/maps/:id/regenerate` + `computeMapStats()` + nút "♻️ Regenerate JSON" + card "Thống kê Map"; typecheck 4/4 sạch)  
+> **2026-10-02 (bổ sung):** Plan 41 Phase 3 — Tiled template `templates/pixelmon-map-template.tmj` + doc `docs/tiled-workflow.md`; fix bug `mapId is not defined` trong `deriveCollision`.  
+> **2026-10-02 (bổ sung):** Plan 41 Phase 2 — `pnpm run build:map <id>` sinh server JSON từ `.tmj`; ⚠️ heuristic thuần layer sai 27% vì RMXP `passages`/`terrain_tags` là per-tile mà TMJ không lưu → cần tile property ở Phase 4; server JSON cũ đã restore.  
+> **2026-10-02 (bổ sung):** Plan 41 Phase 1 — Tiled-first: `TiledMapLoader.ts` chuyển static import → `import.meta.glob`, thêm route static `/maps/tiled` trên Express; thêm map mới chỉ bằng copy `.tmj` + rebuild, không sửa code; typecheck 4/4 sạch.  
+> **2026-10-02 (bổ sung):** Sửa lỗi di chuyển Lappet Town 6,11→6,10: chuyển terrain tag 10 từ LEDGE_SOUTH sang GRASS theo script Essentials `TerrainTag` (`:TallGrass, :id_number=>10`); tag 2 cũng đổi sang GRASS; 7 ô ledge → 0; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Sửa converter hardcode tileset `Outdoor.png` cho mọi map → đọc `@tileset_name` từ RMXP, emit đúng `Interior general.png` (256×8032, 2008 tiles) cho 3 map nội thất; re-convert 4 map; `lappet-town.tmj` sửa imageheight 22080→16096, tilecount 5520→4024. Xem `fix-plan.md` mục 1.1/1.2.  
 > **2026-10-02 (bổ sung 2):** Chuyển di chuyển từ **snap 32px** sang **Delta Grid-Step** (nội suy trượt ô theo delta) + **Input Buffering** (`bufferedDir`) + **LERP remote player**. Xem `fix-plan.md` mục 3.1/3.2.  
 > **2026-10-02 (bổ sung 3):** Di chuyển bảng debug (`DebugModal.ts`) vào **tab `🛠 Debug` của Settings Panel** — tab chỉ hiện cho tài khoản `moderator` trở lên; thêm công cụ **Grid Overlay** & **Coordinate Tracking**; icon Debug Toolbar trên TopMenu có thể ẩn/hiện. Xem mục 4.2.  
 > **2026-10-02 (bổ sung 4):** Sửa 3 lỗi di chuyển & vị trí đứng theo `fix-plan-2.md` (double-step, độ trễ, chân lơ lửng) + sửa frame đi bộ nhảy quá nhanh (26fps → ~6.7fps). Xem mục 9.  
+> **2026-10-02 (bổ sung 5):** Mở rộng tab `🛠 Debug` — thêm **2 overlay** (Vùng va chạm, Điểm warp) + **3 nút bật/tắt lớp tilemap** (Nền/Trang trí/Che trên) + 2 lệnh CLI `/overlay`, `/layer`.  
+> **2026-10-02 (bổ sung 6):** **Tách rời hệ thống Debug Client thành các module chuyên biệt:**  
+> - Phục hồi `SettingsPanel.ts` về trạng thái nguyên bản sạch sẽ (không còn code debug rải rác).  
+> - Tạo `DebugModal.ts` (580×480) gồm 2 phần: Tab 1 (Thông tin hệ thống thời gian thực có các nút `[ 📌 Ghim ]` trên từng card + thanh Action bar `📌 Mở Panel Tracking` & `👻 Đi xuyên tường`) & Tab 2 (Bật/tắt Overlay, Tilemap layers, Speed, Teleport nhanh).  
+> - Tạo `DebugConsole.ts` (380×290, dock bên phải tương tự Chat): hỗ trợ lịch sử lệnh (ArrowUp/Down) và bộ lệnh phong phú (`/help`, `/map`, `/pos`, `/server`, `/noclip`, `/speed`, `/tp`, `/overlay`, `/layer`, `/clear`).  
+> - Nâng cấp `DebugTrackerWidget.ts` (250×156) thành **modal không titlebar** (`showTitleBar: false`), neo bên cạnh phải màn hình game (`top-right`), theo dõi tracking liên tục (Bản đồ, Toạ độ chuột, Toạ độ nhân vật, Camera, FPS) và có nút toggle Xuyên tường (NOCLIP) trực quan.  
+> - **Cơ chế Stack tự động cột phải (`layoutRightColumn`):** Quản lý toàn bộ panel cạnh phải theo dạng STACK dọc (`InfoPanel` ➔ `Minimap` ➔ `DebugTrackerWidget` ➔ `DebugConsole`), tự động dồn xuống / trượt lên khi bất kỳ panel nào đóng/mở.  
+> - Hoàn thiện cơ chế **NOCLIP** trong `WorldScene.ts`: đi xuyên qua mọi va chạm (tường, nước, đá...) và bỏ qua reject vị trí từ server khi bật Noclip.  
+> - `pnpm run typecheck` 4/4 packages sạch sẽ 100%.  
+> **2026-10-02 (bổ sung 7):** **Lưu trọn bộ Settings & Toạ độ người dùng khi Login / Logout:**  
+> - **Lưu toạ độ & map:** Sửa `apps/server/src/modules/auth/login.ts` trả về `player: { x, y, mapId, direction }`; `ColyseusManager.ts` lưu `savedLocation`, tự động tham gia đúng room `mapId` đã lưu; `WorldScene.ts` nạp đúng map đã lưu và spawn chuẩn xác; cập nhật toạ độ khi di chuyển, dịch chuyển, đổi map, đóng tab (`beforeunload`) và xác nhận đăng xuất (`confirmLogout`).  
+> - **Lưu & phục hồi Settings:** Tạo `SettingsStorage.ts` quản lý `pixelmon.settings` (HUD profile/clock/party/chat/minimap/miniMode, Gameplay names/targetMarker/grid/autoRun/scrollToZoom/moveButton, Audio bgm/sfx, System lang, Zoom gameZoom); `SettingsPanel.ts` tự động nạp khi mở game, lưu realtime khi thay đổi và khôi phục chuẩn khi reset; `WorldScene.ts` áp dụng các cài đặt hiển thị HUD/Zoom ngay khi khởi tạo scene.  
+> - `pnpm run typecheck` 4/4 packages sạch sẽ 100%.  
+> **2026-10-02 (bổ sung 8):** **Bổ sung Top Drag Padding cho thư viện `UiModal` & Áp dụng cho khung Party:**  
+> - Thêm tuỳ chọn `topDragPadding` và `showDragGrip` vào `UiModal.ts`: tạo một khoảng đệm ở trên đỉnh panel dùng làm vùng kéo rê (drag handle) khi modal không dùng Title Bar (`showTitleBar: false`). Vùng này không có title text hay bất kỳ nút bấm nào, có vạch grip handle tinh tế ở giữa tự động highlight khi hover/drag.  
+> - Áp dụng vào khung Party (`PartyStrip.ts`): đặt `topDragPadding: 14`, `showDragGrip: true`, `draggable: true`, `docked: false` — cho phép người chơi dễ dàng kéo thả di chuyển khung danh sách Pokémon trong đội hình đi khắp màn hình một cách tự nhiên.  
+> - `pnpm run typecheck` 4/4 packages sạch sẽ 100%.  
+> **2026-10-02 (bổ sung 9):** **Hoàn thiện đồng bộ vị trí Noclip & Teleport (không bị giật lùi về vị trí cũ):**  
+> - **Server:** `WorldRoom.handleMove` nhận flag `noclip: true`, cho phép cập nhật vị trí xuyên tường trong bounds map mà không reject, lưu realtime vào state & database; khi noclip tắt, nếu ô đích là walkable (`grid.walkable`), server chấp nhận vị trí đích và không bao giờ kéo lùi người chơi về quá khứ; bổ sung handler `teleport` cập nhật toạ độ tức thì và ghi nhận DB.  
+> - **Client:** `ColyseusManager.sendMove` truyền cờ `noclip`; thêm `sendTeleport`; `WorldScene.ts` đồng bộ toạ độ lên server khi di chuyển noclip, khi bật/tắt noclip (`setNoclip`), khi teleport (`teleportPlayer`) và khi đổi map (`switchMap`).  
+> - `pnpm run typecheck` 4/4 packages sạch sẽ 100%.  
+> **2026-10-02 (bổ sung 10):** **Tái cơ cấu Debug UI & Stack Panel 2 Cột Trái/Phải & Double-Click Reset Modal:**  
+> - **DebugModal:** Chuyển nút bật/tắt Đi xuyên tường (NOCLIP) vào chung với nhóm Bật/Tắt công cụ debug (Tab 2); gỡ bỏ action bar thừa ở Tab 1; cả 4 card thông tin hệ thống (Bản đồ, Nhân vật, Toạ độ/Chuột, Hiệu năng/Server) đều trang bị nút ghim `[ 📌 Ghim ]` riêng biệt để mở / đóng 4 panel widget độc lập neo bên cột phải.  
+> - **DebugInfoWidgets:** Tạo 4 panel widget chuyên biệt (`DebugMapWidget`, `DebugPlayerWidget`, `DebugCoordWidget`, `DebugPerfWidget`) dạng modal không titlebar (`topDragPadding: 16`, `showDragGrip: true`), neo vào stack cột phải, có thể kéo thả tự do hoặc double-click để bay về stack.  
+> - **UiModal:** Bổ sung xử lý double-tap / double-click trên thanh kéo (cả header và top drag padding) giúp modal lập tức tự động trở về vị trí mặc định (`resetPosition()`, `isCustomPositioned()`).  
+> - **Stack Panel Cột Trái (`layoutLeftColumn`):** Nâng cấp xếp cột trái theo cơ chế Auto-Stack (Player HUD ➔ PartyStrip), tự động dồn từ trên xuống; PartyStrip hỗ trợ double-click reset position bay về đúng vị trí dưới HUD.  
+> - **Stack Panel Cột Phải (`layoutRightColumn`):** Hỗ trợ dồn stack liên tục cho toàn bộ widget (InfoPanel ➔ Minimap ➔ Tracker ➔ Map ➔ Player ➔ Coord ➔ Perf ➔ Console).  
+> - `pnpm run typecheck` 4/4 packages sạch sẽ 100%.  
+> **2026-10-02 (bổ sung 11):** **Tinh chỉnh Chế độ Mini (PlayerHud, InfoPanel, PartyStrip) & Lưu Trọn Bộ Cài Đặt Zoom:**  
+> - **PlayerHud Mini Mode:** Thu gọn về kích thước vuông 48×48px, chỉ hiển thị Avatar căn giữa; ẩn toàn bộ Tên và Số tiền (Money & Real Money).  
+> - **InfoPanel Mini Mode:** Thu gọn về 54×50px; hiển thị Biểu tượng thời tiết to rõ ở trên (22px), khung giờ ở dưới dạng số tinh gọn (bỏ title `Poke:` / `Real:`, chỉ hiển thị `HH:mm`); ẩn vạch ngăn cách.  
+> - **PartyStrip Mini Mode:** Thu gọn về chiều ngang 48px (khớp thẳng hàng tuyệt đối với `PlayerHud`), slot 38×38px; chỉ hiển thị Icon Pokémon và thanh EXP phía dưới chân Pokémon; ẩn toàn bộ Tên và Cấp độ (Level).  
+> - **Khắc phục lưu Cài đặt Zoom sau khi refresh:**  
+>   - Bổ sung `uiZoom` vào `SettingsStorage.ts` (`UserSettings.zoom.uiZoom`), đồng bộ hai chiều với `localStorage`.  
+>   - Đồng bộ `UiZoomManager` với `SettingsStorage` (`load()` và `persist()`).  
+>   - Sửa `WorldScene.setupCameraFollow`: loại bỏ lệnh ghi đè `cam.setZoom(1)`, nạp trực tiếp giá trị `gameZoom` đã lưu từ `SettingsStorage` vào camera ngay khi tạo scene.  
+> **2026-10-02 (bổ sung 12):** **Bổ sung Mốc neo Render Game View (9 mốc) & Modal Chọn công cụ Lớn Tối ưu Di động (Select Tools Modal):**  
+> - **Game View Anchor (9 mốc):** Thêm tuỳ chọn trong tab Gameplay của `SettingsPanel.ts` với ma trận 3×3 nút trực quan (`top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right`); lưu trữ bền vững trong `SettingsStorage.ts`; `WorldScene.ts` tự động điều chỉnh camera bounds (căn cạnh/góc khi viewport lớn hơn map) và camera follow offset (dịch chuyển tầm nhìn khi map lớn).  
+> - **Select Tools Modal (`SelectToolsModal.ts`):** Chuyển đổi panel icon mini dẹt dẹt cũ của `TopMenu.ts` thành modal lớn căn giữa màn hình (`UiModal`, `lockUi: true`), tiêu đề "SELECT TOOLS", nút tắt ✕ ở góc trên phải; trang bị danh sách công cụ dạng thẻ lớn (chiều cao 56px, icon pixel art 30px to rõ, font đậm, kèm mô tả) tối ưu vượt trội cho thao tác cảm ứng trên điện thoại di động và màn hình nhỏ.  
+> - `pnpm run typecheck` 4/4 packages sạch sẽ 100%.  
+> **2026-10-02 (bổ sung 13):** **Bổ sung Mouse Tracking (làm dấu ô chuột lướt ngang) & Tô sậm ô đích đến (Destination Marker) vào Cài đặt:**  
+> - **Sửa lỗi Click-to-Move & Depth bị map che khuất & Tracking liên tục:**  
+>   - Sửa lỗi trong `UiModal.ts`: `overlayBlocker` (zone che toàn màn hình khi modal `lockUi: true`) khi đóng `close()` trước đây chỉ gọi `setVisible(false)` mà không gọi `disableInteractive()`, dẫn đến zone vô hình chặn các tương tác chuột (pointerdown) trên màn hình game. Đã sửa gọi `disableInteractive()` khi đóng và `setInteractive()` khi mở.  
+>   - Khắc phục triệt để lỗi `hoverGfx` và `destGfx` có depth cũ (6, 7) thấp hơn các lớp tilemap (Ground depth 10, Overhead depth 30) nên bị map che mất; nâng depth lên **35** (`hoverGfx`) và **34** (`destGfx`) nằm ngay trên mọi lớp bản đồ nhưng dưới HUD (depth 100+); thêm vào danh sách `getWorldObjects()` và cập nhật liên tục trong `update()` vòng lặp game.  
+>   - Đảm bảo tính năng **Click-to-Move** hoạt động chuẩn xác 100%, không bị đứng yên:  
+>     - Hỗ trợ cả **Chuột trái (LMB), Chuột phải (RMB) và Touch cảm ứng**, không bị giới hạn lệch tuỳ chọn `moveButton`.  
+>     - Lọc `isUiClick` đệ quy qua cây container cha (bỏ qua những container đang ẩn `visible = false`).  
+>     - Sửa thuật toán `Pathfinder.ts`: nếu điểm xuất phát hoặc vị trí lưu DB nằm trong vật cản (do tắt noclip trong tường), tự động tìm `nearestWalkable` để thoát tường và tiếp tục dẫn đường mượt mà đến đích.  
+>     - Tối ưu vòng lặp `update()` và `advanceAlongPath()`: kích hoạt bước đi ngay lập tức trong frame click (`nextStepAt = 0`), duy trì cờ `this.moving = true` và animation bước chân xuyên suốt lộ trình; chỉ xoá marker đích đến khi nhân vật đã thực sự hoàn thành bước cuối cùng tới tâm ô đích.  
+> - **Mouse Tracking (`WorldScene.updateHoverTile`):** Khi chuột lướt ngang trên bản đồ thế giới, ô tile dưới con trỏ được đánh dấu trực quan bằng nền mờ và viền pixel art 4 góc L (cyan nếu ô đi được, đỏ nhạt nếu ô bị chặn/tường/nước).  
+> - **Destination Marker (`WorldScene.drawDestination`):** Khi người chơi click di chuyển tới, ô đích đến được tô sậm đen (65% opacity), bao quanh bởi viền kép neon cyan sắc nét và chấm tâm chỉ định điểm đến.  
+> - **Tích hợp vào Settings (`SettingsStorage.ts` & `SettingsPanel.ts`):** Bổ sung 2 tuỳ chọn checkbox độc lập trong tab Gameplay (`mouseTracking` và `targetMarker`), tự động lưu vào `localStorage` và cập nhật trực tiếp hiệu ứng đồ hoạ theo thời gian thực.  
+> - `pnpm run typecheck` 4/4 packages sạch sẽ 100%.  
 > File này đóng vai trò là **Single Source of Truth (SSOT)** cho toàn bộ dự án, được thiết kế để AI Agent và lập trình viên nắm bắt toàn bộ kiến trúc, trạng thái và chi tiết kỹ thuật ngay tức thì.
 
 ---
@@ -23,7 +80,7 @@
 | **Server Backend** | Express + Colyseus 0.15 + PostgreSQL 18 + Valkey/Redis | ✅ Pass |
 | **Client Frontend** | Phaser 3.87 (Canvas 2D pixel-art, 60 FPS) + Vite 6 (vanilla TS) | ✅ Pass |
 | **Admin Dashboard** | Quản lý Người chơi, Sprite, Dữ liệu game, Maps (Interactive Canvas preview) | ✅ Pass |
-| **Công cụ Debug Client** | TopMenu Debug icon + Debug Modal (F3/F2): Map info, Coords, Teleport, CLI | ✅ Pass |
+| **Công cụ Debug Client** | Tách riêng: `DebugModal` (2 tab info & features), `DebugConsole` (bên phải), `DebugTrackerWidget` (chuột, player, NOCLIP) | ✅ Pass |
 | **Xác thực & Bảo mật** | JWT token (Header + LocalStorage), Role-based (Admin, Player, Banned) | ✅ Pass |
 | **Định vị & Lưu trạng thái** | PostgreSQL persistence (x, y, map_id, direction) đồng bộ realtime | ✅ Pass |
 | **Kiểm tra Mã nguồn** | `pnpm run typecheck` (4/4 packages pass, 0 errors) | ✅ Pass |
@@ -127,12 +184,12 @@ pixelmon/
             ├── theme.ts            # Bảng màu retro pixel & font styles
             ├── UiModal.ts          # Base modal component (drag, dock, minimize, depth layer)
             ├── TopMenu.ts          # Toolbar trên cùng (Bag, Dex, Team, Map, Settings, Debug...)
-            ├── DebugModal.ts       # Modal Debug: Map info, Coords, Teleport presets, CLI console
             ├── PlayerHud.ts        # Bảng thông tin nhân vật, avatar, tiền tệ
             ├── InfoPanel.ts        # Poke Time (6x) & Real Time, biểu tượng thời tiết lớn
             ├── PartyStrip.ts       # Thẻ Pokémon mini card 86px rộng rãi (icon 28x28 + HP bar)
             ├── ChatLog.ts          # Khung chat draggable bên dưới
-            └── SettingsModal.ts    # Bảng cài đặt âm thanh, giao diện, ngôn ngữ, camera zoom
+            ├── SettingsModal.ts    # Bảng cài đặt âm thanh, giao diện, ngôn ngữ, camera zoom
+            │                        #   └─ tab `🛠 Debug`: overlay Grid/Collision/Warp, toggle 3 lớp tilemap, CLI
 ```
 
 ---
@@ -188,15 +245,18 @@ pixelmon/
 **Phân quyền:** tab chỉ xuất hiện khi tài khoản có quyền `moderator` trở lên (role đọc từ `POST /api/auth/me`,
 lưu ở `pixelmon.role`, so sánh qua thang `player=0 < moderator=1 < admin=2`). Tài khoản `banned` không bao giờ đủ quyền.
 
-Nội dung tab gồm 3 nhóm:
-1. **Công cụ kiểm thử Map & Di chuyển (tuỳ chọn mới):**
+Nội dung tab gồm 4 nhóm:
+1. **Công cụ hiển thị (Overlay & Layer):**
    - *Hiện thanh công cụ Debug trên Menu (Debug Toolbar)* — ẩn/hiện icon 🐞 trên TopMenu, persists `pixelmon.debugToolbar`. Tắt => ẩn hẳn phím tắt F3/F2 & icon.
-   - *Lưới toạ độ ô (Grid Overlay)* — lưới 32px phủ toàn map (màu `#00cec9`, lưới chính mỗi 8 ô màu `#fdcb6e`, chấm đỏ = điểm spawn), depth `31` (cao hơn tầng `Overhead`=30 nên không bị nhà/cây che). Dùng chung với checkbox ở tab **Lối chơi**, persist `pixelmon.debugGrid`.
-   - *Theo dõi toạ độ nhân vật (Coordinate Tracking)* — nhãn `[cột, hàng]  x,y  IDLE|WALK|SLIDING` bám theo nhân vật, depth `33`, đặt phía trên bảng tên (`player.nameOffsetY + 18`), stroke đen để đọc trên nền cỏ sáng. Persist `pixelmon.debugTracking`.
+   - *Lưới toạ độ ô (Grid Overlay)* — lưới 32px phủ toàn map (màu `#00cec9`, lưới chính mỗi 8 ô màu `#fdcb6e`, chấm đỏ = điểm spawn), depth `31`. Dùng chung với checkbox ở tab **Lối chơi**, persist `pixelmon.debugGrid`.
+   - *Theo dõi toạ độ (Coordinate Tracking)* — nhãn `[cột, hàng]  x,y  IDLE|WALK|SLIDING` bám theo nhân vật, depth `33`, đặt phía trên bảng tên. Persist `pixelmon.debugTracking`.
+   - *Vùng va chạm (Collision Overlay)* — **mới**, depth `31.5`: tô đỏ ô `BLOCKED`, xanh dương ô `WATER`, xanh lá ô `GRASS`, cam ô `LEDGE` (kèm mũi tên hướng rơi). Ưu tiên kiểm tra `BLOCKED` **trước** vì nước sâu/thác mang cờ `WATER|BLOCKED`. Persist `pixelmon.debugCollision`.
+   - *Điểm chuyển map (Warp Overlay)* — **mới**, depth `32`: viền + chấm tím/vàng ở mọi ô có `type==='warp'`, đối chiếu nhanh với server JSON. Persist `pixelmon.debugWarp`.
+   - *Lớp bản đồ (Tilemap Layers)* — **mới**: 3 nút toggle ON/OFF `Nền` (Ground) / `Trang trí` (Decoration) / `Che trên` (Overhead) bật/tắt `TilemapLayer.setVisible()` — kiểm tra lỗi "nhân vật bị che" hay "thiếu trang trí" không cần sửa code. Persist `pixelmon.debugLayer.<ground|decoration|overhead>` (mặc định `true`).
 2. **Thông số realtime** (cập nhật mỗi frame khi tab đang mở):
    - *Map Info*: mã slug, tên, kích thước (Tiles & Pixels), tên tileset, số layer, số warp.
    - *Coordinates*: toạ độ Pixel `(X, Y)`, toạ độ Tile `[TileX, TileY]`, Hướng, Trạng thái, Speed, FPS, toạ độ Camera, Zoom.
-3. **Công cụ điều khiển:** 5 nút *Quick Teleport* (*Lappet Town, Nhà Player, Pokémon Lab, Route 1, Nhà Daisy*), 4 mức *Speed Multiplier* (`1x`–`5x`), và *Console CLI* với ô gõ lệnh HTML đặt ngay dưới khung log:
+3. **Công cụ điều khiển:** 5 nút *Quick Teleport*, 4 mức *Speed Multiplier* (`1x`–`5x`), và *Console CLI* với ô gõ lệnh HTML đặt ngay dưới khung log:
 
    | Lệnh | Chức năng |
    | --- | --- |
@@ -204,11 +264,24 @@ Nội dung tab gồm 3 nhóm:
    | `/tp <mapId>` | Chuyển map (VD: `/tp pokemon-lab`) |
    | `/speed <hệ_số>` | Đổi tốc độ di chuyển (VD: `/speed 3`) |
    | `/pos` | Xem toạ độ chi tiết hiện tại |
+   | `/overlay <grid\|collision\|warp> <on\|off>` | Bật/tắt overlay (thiếu `on/off` → báo trạng thái) |
+   | `/layer <ground\|decoration\|overhead> <on\|off>` | Ẩn/hiện 1 lớp tilemap |
    | `/help`, `/clear` | Trợ giúp / xoá lịch sử lệnh |
 
+4. **Khung log output** + nút *Nhập lệnh CLI*, *Sao chép toạ độ*, *Xoá log*.
+
 **Kết nối:** `SettingsPanel` nhận `canAccessDebug`, `onToggleDebugToolbar`, `onToggleGrid`, `onToggleCoordTracking`,
-`onDebugTeleport/SwitchMap/SetSpeed/RunCommand` từ `WorldScene`. `openDebugTab()` mở Settings thẳng vào tab Debug
-(Icon toolbar trên TopMenu cũng gọi thẳng vào đây).
+`onToggleCollision`, `onToggleWarp`, `onToggleMapLayer(key,v)`, `onDebugTeleport/SwitchMap/SetSpeed/RunCommand` từ `WorldScene`.
+`openDebugTab()` mở Settings thẳng vào tab Debug (Icon toolbar trên TopMenu cũng gọi thẳng vào đây).
+
+**Điều phối trạng thái & vòng đời:**
+- Types dùng chung ở `SettingsPanel`: `MapLayerKey`, `MAP_LAYER_KEYS`, `MAP_LAYER_LABELS`, interface `DebugToolState` (WorldScene import sang dùng).
+- `syncDebugTools()` áp **toàn bộ** state (toolbar/grid/collision/warp/tracking/3 layer) sau khi `setupDebugTools()`.
+- `switchMap()` gọi lại `drawGrid()` + `drawCollisionOverlay()` + `drawWarpOverlay()` + áp lại `setMapLayerVisible()` cho map mới (layers vừa bị destroy & tạo lại).
+- Overlay được `registerWorldObject()` → `uiCam.ignore()`, tránh render đôi 2 camera.
+- Chỉ số object trong `layoutDebugTab` khai báo bằng hằng `I_TOOLS/I_CHK/I_LBL_LAYERS/I_LAYERS/I_MAP/I_PLAYER/I_TP/I_SPEED/I_CLI/I_LOG` (khớp thứ tự `push` của `buildDebugTab`, tổng 83 obj) — **không** dùng magic number rải rác.
+- Do modal khoá cứng `MODAL_H=580`, 5 checkbox xếp **2 cột** (`colW = w/2`); tổng chiều cao content ≈ 532 + `contentContainer.y=36` = **568 < 580** (còn 12px lề).
+- Reset Settings khôi phục cả 5 checkbox lẫn 3 nút toggle layer (đăng ký qua `checkboxSetters` với key `debugLayer.<key>`).
 
 ---
 
@@ -618,6 +691,47 @@ python3 scripts/tools/inspect_image.py packages/shared/assets/tilesets/Outdoor.p
 - ✅ `pnpm run typecheck` 4/4 sạch; ✅ `vite build` thành công.
 - ✅ Đã test trên trình duyệt: role `player` → **không thấy** tab Debug; role `admin` → thấy tab; grid + tracking hiển thị đúng & persist qua reload; toggle toolbar ẩn/hiện icon Debug trên TopMenu (relayout không lệch); F3 mở đúng tab Debug; realtime map/coords cập nhật mỗi frame.
 
+### Plan 40 — Mở rộng tab Debug: Overlay va chạm, Overlay warp & bật/tắt lớp tilemap (2026-10-02)
+
+**Yêu cầu:** chỉnh lại phần debug, thêm tính năng hiển thị các overlay và các chức năng bật/tắt lớp bản đồ.
+
+**1. Overlay mới (WorldScene):**
+- `collisionOverlay: Graphics` (depth `31.5`) — `drawCollisionOverlay()` duyệt toàn bộ ô, tô theo cờ `CollisionGrid`:
+  - 🔴 `BLOCKED` (tường/cây/đá) — fill `#ff7675` 0.5
+  - 🔵 `WATER` (cần Surf) — fill `#74b9ff` 0.45
+  - 🟢 `GRASS` (gây encounter) — fill `#55efc4` 0.4
+  - 🟠 `LEDGE` (vách nhảy 1 chiều) — fill `#fdcb6e` 0.5 + mũi tên hướng rơi
+  - **Ưu tiên kiểm tra `BLOCKED` trước** vì nước sâu/thác mang cờ `WATER|BLOCKED` — vẽ xanh dương sẽ gây hiểu nhầm là đi được.
+- `warpOverlay: Graphics` (depth `32`) — `drawWarpOverlay()` vẽ viền + chấm tím/vàng ở mọi ô `getWarpAt()` trả về warp, đối chiếu nhanh với `objects[].type==='warp'` trong server JSON.
+- Cả 2 đều `registerWorldObject()` → `uiCam.ignore()` (tránh render đôi 2 camera), và được vẽ lại trong `switchMap()`.
+
+**2. Bật/tắt lớp tilemap (WorldScene):**
+- `setMapLayerVisible(key, visible)` — duyệt `tiledLayers`, khớp tên layer `.toLowerCase().includes(key)` → `layer.setVisible()`.
+- `layerVisibility: Record<MapLayerKey, boolean>` giữ state; `switchMap()` áp lại cho map mới (layers vừa bị destroy & tạo lại).
+- `getLayerVisibility()` expose cho Settings đọc.
+
+**3. SettingsPanel — tab Debug:**
+- Thêm 2 checkbox: *Vùng va chạm (Collision)*, *Điểm chuyển map (Warp)* — persist `pixelmon.debugCollision` / `pixelmon.debugWarp`.
+- Thêm 3 nút toggle ON/OFF `Nền` / `Trang trí` / `Che trên` (helper `createToggleBtn` — tự đổi màu xanh lá khi ON, xám khi OFF, nhãn `✔/✖`). Persist `pixelmon.debugLayer.<key>` (mặc định `true`).
+- Types dùng chung: `MapLayerKey`, `MAP_LAYER_KEYS`, `MAP_LAYER_LABELS`, interface `DebugToolState` (WorldScene import sang).
+- **Refactor layout:** chỉ số object khai báo bằng hằng `I_TOOLS/I_CHK/I_LBL_LAYERS/I_LAYERS/I_MAP/I_PLAYER/I_TP/I_SPEED/I_CLI/I_LOG` (tổng 83 obj) thay vì magic number rải rác. 5 checkbox xếp **2 cột** (`colW = w/2`) để tiết kiệm chiều cao — modal khoá cứng `MODAL_H=580`, xếp dọc 5 checkbox sẽ tràn đáy.
+- Chiều cao content mới ≈ 532 + `contentContainer.y=36` = **568 < 580** (còn 12px lề).
+- Reset Settings khôi phục cả 5 checkbox lẫn 3 nút toggle layer (đăng ký qua `checkboxSetters` với key `debugLayer.<key>`).
+- `setGridShared()` chuyển `private` → `public` (lệnh CLI `/overlay grid` gọi được).
+
+**4. CLI mới (WorldScene.handleDebugCommand):**
+- `/overlay <grid|collision|warp> <on|off>` — thiếu tham số 2 → báo trạng thái hiện tại.
+- `/layer <ground|decoration|overhead> <on|off>` — ẩn/hiện 1 lớp tilemap.
+- Cập nhật `/help` + placeholder ô gõ lệnh.
+
+**5. Sửa lỗi phát hiện khi code:**
+- `MAP_LAYER_KEYS`/`MAP_LAYER_LABELS` định nghĩa 2 lần (WorldScene + SettingsPanel) → gộp về SettingsPanel, WorldScene import sang.
+- `checkboxSetters` đăng ký 2 lần với key khác nhau (`debugLayer.<key>` vs `<key>`) → thống nhất dùng `toggleKey` truyền vào `createToggleBtn`.
+- Nhãn checkbox dài ("Hiện thanh công cụ Debug trên Menu (Debug Toolbar)") tràn cột 254px → rút ngắn ("Toolbar Debug trên Menu", "Lưới toạ độ ô (Grid)", ...).
+
+- ✅ `pnpm run typecheck` 4/4 sạch; ✅ `vite build` thành công (119 modules).
+- ⬜ Test trên trình duyệt (overlay hiển thị đúng màu, toggle layer ẩn/hiện đúng, persist qua reload) — chưa chạy.
+
 ### Fix Plan 2 — Sửa 3 lỗi di chuyển & vị trí đứng của nhân vật (2026-10-02)
 
 Nguồn: `fix-plan-2.md`. Đã sửa đủ 3 vấn đề.
@@ -654,6 +768,100 @@ Nguồn: `fix-plan-2.md`. Đã sửa đủ 3 vấn đề.
   - Tham số `walkProgress` mặc định đổi `0` → **`-1`**: `0` là progress hợp lệ (đầu ô), `0` trùng điều kiện `> 0` cũ → nhánh fallback timer không bao giờ chạy.
 - Tính từ **quãng đường** chứ không thời gian → đổi Speed Multiplier ở tab Debug vẫn khớp nhịp chân.
 - ✅ typecheck 4/4 + `vite build` OK.
+
+### Plan 41 — Hệ thống Maps Tiled-First: thêm map chỉ bằng copy file (2026-10-02)
+
+> Plan chi tiết: [`plan-tiled-first.md`](./plan-tiled-first.md). Tiến độ từng bước: [`plan-tiled-first-progress.md`](./plan-tiled-first-progress.md).
+> **Mục tiêu:** Tiled Map Editor là nguồn vẽ map duy nhất — thêm map mới **không phải sửa code**.
+
+#### Phase 1 — Mở đường cho Tiled (✅ hoàn thành)
+
+**Vấn đề:** `TiledMapLoader.ts` static import cứng 5 file `.tmj` → thêm map mới phải sửa code + rebuild.
+
+**Đã làm:**
+- **`TiledMapLoader.ts`:** xoá 5 static `import ...tmj`, thay bằng `import.meta.glob('@pixelmon/shared/data/maps/tiled/*.tmj', { eager: true, import: 'default' })`.
+  - Alias path resolve qua `resolve.alias` (không cần đường dẫn tương đối rườm rà).
+  - Bỏ file `.tmj` tên thuần số (`2.tmj`, `5.tmj`… — output cũ của converter RMXP) qua regex `/^\d+$/`.
+  - `TILED_MAP_ALIASES` tách riêng; alias chỉ ghi khi chưa trùng map thật.
+  - `AVAILABLE_MAP_IDS` giờ chỉ trả **bản chính** (trước `Object.keys(TILED_MAPS)` trả cả alias).
+- **`apps/server/src/app.ts`:** thêm route static `/maps/tiled` → `packages/shared/data/maps/tiled` (runtime fetch fallback).
+- **`vite.config.ts`:** verify, plugin `vite-plugin-tmj-json` xử lý glob đúng, **không cần sửa**.
+
+**Xác minh:** `pnpm run typecheck` 4/4 sạch · `pnpm --filter client build` 130 modules thành công · copy map giả `zz-test-map.tmj` vào thư mục → **tự động được nhận diện** (bundle +14.7kB) không cần sửa code, đã dọn map giả.
+
+**Đạt được:** workflow thêm map mới giờ là: copy `.tmj` vào `packages/shared/data/maps/tiled/` → (Phase 2) `pnpm run build:map <id>` → restart. Không cần RMXP, không cần sửa code.
+
+#### Phase 2 — Auto-gen server JSON (✅ hoàn thành, có điều kiện)
+
+**Mục tiêu:** `pnpm run build:map <id>` sinh `server/<id>.json` từ `.tmj`, không viết tay.
+
+**Đã làm:**
+- **`scripts/build-server-map.ts` (mới):** Node 24 chạy trực tiếp TypeScript (type stripping — repo **không có** `tsx`). 5 tầng derive:
+  1. Layer heuristic (plan §3.3): `Overhead≠0→BLOCKED` · `Decoration≠0→BLOCKED` · `Ground≠0→WALKABLE`.
+  2. Tileset tile property (plan §3.4, ưu tiên): `passage` (0x00/0x0f), `terrain_tag` (0x02 grass / 0x06 water / 0x0a tall grass), `ledge_dir`, `water`.
+  3. Object property override (`passage`/`terrain_tag`/`ledge_dir`/`water`).
+  4. Warp post-pass: ô warp → `WALKABLE|WARP`, clear `BLOCKED`.
+  5. Landing post-pass: ô đích warp (cùng map) → `WALKABLE`.
+  - Encounters đọc từ `data/encounters.json` (route-1: 12 spawn). Metadata từ `properties` cấp map.
+  - CLI: `<id...>` · `--all` · `--dry-run` · `--watch`.
+- **`package.json`:** thêm `"build:map": "node scripts/build-server-map.ts"` + `"type": "module"`.
+
+**Xác minh:** `pnpm run build:map -- --all` chạy sạch · typecheck 4/4 ✅ · backup 5 map cũ vào `temp/backup-server-json/`.
+
+**⚠️ Phát hiện quan trọng (2.3):** So với server JSON cũ, heuristic thuần layer **sai 706/2601 ô (27.1%)**:
+- 564 ô (79.9%) `blocked→walkable` — ô có tile ở Ground nhưng RMXP `passage=0x0f`.
+- 127 ô (18.0%) `walkable→blocked` — ô mái nhà `y=3,4` / giữa tán cây có tile Decoration nhưng `passage=0x00`.
+
+**Nguyên nhân gốc:** RMXP `passages` + `terrain_tags` là dữ liệu **per-tile**; TMJ **không lưu**. Converter cũ đọc `.rxdata` nên có đủ. → **Phải thêm tile property vào tileset trong TMJ (Phase 4)**; script tầng B đã sẵn sàng đọc.
+**Bảo mật:** server JSON đã `git checkout` restore — game không bị ảnh hưởng, 8 warp giữ nguyên.
+
+**Phát hiện thứ 2:** converter hiện emit **mọi** object là `type:"event"` → `build:map` cho ra **0 warp** (mất 8 warp). Converter Phase 4.1 phải emit `type:"warp"` + properties `toMap`/`toX`/`toY`/`direction`.
+
+#### Phase 3 — Template Tiled + Quy chuẩn (✅ hoàn thành)
+
+**Đã làm:**
+- **`templates/pixelmon-map-template.tmj`** (JSON — pipeline chỉ đọc `.tmj`) + `.tmx` (XML, tham khảo). 4 layer đúng tên, tileset `outdoor`, 1 warp mẫu, map properties. Verified `build:map --dry-run` → `1 warp`.
+- **`docs/tiled-workflow.md`:** 11 mục — pipeline, template, quy ước tên layer, quy ước warp, collision heuristic + tile/object property, map properties, lệnh build, verify, bảng lỗi thường gặp.
+- **Fix bug:** `deriveCollision()` dùng `mapId` không truyền vào → `ReferenceError`. Đã thêm tham số.
+
+**Lưu ý:** Tiled xuất cả `.tmj` (JSON) và `.tmx` (XML), nhưng pipeline chỉ đọc `.tmj` → template nên dùng `.tmj`.
+
+#### Phase 4 — Migrate 5 map cũ (✅ hoàn thành)
+
+**Đã làm:**
+- **`convert_essentials_map.py`:**
+  - Emit `tilesets[0].tiles[].properties` cho **mỗi tile đang dùng trong map** (chứa `passage` + `terrain_tag`) → `build:map` tầng B đọc được, tái tạo đúng collision converter gốc. File vẫn nhỏ vì chỉ emit tile dùng trong map đó (40–80 tile).
+  - Emit object `type:"warp"` + properties `toMap`/`toX`/`toY`/`direction` (trước đây mọi object là `type:"event"` → `build:map` cho ra 0 warp).
+  - Thêm `map.properties`: `name`/`mapType`/`music`/`weather`/`description`.
+- **`build:map` cải tiến:**
+  - Tầng B đọc passage trên **cả 3 layer** (Ground/Decoration/Overhead) — khớp semantics converter gốc (`BLOCKED` nếu bất kỳ layer nào có `passage 0x0f`).
+  - Thêm **tầng F: cross-map landing post-pass** — ô đích warp từ map khác cũng set `WALKABLE` (tương đương `_patch_cross_map_landings()` của converter).
+  - Fix: `propNumFromMap`/`propStrFromMap`/`propBoolFromMap` — `propsOf` trả `Map`, các helper cũ đọc `o.properties` (luôn `undefined`).
+
+**Xác minh:**
+- `pnpm run typecheck` **4/4 ✅**
+- `pnpm run build:map -- --all` → 5 map OK, **8 warp khôi phục** (lappet-town 3, players-house 3, pokemon-lab 1, daisys-house 1)
+- Collision khớp **99.96%** với `temp/backup-server-json/` — chỉ 1 ô lệch: `lappet-town (3,8)` có `passage=15` (chặn) nhưng backup ghi `WALKABLE` → **backup stale, `build:map` output đúng**.
+
+**Đạt được:** workflow Tiled-first hoàn chỉnh — **vẽ trong Tiled → `pnpm run build:map <id>` → `./scripts/pm.sh restart`**. Không cần RMXP, không cần sửa code.
+
+#### Phase 5 — Admin tab "Maps" (✅ hoàn thành)
+
+**Đã làm:**
+- **Backend:** route `POST /api/admin/maps/:id/regenerate` → `regenerateAdminMap()` trong `apps/server/src/modules/admin/maps.ts`. Kiểm tra `.tmj` tồn tại (404 `TMJ_NOT_FOUND` nếu chưa lưu trong Tiled), chạy `node scripts/build-server-map.ts <id>` (timeout 30s), parse log `✅ slug: WxH, N warp, M obj, K spawn` → trả `stats`.
+- **Stats:** `computeMapStats()` (mới) trả về:
+  - `layers: [{name, cells}]` — số ô **thực sự có tile** (không tính gid=0) cho từng tilelayer
+  - `tilePropsCount` — số tile trong tileset có properties (`passage`/`terrain_tag`)
+  - `collision: {total, walkable, blocked, water, grass, ledge, warp}` — phân bố bit `CollisionFlag`
+  - `objects: {total, warps, events}`, `encounters`
+- **Frontend (`admin.html`):** nút `♻️ Regenerate JSON` trong header tab Maps + card mới **"Thống kê Map"** (3 tbody: Tile/Layer, Va chạm, Đối tượng).
+- **Frontend (`admin.js`):** `renderMapStats(stats)` gọi trong `populateMapSidebar()`; handler nút Regenerate (confirm → POST → alert kèm stats → `loadMaps()` refresh).
+
+**Lưu ý:** 5.1–5.3 (tab mới, preview canvas, toggle layer) **đã tồn tại sẵn** từ trước Phase 5 → không làm lại.
+
+**Xác minh:**
+- `pnpm run typecheck` **4/4 ✅**
+- `node scripts/build-server-map.ts daisys-house` và `--all` chạy OK — output khớp chính xác regex backend parse.
 
 ---
 

@@ -664,6 +664,7 @@
                   <button type="button" id="map-btn-zoom-in" class="btn btn-sm btn-ghost">+</button>
                   <button type="button" id="map-btn-zoom-out" class="btn btn-sm btn-ghost">-</button>
                   <button type="button" id="map-btn-zoom-reset" class="btn btn-sm btn-ghost">100%</button>
+                  <button type="button" id="map-btn-regenerate" class="btn btn-sm btn-primary" title="Chạy build:map để sinh lại server JSON từ file .tmj">♻️ Regenerate JSON</button>
                   <button type="button" id="map-btn-import" class="btn btn-sm btn-primary">+ Import Essentials</button>
                 </div>
               </div>
@@ -725,6 +726,19 @@
                     </div>
                     <button type="submit" class="btn btn-sm btn-primary" style="margin-top: 6px;">Lưu Cấu Hình</button>
                   </form>
+                </div>
+
+                <!-- Card Thống kê Map (Plan 41 Phase 5.5) -->
+                <div class="card" style="padding: 14px;">
+                  <h4 style="margin: 0 0 10px 0; font-size: 14px;">Thống kê Map</h4>
+                  <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                    <tr><td colspan="2" style="color: var(--text-dim); padding: 2px 0; font-size: 11px; text-transform: uppercase;">Tile / Layer</td></tr>
+                    <tbody id="map-stats-layers"></tbody>
+                    <tr><td colspan="2" style="color: var(--text-dim); padding: 8px 0 2px 0; font-size: 11px; text-transform: uppercase;">Va chạm</td></tr>
+                    <tbody id="map-stats-collision"></tbody>
+                    <tr><td colspan="2" style="color: var(--text-dim); padding: 8px 0 2px 0; font-size: 11px; text-transform: uppercase;">Đối tượng</td></tr>
+                    <tbody id="map-stats-objects"></tbody>
+                  </table>
                 </div>
 
                 <!-- Card Danh sách Warps -->

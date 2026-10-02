@@ -2385,6 +2385,7 @@
     function populateMapSidebar(d) {
       var m = d.map;
       var sc = d.sharedConfig || {};
+      renderMapStats(d.stats);
       $('map-info-name').textContent = m.name || m.mapId;
       $('map-info-id').textContent = '#' + m.mapId;
       $('map-info-size').textContent = m.width + ' × ' + m.height + ' tiles (' + (m.width * 32) + '×' + (m.height * 32) + ' px)';
@@ -2415,6 +2416,50 @@
           warpsList.appendChild(el);
         });
       }
+    }
+
+    /**
+     * Render card "Thống kê Map" (Plan 41 Phase 5.5).
+     * stats = { layers:[{name,cells}], tilePropsCount, collision:{...}, objects:{...}, encounters }
+     */
+    function renderMapStats(stats) {
+      var layersEl = $('map-stats-layers');
+      var colEl = $('map-stats-collision');
+      var objEl = $('map-stats-objects');
+      if (!layersEl || !colEl || !objEl) return;
+
+      if (!stats) {
+        layersEl.innerHTML = '<tr><td colspan="2" style="color: var(--text-dim);">--</td></tr>';
+        colEl.innerHTML = '<tr><td colspan="2" style="color: var(--text-dim);">--</td></tr>';
+        objEl.innerHTML = '<tr><td colspan="2" style="color: var(--text-dim);">--</td></tr>';
+        return;
+      }
+
+      // Tile / Layer
+      var rows = '';
+      (stats.layers || []).forEach(function (l) {
+        rows += '<tr><td style="padding: 2px 0;">' + l.name + '</td><td style="text-align: right; font-family: monospace;">' + l.cells + '</td></tr>';
+      });
+      rows += '<tr><td style="padding: 2px 0; color: var(--text-dim);">Tile có properties</td><td style="text-align: right; font-family: monospace;">' + (stats.tilePropsCount || 0) + '</td></tr>';
+      layersEl.innerHTML = rows;
+
+      // Va chạm
+      var c = stats.collision || {};
+      colEl.innerHTML =
+        '<tr><td style="padding: 2px 0;">Tổng ô</td><td style="text-align: right; font-family: monospace;">' + (c.total || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #4ade80;">Đi được</td><td style="text-align: right; font-family: monospace;">' + (c.walkable || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #f87171;">Chặn</td><td style="text-align: right; font-family: monospace;">' + (c.blocked || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #60a5fa;">Nước</td><td style="text-align: right; font-family: monospace;">' + (c.water || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #a3e635;">Cỏ</td><td style="text-align: right; font-family: monospace;">' + (c.grass || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #fbbf24;">Ledge</td><td style="text-align: right; font-family: monospace;">' + (c.ledge || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #c084fc;">Warp</td><td style="text-align: right; font-family: monospace;">' + (c.warp || 0) + '</td></tr>';
+
+      // Đối tượng
+      var o = stats.objects || {};
+      objEl.innerHTML =
+        '<tr><td style="padding: 2px 0;">Warp</td><td style="text-align: right; font-family: monospace;">' + (o.warps || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0;">Event</td><td style="text-align: right; font-family: monospace;">' + (o.events || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0;">Encounters</td><td style="text-align: right; font-family: monospace;">' + (stats.encounters || 0) + '</td></tr>';
     }
 
     var tilesetCache = {};
@@ -2784,6 +2829,40 @@
             submitBtn.disabled = false;
             submitBtn.textContent = 'Bắt đầu Import';
             alert('Lỗi import: ' + err.message);
+          });
+      });
+    }
+
+    // ── Regenerate server JSON từ .tmj (Plan 41 Phase 5.4) ──
+    if ($('map-btn-regenerate')) {
+      $('map-btn-regenerate').addEventListener('click', function () {
+        var id = mapState.currentId;
+        if (!id) {
+          alert('Vui lòng chọn map trước.');
+          return;
+        }
+        var btn = $('map-btn-regenerate');
+        if (!confirm('Regenerate server JSON cho map "' + id + '"?\n\nFile .tmj phải đã được lưu trong Tiled trước.')) return;
+
+        var original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Đang build...';
+
+        postJSON('/api/admin/maps/' + id + '/regenerate', {}, 'POST')
+          .then(function (res) {
+            btn.disabled = false;
+            btn.textContent = original;
+            var s = res.stats;
+            var extra = s
+              ? '\n\n📐 ' + s.width + '×' + s.height + ' · 🚪 ' + s.warps + ' warp · 📦 ' + s.objects + ' obj'
+              : '';
+            alert((res.message || 'Đã regenerate thành công!') + extra + '\n\nHãy restart server để nạp JSON mới.');
+            loadMaps();
+          })
+          .catch(function (err) {
+            btn.disabled = false;
+            btn.textContent = original;
+            alert('Lỗi regenerate: ' + err.message);
           });
       });
     }

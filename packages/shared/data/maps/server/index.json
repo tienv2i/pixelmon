@@ -1,15 +1,15 @@
 [
   {
+    "mapId": "daisys-house",
+    "file": "daisys-house.json",
+    "width": 20,
+    "height": 15
+  },
+  {
     "mapId": "lappet-town",
     "file": "lappet-town.json",
     "width": 32,
     "height": 21
-  },
-  {
-    "mapId": "route-1",
-    "file": "route-1.json",
-    "width": 36,
-    "height": 24
   },
   {
     "mapId": "players-house",
@@ -24,9 +24,9 @@
     "height": 15
   },
   {
-    "mapId": "daisys-house",
-    "file": "daisys-house.json",
-    "width": 20,
-    "height": 15
+    "mapId": "route-1",
+    "file": "route-1.json",
+    "width": 36,
+    "height": 24
   }
 ]

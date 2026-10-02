@@ -102,6 +102,10 @@ export class CollideGrid {
   /**
    * Tìm ô walkable gần nhất (vòng xoáy, bán kính `maxRadius`).
    * Dùng cho spawn & warp landing → không bao giờ rơi vào tường.
+   *
+   * - Nếu ô đích walkable → **luôn trả về ô đó** (warp dest là chính xác, kể cả
+   *   cửa kín 3 hướng; chấm điểm độ thoáng chỉ áp dụng khi ô đích KHÔNG walkable).
+   * - Nếu ô đích blocked → ưu tiên ô thoáng nhất trong bán kính, tránh kẹt góc/tường.
    */
   nearestWalkable(
     x: number,
@@ -110,17 +114,40 @@ export class CollideGrid {
     maxRadius = 8,
   ): { x: number; y: number } | null {
     if (this.walkable(x, y, opts)) return { x, y };
+    let best: { x: number; y: number; score: number } | null = null;
     for (let r = 1; r <= maxRadius; r++) {
       for (let dy = -r; dy <= r; dy++) {
         for (let dx = -r; dx <= r; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
           const nx = x + dx;
           const ny = y + dy;
-          if (this.walkable(nx, ny, opts)) return { x: nx, y: ny };
+          if (!this.walkable(nx, ny, opts)) continue;
+          const score = this.openNeighborCount(nx, ny, opts);
+          if (!best || score > best.score) {
+            best = { x: nx, y: ny, score };
+          }
+          // Điểm tối đa = 4 (ô giữa trống) → dừng sớm nếu đã đạt.
+          if (score >= 4) return { x: nx, y: ny };
         }
       }
     }
+    if (best) return { x: best.x, y: best.y };
     return null;
+  }
+
+  /** Đếm số ô walkable 4 hướng xung quanh — proxy cho "độ thoáng" của ô. */
+  private openNeighborCount(x: number, y: number, opts: WalkableOptions): number {
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ];
+    let n = 0;
+    for (const [dx, dy] of dirs) {
+      if (this.walkable(x + dx, y + dy, opts)) n++;
+    }
+    return n;
   }
 }
 

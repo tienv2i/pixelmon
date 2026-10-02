@@ -1,6 +1,6 @@
 import { Room, type Client } from '@colyseus/core';
 import { WorldState, PlayerState } from '@pixelmon/shared/schema';
-import { MAPS, MOVE_COOLDOWN_MS } from '@pixelmon/shared';
+import { MAPS, MOVE_COOLDOWN_MS, resolveSpawnTile } from '@pixelmon/shared';
 import { mapLoader } from '@pixelmon/shared/data';
 import { pool } from '../../config/index.js';
 import {
@@ -211,8 +211,10 @@ export class WorldRoom extends Room<WorldState> {
     }
 
     const tile = pixelToTile(data.x, data.y);
-    const col = Math.max(0, Math.min(this.grid.width - 1, tile.x));
-    const row = Math.max(0, Math.min(this.grid.height - 1, tile.y));
+    // Snap về ô walkable gần nhất — client có thể gửi toạ độ lệch.
+    const safe = this.grid.nearestWalkable(tile.x, tile.y, DEFAULT_WALK_OPTS);
+    const col = safe?.x ?? tile.x;
+    const row = safe?.y ?? tile.y;
     const landed = tileToPixel(col, row);
 
     player.x = landed.x;
@@ -300,10 +302,11 @@ export class WorldRoom extends Room<WorldState> {
       const target = await mapLoader.load(toMap);
       const grid = new CollideGrid(target);
 
-      // Đặt player vào tâm ô đích, snap về ô walkable gần nhất nếu cần.
-      let landing = pixelToTile(toX, toY);
-      const safe = grid.nearestWalkable(landing.x, landing.y, DEFAULT_WALK_OPTS);
-      if (safe) landing = safe;
+      // toX/toY đã là TILE coords (từ warp object) — KHÔNG pixelToTile lần nữa.
+      // resolveSpawnTile: warp override (cùng map) → MAPS spawn chung → tâm map.
+      const spawnTile = resolveSpawnTile(toMap, { toX, toY });
+      const safe = grid.nearestWalkable(spawnTile.x, spawnTile.y, DEFAULT_WALK_OPTS);
+      const landing = safe ?? spawnTile;
       const px = tileToPixel(landing.x, landing.y);
 
       // Cập nhật player → mapId đổi sang map đích. Room này không còn chứa
@@ -415,7 +418,13 @@ export class WorldRoom extends Room<WorldState> {
 
   private getDefaultSpawn(): { x: number; y: number } {
     const meta = MAPS[this.state.mapId];
-    if (meta?.spawn) return meta.spawn;
+    // MAPS.spawn là TILE coords → convert sang pixel (tâm ô)
+    if (meta?.spawn) {
+      return {
+        x: meta.spawn.x * 32 + 16,
+        y: meta.spawn.y * 32 + 16,
+      };
+    }
     // Fallback: giữa map.
     return { x: Math.floor(this.grid.width / 2) * 32 + 16, y: Math.floor(this.grid.height / 2) * 32 + 16 };
   }

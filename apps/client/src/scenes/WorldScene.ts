@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { PlayerSprite, registerPlayerAnims, type Dir } from '../entities/PlayerSprite';
 import { loadSpriteSheet } from '../entities/SpriteSheetLoader';
 import { ColyseusManager } from '../network/ColyseusManager';
-import { TILE_SIZE, PLAYER_SPEED, MOVE_COOLDOWN_MS, MAPS } from '@pixelmon/shared';
+import { TILE_SIZE, PLAYER_SPEED, MOVE_COOLDOWN_MS, MAPS, resolveSpawnTile } from '@pixelmon/shared';
 import { loadTiledMap, DEFAULT_MAP_ID, TILED_MAPS } from '../world/TiledMapLoader';
 import { buildPlaceholderMap, MAP_W, MAP_H } from '../world/PlaceholderMap';
 import { findPath, pathToPixels } from '../world/Pathfinder';
@@ -281,7 +281,10 @@ export class WorldScene extends Phaser.Scene {
     // Spawn: ưu tiên toạ độ đã lưu, rồi đến spawn khai báo trong MAPS, snap về tâm ô; nếu ô blocked
     // → tìm ô walkable gần nhất. Fallback về giữa map khi không có metadata.
     const meta = MAPS[initialMapId];
-    let spawnPx = meta?.spawn ?? { x: mapWidth / 2, y: mapHeight / 2 };
+    // MAPS.spawn là TILE coords → convert sang pixel (savedLoc đã là pixel).
+    let spawnPx = meta?.spawn
+      ? { x: meta.spawn.x * TILE_SIZE + TILE_SIZE / 2, y: meta.spawn.y * TILE_SIZE + TILE_SIZE / 2 }
+      : { x: mapWidth / 2, y: mapHeight / 2 };
     if (
       savedLoc &&
       savedLoc.mapId === initialMapId &&
@@ -2343,11 +2346,11 @@ export class WorldScene extends Phaser.Scene {
     for (let c = 0; c <= cols; c += 8) g.lineBetween(c * TILE_SIZE, 0, c * TILE_SIZE, rows * TILE_SIZE);
     for (let r = 0; r <= rows; r += 8) g.lineBetween(0, r * TILE_SIZE, cols * TILE_SIZE, r * TILE_SIZE);
 
-    // Đánh dấu tâm ô spawn
+    // Đánh dấu tâm ô spawn (MAPS.spawn là TILE coords → vẽ ở pixel)
     const meta = MAPS[this.currentMapId];
     if (meta?.spawn) {
       g.fillStyle(0xff7675, 0.9);
-      g.fillCircle(meta.spawn.x, meta.spawn.y, 4);
+      g.fillCircle(meta.spawn.x * TILE_SIZE + TILE_SIZE / 2, meta.spawn.y * TILE_SIZE + TILE_SIZE / 2, 4);
     }
   }
 
@@ -2465,7 +2468,7 @@ export class WorldScene extends Phaser.Scene {
     t.setPosition(this.player.x, this.player.y - this.player.nameOffsetY - 18);
   }
 
-  public teleportPlayer(x: number, y: number): void {
+  public teleportPlayer(x: number, y: number): { x: number; y: number } {
     const maxX = this.mapWidth - TILE_SIZE;
     const maxY = this.mapHeight - TILE_SIZE;
     const clampedX = Phaser.Math.Clamp(x, 0, maxX);
@@ -2488,6 +2491,7 @@ export class WorldScene extends Phaser.Scene {
     ColyseusManager.getInstance().sendTeleport(center.x, center.y, this.player.getDirection());
     ColyseusManager.getInstance().updateLocation(this.currentMapId, center.x, center.y, this.player.getDirection());
     console.log(`[debug] teleported player to (${center.x}, ${center.y})`);
+    return center;
   }
 
   public async switchMap(mapId: string, targetX?: number, targetY?: number): Promise<void> {
@@ -2530,11 +2534,16 @@ export class WorldScene extends Phaser.Scene {
       for (const key of MAP_LAYER_KEYS) this.setMapLayerVisible(key, this.layerVisibility[key]);
 
       // 3. Đặt lại toạ độ người chơi
+      // targetX/targetY nhận từ server là PIXEL (đã snap sẵn). Nếu không có
+      // (debug switchMap) → dùng spawn chung của map (MAPS[id].spawn = TILE coords).
       const meta = MAPS[mapId];
-      const spawnX = targetX ?? meta?.spawn.x ?? loaded.width / 2;
-      const spawnY = targetY ?? meta?.spawn.y ?? loaded.height / 2;
-      this.teleportPlayer(spawnX, spawnY);
-      ColyseusManager.getInstance().updateLocation(this.currentMapId, spawnX, spawnY, this.player?.getDirection());
+      const spawnTile = resolveSpawnTile(mapId);
+      const fallbackPx = this.tileCenter(spawnTile.x, spawnTile.y);
+      const spawnX = targetX ?? fallbackPx.x;
+      const spawnY = targetY ?? fallbackPx.y;
+      // Dùng toạ độ ĐÃ snap (teleportPlayer trả về) cho mọi message gửi server,
+      // tránh gửi lại toạ độ gốc chưa snap → server ghi đè sang vị trí sai.
+      const landed = this.teleportPlayer(spawnX, spawnY);
 
       // 4. Giới hạn camera bounds
       this.physics.world?.setBounds(0, 0, loaded.width, loaded.height);
@@ -2546,7 +2555,8 @@ export class WorldScene extends Phaser.Scene {
       // 6. Tham gia phòng Colyseus của map mới
       await ColyseusManager.getInstance().joinWorld(mapId);
       this.bindWorldRoomEvents();
-      ColyseusManager.getInstance().sendTeleport(spawnX, spawnY, this.player?.getDirection());
+      // Gửi toạ độ đã snap (không phải spawnX/spawnY gốc) → server không ghi đè.
+      ColyseusManager.getInstance().sendTeleport(landed.x, landed.y, this.player?.getDirection());
 
       this.debugConsole?.addLog(`Đã chuyển sang map "${meta?.name ?? mapId}"!`, '#55efc4');
     } catch (err: any) {

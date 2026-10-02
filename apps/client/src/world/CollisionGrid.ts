@@ -106,6 +106,10 @@ export class CollisionGrid {
    * Tìm ô walkable gần nhất quanh `(x, y)` theo vòng xoáy (bán kính `maxRadius`).
    * Trả về chính ô đó nếu đã walkable. `null` nếu không tìm thấy.
    * Dùng khi spawn/warp rơi vào ô blocked (tường, cây, nước...).
+   *
+   * - Nếu ô đích walkable → **luôn trả về ô đó** (warp dest là chính xác, kể cả
+   *   cửa kín 3 hướng; chấm điểm độ thoáng chỉ áp dụng khi ô đích KHÔNG walkable).
+   * - Nếu ô đích blocked → ưu tiên ô thoáng nhất trong bán kính, tránh kẹt góc/tường.
    */
   nearestWalkable(
     x: number,
@@ -114,6 +118,7 @@ export class CollisionGrid {
     maxRadius = 8,
   ): { x: number; y: number } | null {
     if (this.isWalkable(x, y, opts)) return { x, y };
+    let best: { x: number; y: number; score: number } | null = null;
     for (let r = 1; r <= maxRadius; r++) {
       for (let dy = -r; dy <= r; dy++) {
         for (let dx = -r; dx <= r; dx++) {
@@ -121,11 +126,32 @@ export class CollisionGrid {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
           const nx = x + dx;
           const ny = y + dy;
-          if (this.isWalkable(nx, ny, opts)) return { x: nx, y: ny };
+          if (!this.isWalkable(nx, ny, opts)) continue;
+          const score = this.openNeighborCount(nx, ny, opts);
+          if (!best || score > best.score) {
+            best = { x: nx, y: ny, score };
+          }
+          if (score >= 4) return { x: nx, y: ny };
         }
       }
     }
+    if (best) return { x: best.x, y: best.y };
     return null;
+  }
+
+  /** Đếm số ô walkable 4 hướng xung quanh — proxy cho "độ thoáng" của ô. */
+  private openNeighborCount(x: number, y: number, opts: WalkableOptions): number {
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ];
+    let n = 0;
+    for (const [dx, dy] of dirs) {
+      if (this.isWalkable(x + dx, y + dy, opts)) n++;
+    }
+    return n;
   }
 }
 

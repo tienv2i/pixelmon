@@ -4,6 +4,7 @@
  */
 import type { ServerMap, MapObject } from '../data/contracts.js';
 import { CollisionFlag } from '../data/contracts.js';
+import { MAPS } from '../constants/maps.js';
 
 export function getCollisionFlag(map: ServerMap, x: number, y: number): number {
   const { width, height, flags } = map.collision;
@@ -144,4 +145,37 @@ export function clampToMap(map: ServerMap, x: number, y: number): { x: number; y
     x: Math.max(0, Math.min(map.width - 1, x)),
     y: Math.max(0, Math.min(map.height - 1, y)),
   };
+}
+
+/**
+ * Resolve ô spawn (TILE coords) khi bước vào map — **SSOT** dùng chung cho
+ * server (`doChangeMap`) và client (`switchMap`), tránh lệch đơn vị pixel/tile.
+ *
+ * Thứ tự:
+ * 1. `warp.toX/toY` — override (dành cho warp cùng map: cầu thang...).
+ * 2. `MAPS[mapId].spawn` — điểm spawn chung duy nhất của map (TILE coords).
+ * 3. Tâm map — fallback cuối.
+ */
+export function resolveSpawnTile(
+  mapId: string,
+  warp?: { toX?: number; toY?: number },
+): { x: number; y: number } {
+  // 1. Warp override hợp lệ (warp cùng map: cầu thang, lối tắt trong map)
+  if (
+    warp &&
+    Number.isFinite(warp.toX) &&
+    Number.isFinite(warp.toY) &&
+    warp.toX !== undefined &&
+    warp.toY !== undefined
+  ) {
+    return { x: warp.toX, y: warp.toY };
+  }
+  // 2. Spawn chung của map
+  const meta = MAPS[mapId];
+  if (meta?.spawn) return { x: meta.spawn.x, y: meta.spawn.y };
+  // 3. Tâm map — fallback cuối cho map chưa khai báo spawn.
+  if (meta?.width && meta?.height) {
+    return { x: Math.floor(meta.width / 2), y: Math.floor(meta.height / 2) };
+  }
+  return { x: 0, y: 0 };
 }

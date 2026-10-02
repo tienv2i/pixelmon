@@ -100,6 +100,7 @@ export {
   pixelToTile,
   tileToPixel,
   clampToMap,
+  resolveSpawnTile,
   type MapObjectType,
   type WalkableOptions,
 } from './mapruntime.js';

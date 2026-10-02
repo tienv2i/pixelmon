@@ -58,3 +58,9 @@ packages/shared/assets/tilesets/*.png
 
 # Plan files (local)
 .plans/
+
+# TypeScript build artifacts (không được lọt vào data/ — source là .ts)
+packages/shared/data/maps/tiled/*.js
+packages/shared/data/maps/tiled/*.d.ts
+packages/shared/data/maps/tiled/*.js.map
+packages/shared/data/maps/tiled/*.d.ts.map

@@ -751,7 +751,7 @@
       9,
       9,
       9,
-      9,
+      137,
       9,
       9,
       9,
@@ -1003,7 +1003,20 @@
       "properties": []
     },
     {
-      "id": 12,
+      "id": 14,
+      "name": "tele-r1-to-lappet",
+      "x": 17,
+      "y": 20,
+      "width": 67.5592664380498,
+      "height": 58.3986879379753,
+      "visible": true,
+      "type": "warp",
+      "toMap": "lappet-town",
+      "toX": 14,
+      "toY": 1
+    },
+    {
+      "id": 15,
       "name": "Grass 4,4",
       "x": 4,
       "y": 4,

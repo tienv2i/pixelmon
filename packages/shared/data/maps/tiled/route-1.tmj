@@ -309,6 +309,34 @@
                  "width":32,
                  "x":832,
                  "y":448
+                }, 
+                {
+                 "height":58.3986879379753,
+                 "id":14,
+                 "name":"tele-r1-to-lappet",
+                 "opacity":1,
+                 "properties":[
+                        {
+                         "name":"toMap",
+                         "type":"string",
+                         "value":"lappet-town"
+                        }, 
+                        {
+                         "name":"toX",
+                         "type":"string",
+                         "value":"14"
+                        }, 
+                        {
+                         "name":"toY",
+                         "type":"string",
+                         "value":"1"
+                        }],
+                 "rotation":0,
+                 "type":"warp",
+                 "visible":true,
+                 "width":67.5592664380498,
+                 "x":573.681228567169,
+                 "y":640.095422692709
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -317,7 +345,7 @@
          "y":0
         }],
  "nextlayerid":5,
- "nextobjectid":12,
+ "nextobjectid":15,
  "orientation":"orthogonal",
  "properties":[
         {

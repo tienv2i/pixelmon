@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokémon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-02** (Phase 0+1 — Fix bug warp spawn lệch góc trái + chuẩn hoá spawn TILE coords + grass không còn bị chặn + `grass_zone` & encounter verify; typecheck 4/4 sạch)  
+> Cập nhật lần cuối: **2026-10-02** (Phase 0+1+1.4 — Fix bug warp spawn lệch góc trái + chuẩn hoá spawn TILE coords + grass không còn bị chặn + `grass_zone` & encounter verify + route-1 3 ô ledge `LEDGE_SOUTH` + fix client đen màn hình do Vite dep cache; typecheck 4/4 sạch)  
 > **2026-10-02 (trước đó):** Tính năng Đa ngôn ngữ (i18n) Toàn bộ Client — dictionary 285 key VI/EN trong `apps/client/src/i18n/index.ts`, toggle 1-nút trong Settings > Hệ thống, tự động refresh Text bound qua `mkText()`; đơn giản hoá nhãn Settings bỏ chú thích lặp; thêm setting Anti-aliasing (text hết mờ); fix DebugModal layout/relayout/double icon; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 5 — Admin Maps: route `POST /api/admin/maps/:id/regenerate` + `computeMapStats()` + nút "♻️ Regenerate JSON" + card "Thống kê Map"; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 3 — Tiled template `templates/pixelmon-map-template.tmj` + doc `docs/tiled-workflow.md`; fix bug `mapId is not defined` trong `deriveCollision`.  
@@ -957,9 +957,20 @@ Nguồn: `fix-plan-2.md`. Đã sửa đủ 3 vấn đề.
 - Code đã hỗ trợ đủ 4 hướng (`contracts.ts` encode 2-bit, `getLedgeDirection`/`canJumpLedge`/`jumpLedge`, server `isLedgeHop`). Thiếu property `ledge_dir` trong `.tmj`.
 - Cập nhật `docs/tiled-workflow.md`: mục 4.1 `grass_zone` + ghi chú `ledge_dir` 4 hướng.
 
+**5. Ledge data thực tế (commit `4af07621`):**
+- Thêm `ledge_dir: down` vào tile gid 829 (`passage=13`, `terrain_tag=1`) trong tileset route-1; đặt 3 ô ở **Ground layer** (23,10)/(24,10)/(25,10).
+- Rebuild → 3 ô flag `0x19` = `WALKABLE|GRASS|LEDGE_SOUTH`: đứng trên đó chỉ nhảy xuống 2 ô, hướng khác bị chặn.
+- **Quy tắc đã hướng dẫn user:** `passage=0x0f` → BLOCKED ở bất kỳ layer nào; grass (`terrain_tag` 2/10/14) luôn walkable; `ledge_dir` chỉ đọc từ layer đầu tiên có property → đặt ledge/cỏ/water phải ở **Ground**.
+
+**6. Fix client đen màn hình (ngoài plan):**
+- **Nguyên nhân:** Vite dep cache giữ bản `@pixelmon/shared` cũ chưa export `resolveSpawnTile` → `TypeError: does not provide an export named 'resolveSpawnTile'` → crash trước khi Phaser boot.
+- **Sửa:** `rm -rf apps/client/node_modules/.vite && ./scripts/pm.sh restart`. Console sạch, map load OK.
+
 **Xác minh:**
 - 8/8 warp **EXACT** ô đích, 0 lệch.
 - `grassBLOCKED=0` cả 5 map; route-1 425 ô grass (trước 0); lappet-town 20 ô grass.
+- route-1 ledge = 3 ô (trước 0).
+- Console browser: **0 lỗi**, map + player render OK.
 - `pnpm run typecheck` **4/4 sạch**.
 
 ---

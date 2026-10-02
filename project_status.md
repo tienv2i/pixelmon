@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokémon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-02** (Phase 0+1+1.4 — Fix bug warp spawn lệch góc trái + chuẩn hoá spawn TILE coords + grass không còn bị chặn + `grass_zone` & encounter verify + route-1 3 ô ledge `LEDGE_SOUTH` + fix client đen màn hình do Vite dep cache; typecheck 4/4 sạch)  
+> Cập nhật lần cuối: **2026-10-02** (Plan 43 Phase 0+1+1.4+2 — Fix bug warp spawn lệch góc trái + chuẩn hoá spawn TILE coords + grass không còn bị chặn + `grass_zone` & encounter verify + route-1 3 ô ledge `LEDGE_SOUTH` + **2 warp nối lappet-town ↔ route-1** + fix client đen màn hình do Vite dep cache; typecheck 4/4 sạch)  
 > **2026-10-02 (trước đó):** Tính năng Đa ngôn ngữ (i18n) Toàn bộ Client — dictionary 285 key VI/EN trong `apps/client/src/i18n/index.ts`, toggle 1-nút trong Settings > Hệ thống, tự động refresh Text bound qua `mkText()`; đơn giản hoá nhãn Settings bỏ chú thích lặp; thêm setting Anti-aliasing (text hết mờ); fix DebugModal layout/relayout/double icon; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 5 — Admin Maps: route `POST /api/admin/maps/:id/regenerate` + `computeMapStats()` + nút "♻️ Regenerate JSON" + card "Thống kê Map"; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 3 — Tiled template `templates/pixelmon-map-template.tmj` + doc `docs/tiled-workflow.md`; fix bug `mapId is not defined` trong `deriveCollision`.  
@@ -972,6 +972,14 @@ Nguồn: `fix-plan-2.md`. Đã sửa đủ 3 vấn đề.
 - route-1 ledge = 3 ô (trước 0).
 - Console browser: **0 lỗi**, map + player render OK.
 - `pnpm run typecheck` **4/4 sạch**.
+
+**7. Nối 2 map lại với nhau (commit `6b6ea9d7`):**
+- User vẽ trong Tiled 2 warp mới:
+  - `lappet-town` (14,0) → `route-1` (18,20), direction `up`
+  - `route-1` (17,20) → `lappet-town` (14,1)
+- Rebuild: lappet-town 3→4 warp, route-1 0→1 warp.
+- Verify: 2/2 chiều đi được (BFS spawn→warp 14 / 18 bước), ô đích walkable.
+- Clear Vite dep cache + restart; console sạch (chỉ còn 404 `favicon.ico` vô hại).
 
 ---
 

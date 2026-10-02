@@ -12,6 +12,17 @@ const FRAMES_PER_DIR = { legacy: 3, hero: 4 } as const;
 const WALK_FRAME_MS = 150;
 
 /**
+ * Số Ô đi được để hoàn thành 1 chu kỳ đi bộ đầy đủ (đứng → bước trái →
+ * đứng → bước phải). Lấy = `FRAMES_PER_DIR` để mỗi ô advance đúng 1 frame →
+ * nhịp frame ≈ `WALK_FRAME_MS` tại vận tốc chuẩn (mỗi ô 150ms).
+ *
+ * KHÔNG quét hết `maxFrame` trong 1 ô: sau khi `advanceStep` chuyển sang
+ * vận tốc tuyến tính (1 ô = 150ms) thì cách đó frame nhảy 26fps → nhìn như
+ * lướt frame. Suy ra từ quãng đường (không phải thời gian) nên khi đổi speed
+ * multiplier ở tab Debug, animation vẫn khớp bước chân.
+ */
+
+/**
  * KHÔNG dùng `setFlipX` để làm hướng trái: sheet đã có frame trái/phải riêng
  * biệt (và frame này được khôi phục màu thật + alpha khi cắt từ ảnh gốc nền
  * trắng) — lật sẽ chỉ làm sprite sai hướng.
@@ -53,6 +64,10 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
   private shadow!: Phaser.GameObjects.Image;
   private dir: Dir = 'down';
   private walkFrame = 0;
+  /** Tiến trình ô trước đó — dùng để tính delta chu kỳ khi ô mới bắt đầu. */
+  private lastWalkProgress = 0;
+  /** Tiến trình chu kỳ đi bộ 0..1 (1 chu kỳ = `TILES_PER_CYCLE` ô). */
+  private walkCycle = 0;
   private walkTimer = 0;
   private hue: number;
   /** Sheet nào đang dùng: 'legacy' (12 frame) hay 'hero' (16 frame). */
@@ -127,6 +142,8 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
     if (d !== this.dir) {
       this.walkFrame = 0;
       this.walkTimer = 0;
+      this.walkCycle = 0;
+      this.lastWalkProgress = 0;
       this.dir = d;
       this.setFrame(frameName(d, 0));
     }
@@ -182,6 +199,8 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
   jumpTo(targetX: number, targetY: number, dir: Dir, durationMs = 220, onDone?: () => void): void {
     this.setDirection(dir);
     this.walkFrame = 0;
+    this.walkCycle = 0;
+    this.lastWalkProgress = 0;
     this.scene.tweens.add({
       targets: this,
       x: targetX,
@@ -202,26 +221,40 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
   /**
    * Bước chân animation (gọi mỗi frame trong update).
    *
-   * `walkProgress` = tiến trình bước chân trên ô hiện tại (0.0 → 1.0). Khi có
-   * progress, frame được chọn theo % quãng đường → bước chân luôn khớp với
-   * khoảng cách thực tế đã đi (WorldScene nội suy grid-step), không bị trôi
-   * frame khi tốc độ lệch. Bỏ trống → fallback sang timer `WALK_FRAME_MS`.
+   * `walkProgress` = tiến trình bước chân trên ô hiện tại (0.0 → 1.0) —
+   * truyền `-1` (mặc định) nếu không có progress để fallback timer
+   * `WALK_FRAME_MS`.
    */
-  animateWalk(deltaMs: number, moving: boolean, walkProgress = 0): void {
+  animateWalk(deltaMs: number, moving: boolean, walkProgress = -1): void {
     const maxFrame = FRAMES_PER_DIR[this.sheet];
     if (!moving) {
       this.walkTimer = 0;
       this.walkFrame = 0;
+      this.walkCycle = 0;
+      this.lastWalkProgress = 0;
       this.setFrame(frameName(this.dir, 0));
       return;
     }
 
-    // Khớp frame theo tiến trình ô (0.0 -> 1.0).
-    if (walkProgress > 0) {
-      const frameIndex = Math.min(Math.floor(walkProgress * maxFrame), maxFrame - 1);
-      this.walkFrame = frameIndex;
+    // Khớp frame theo tiến trình nhưng KHÔNG gói 1 chu kỳ trong 1 ô:
+    // progress nhảy 0→1 mỗi ô nên nếu quét thẳng `floor(progress * maxFrame)`
+    // thì 4 frame chỉ mất 150ms (26fps, lướt nhanh mắt thường không thấy).
+    // Thay vào tích luỹ chuỗi progress — mỗi ô advance 1 ô của `maxFrame`.
+    if (walkProgress >= 0) {
+      // Ô mới bắt đầu → progress reset về ~0; cộng nốt phần chưa đi của ô trước.
+      const delta = walkProgress >= this.lastWalkProgress
+        ? walkProgress - this.lastWalkProgress
+        : 1 - this.lastWalkProgress + walkProgress;
+      this.lastWalkProgress = walkProgress;
+      // 1 chu kỳ = `maxFrame` ô → mỗi ô advance đúng 1 frame ≈ WALK_FRAME_MS.
+      this.walkCycle = (this.walkCycle + delta / maxFrame) % 1;
+
+      const frameIndex = Math.min(Math.floor(this.walkCycle * maxFrame), maxFrame - 1);
+      if (frameIndex !== this.walkFrame) {
+        this.walkFrame = frameIndex;
+        this.setFrame(frameName(this.dir, frameIndex));
+      }
       this.walkTimer = 0;
-      this.setFrame(frameName(this.dir, frameIndex));
       return;
     }
 

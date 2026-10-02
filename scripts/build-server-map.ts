@@ -25,6 +25,7 @@ import { existsSync, watch as fsWatch } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ServerMap, MapObject, CollisionLayer } from '../packages/shared/src/data/contracts.ts';
+import { MAPS } from '../packages/shared/src/constants/maps.ts';
 
 // ── CollisionFlag — khớp `packages/shared/src/data/contracts.ts` ────────────────
 const WALKABLE = 0x01;
@@ -234,7 +235,12 @@ function deriveCollision(map: TiledMap, mapId: string): CollisionLayer {
       const terrainTag = gProps ? propNumFromMap(gProps, 'terrain_tag') : undefined;
       const terrainFlag = terrainTag !== undefined ? (TERRAIN_TAG_TO_FLAG[terrainTag] ?? 0) : 0;
 
-      if (isBlocked) {
+      // Cỏ luôn đi được (tall grass / grass chỉ gây encounter, không chặn di chuyển).
+      // BUG cũ: `isBlocked` khiến tag 2/10/14 thành GRASS|BLOCKED (0x0C) → ô cỏ bị coi
+      // là không đi được. Ưu tiên GRASS giữ WALKABLE, chỉ clear BLOCKED.
+      if (terrainFlag & GRASS) {
+        flag = (flag & ~BLOCKED) | WALKABLE | GRASS;
+      } else if (isBlocked) {
         flag = terrainFlag & WATER ? terrainFlag : (terrainFlag & ~WALKABLE) | BLOCKED;
       } else {
         flag = terrainFlag | WALKABLE;
@@ -296,6 +302,29 @@ function deriveCollision(map: TiledMap, mapId: string): CollisionLayer {
     }
   }
 
+  // D2. grass_zone post-pass: vùng cỏ → set GRASS|WALKABLE cho mọi ô trong rect.
+  //     `isGrass()` đọc bit GRASS → encounter trigger. Không set thì vùng cỏ vẽ trong
+  //     Tiled nhưng không bao giờ gặp wild (route-1 encounterRate=20 nhưng 0 ô grass).
+  if (objects?.objects) {
+    for (const o of objects.objects) {
+      if ((o.type ?? '').toLowerCase() !== 'grass_zone') continue;
+      const tx = Math.floor(o.x / map.tilewidth);
+      const ty = Math.floor(o.y / map.tileheight);
+      const tw = Math.max(1, Math.floor((o.width ?? map.tilewidth) / map.tilewidth));
+      const th = Math.max(1, Math.floor((o.height ?? map.tileheight) / map.tileheight));
+      for (let dy = 0; dy < th; dy++) {
+        for (let dx = 0; dx < tw; dx++) {
+          const nx = tx + dx;
+          const ny = ty + dy;
+          if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+          const i = ny * map.width + nx;
+          if (flags[i] & WATER) continue; // nước — bỏ qua
+          flags[i] = (flags[i] & ~BLOCKED) | WALKABLE | GRASS;
+        }
+      }
+    }
+  }
+
   // E. Landing post-pass: ô đích warp (cùng map) → clear BLOCKED, set WALKABLE
   if (objects?.objects) {
     for (const o of objects.objects) {
@@ -350,8 +379,59 @@ function applyCrossMapLandings(
   }
 }
 
-/** Derive `objects[]` — warp + các object khác. */
-function deriveObjects(map: TiledMap): MapObject[] {
+/**
+ * Inject `grass_zone` từ `MAPS[mapId].encounterZones` khi TMJ chưa vẽ zone nào.
+ *
+ * Bối cảnh: converter Essentials chỉ emit `terrain_tag` cho tile thực sự dùng,
+ * và RMXP `5.tmj` (route-1) không có ô cỏ nào → 0 ô GRASS dù `encounterRate=20`.
+ * Đây là nguồn ý định vùng cỏ duy nhất trong repo (`constants/maps.ts`).
+ *
+ * Không ghi đè zone đã vẽ tay trong Tiled — chỉ chạy khi map chưa có grass_zone.
+ */
+function injectGrassZonesFromEncounterZones(
+  objects: MapObject[],
+  flags: number[],
+  map: TiledMap,
+  mapId: string,
+): void {
+  const hasZone = objects.some((o) => o.type === 'grass_zone');
+  if (hasZone) return;
+
+  const zones = MAPS[mapId]?.encounterZones ?? [];
+  if (zones.length === 0) return;
+
+  let nextId = Math.max(0, ...objects.map((o) => o.id ?? 0)) + 1;
+  for (const z of zones) {
+    const w = z.x2 - z.x1 + 1;
+    const h = z.y2 - z.y1 + 1;
+    objects.push({
+      id: nextId++,
+      name: `Grass ${z.x1},${z.y1}`,
+      x: z.x1,
+      y: z.y1,
+      width: w,
+      height: h,
+      visible: true,
+      type: 'grass_zone',
+      encounterTableId: mapId,
+    } as MapObject);
+
+    // Set GRASS|WALKABLE cho mọi ô trong vùng (bỏ qua nước).
+    for (let dy = 0; dy < h; dy++) {
+      for (let dx = 0; dx < w; dx++) {
+        const nx = z.x1 + dx;
+        const ny = z.y1 + dy;
+        if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+        const i = ny * map.width + nx;
+        if (flags[i] & WATER) continue;
+        flags[i] = (flags[i] & ~BLOCKED) | WALKABLE | GRASS;
+      }
+    }
+  }
+  console.log(`  🌱 ${mapId}: inject ${zones.length} grass_zone từ MAPS.encounterZones`);
+}
+
+/** Derive `objects[]` — warp + các object khác. */function deriveObjects(map: TiledMap): MapObject[] {
   const layer = pickLayer(map, 'Objects', 'objects', 'objectgroup');
   if (!layer?.objects) return [];
 
@@ -461,6 +541,10 @@ async function buildOne(
     applyCrossMapLandings(collision.flags, map, mapId, allMaps);
 
     const objects = deriveObjects(map);
+    // Fallback: nếu TMJ chưa vẽ `grass_zone` nào nhưng MAPS khai báo encounterZones
+    // → tự inject grass_zone + set GRASS flag, để encounter trigger (route-1
+    // encounterRate=20 nhưng 0 ô grass nếu không có bước này).
+    injectGrassZonesFromEncounterZones(objects, collision.flags, map, mapId);
     const encounters = await readEncounters(mapId);
 
     const out: ServerMap = {

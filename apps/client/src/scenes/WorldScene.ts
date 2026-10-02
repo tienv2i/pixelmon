@@ -1719,9 +1719,22 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
-  private startBattle(): void {
+  /**
+   * Bắt đầu trận wild encounter.
+   *
+   * Gửi `start_battle` kèm **toạ độ ô cỏ** (tile coords) để server verify:
+   * - Server check `isGrass(tile)` → nếu không phải ô cỏ thì bỏ qua.
+   * - Chống cheat: client không thể gọi encounter ở ô không phải grass.
+   * - Server cũng snapshot vị trí player từ state (nếu client báo lệch → bỏ qua).
+   *
+   * Nếu server không verify (offline mode / lỗi mạng) vẫn launch Battle scene
+   * local để không kẹt `canMove = false`.
+   */
+  private startBattle(col?: number, row?: number): void {
     this.canMove = false;
     const network = ColyseusManager.getInstance();
+    // Gửi vị trí ô cỏ (tạo 1 promise không chờ — server có thể reject nếu không phải grass).
+    network.sendStartBattle(col, row);
     this.scene.sleep();
     network.joinBattle();
     this.scene.launch('Battle');
@@ -1950,11 +1963,12 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    // Grass encounter (hiện dữ liệu chưa bật flag GRASS → luôn false).
+    // Grass encounter: chỉ trigger trên ô GRASS (cờ đã được build-server-map set).
     if (this.collision.isGrass(col, row) && this.canMove && !this.scene.isSleeping()) {
       const rate = MAPS[this.currentMapId]?.encounterRate ?? 0;
       if (rate > 0 && Math.random() * 100 < Math.min(rate, 12) * 0.1) {
-        this.startBattle();
+        // Gửi toạ độ ô cỏ → server verify (tránh client báo sai/mở hack encounter).
+        this.startBattle(col, row);
       }
     }
   }

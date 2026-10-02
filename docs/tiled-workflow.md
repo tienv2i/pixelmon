@@ -88,6 +88,31 @@ Mỗi object warp trong Tiled:
 
 **Object khác warp:** đặt `type` là `event` (hoặc để trống) → server JSON ghi `type: "event"`.
 
+### 4.1 Vùng cỏ encounter (`grass_zone`)
+
+Object vẽ vùng cỏ để trigger wild encounter khi người chơi bước vào:
+
+| Field | Giá trị |
+|---|---|
+| `name` | tên tùy ý (vd "Route 1 grass") |
+| `type` | `grass_zone` |
+| `x`, `y` | pixel góc trên-trái (Tiled tự quy đổi sang tile) |
+| `width`, `height` | pixel (Tiled tự quy đổi sang tile) |
+| `properties` | `encounterTableId` (string, optional) |
+
+**Ví dụ:**
+```json
+{
+  "id": 10, "name": "Route 1 grass", "type": "grass_zone",
+  "x": 128, "y": 128, "width": 448, "height": 512
+}
+```
+
+- `build:map` set `GRASS|WALKABLE` cho **mọi ô** trong rect (bỏ qua nước).
+- `isGrass()` đọc bit GRASS → trigger encounter theo `encounterRate`.
+- **Fallback:** nếu map chưa vẽ zone nào → `build:map` tự inject zone từ
+  `MAPS[id].encounterZones` (constants/maps.ts) — nguồn ý định vùng cỏ duy nhất.
+
 ---
 
 ## 5. Quy ước Collision
@@ -117,6 +142,16 @@ Trong Tiled, chọn tile trong tileset → `Properties` → thêm property:
 | `water` | bool | true = ô nước |
 
 **Cách thêm:** trong Tiled, mở `Tileset` panel → chọn tile → thêm property. Tiled lưu vào `tilesets[].tiles[].properties` trong `.tmj`.
+
+> **Lưu ý quan trọng về `ledge_dir`:** code đã hỗ trợ đủ 4 hướng (`contracts.ts` encode
+> 2-bit field bits 5–6: `LEDGE_SOUTH` 0x10, `LEDGE_NORTH` 0x30, `LEDGE_WEST` 0x50,
+> `LEDGE_EAST` 0x70; `getLedgeDirection`/`canJumpLedge`/`jumpLedge` ở cả client lẫn server).
+> Nhưng **property `ledge_dir` không tồn tại trong bất kỳ `.tmj` nào** → chỉ `terrain_tag: 1`
+> (`LEDGE_SOUTH`) tạo ledge được. Muốn ledge hướng khác → thêm `ledge_dir` vào tile trong Tiled.
+>
+> **Ví dụ bậc thềm chỉ đi xuống 1 hướng (Route 1):** chọn tile bậc thềm → thêm
+> `ledge_dir = down` → `build:map` set `LEDGE_SOUTH` → client/server cho nhảy 2 ô xuống,
+> chặn đi ngang/lên.
 
 ### 5.3 Object property override
 

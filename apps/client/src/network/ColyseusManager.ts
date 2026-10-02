@@ -356,6 +356,17 @@ export class ColyseusManager {
   }
 
   /**
+   * Báo server bắt đầu wild encounter (start_battle) kèm **toạ độ ô cỏ** (tile coords).
+   * Server verify `isGrass(tile)` trước khi roll encounter → chống client gọi encounter
+   * ở ô không phải grass.
+   *
+   * `col`/`row` omit → server tự snapshot vị trí player từ Colyseus state.
+   */
+  sendStartBattle(col?: number, row?: number): void {
+    this.worldRoom?.send('start_battle', { x: col, y: row });
+  }
+
+  /**
    * Yêu cầu server chuyển map (warp). Server validate warp tại ô hiện tại rồi
    * broadcast `player_moved_map`; client rejoin room của map mới.
    */

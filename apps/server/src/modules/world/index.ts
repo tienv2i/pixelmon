@@ -1,6 +1,6 @@
 import { Room, type Client } from '@colyseus/core';
 import { WorldState, PlayerState } from '@pixelmon/shared/schema';
-import { MAPS, MOVE_COOLDOWN_MS, resolveSpawnTile } from '@pixelmon/shared';
+import { MAPS, MOVE_COOLDOWN_MS, resolveSpawnTile, isGrass } from '@pixelmon/shared';
 import { mapLoader } from '@pixelmon/shared/data';
 import { pool } from '../../config/index.js';
 import {
@@ -70,10 +70,20 @@ export class WorldRoom extends Room<WorldState> {
       });
     });
 
-    this.onMessage('start_battle', (client) => {
-      // Wild encounter: random chance based on map encounter rate
+    this.onMessage('start_battle', (client, data?: { x?: number; y?: number }) => {
+      // Wild encounter: chỉ trigger khi người chơi ĐANG đứng trên ô cỏ (GRASS flag).
       const mapData = MAPS[this.state.mapId];
       if (!mapData || mapData.encounterRate <= 0) return;
+
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      const tile = pixelToTile(player.x, player.y);
+      // Ưu tiên toạ độ client báo (nếu hợp lệ & cùng map), fallback về server-side.
+      const cx = typeof data?.x === 'number' && Number.isFinite(data.x) ? Math.floor(data.x) : tile.x;
+      const cy = typeof data?.y === 'number' && Number.isFinite(data.y) ? Math.floor(data.y) : tile.y;
+      if (cx !== tile.x || cy !== tile.y) return; // client/server lệch → bỏ qua (không cheat)
+
+      if (!isGrass(this.grid.map, cx, cy)) return; // không phải ô cỏ → không encounter
       if (Math.random() * 100 > mapData.encounterRate) return;
       // Emit to matchmaker to create battle room
       this.presence.publish('battle_request', {

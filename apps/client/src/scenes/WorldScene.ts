@@ -32,6 +32,16 @@ const DEBUG = false;
 const DEBUG_GRID_DEPTH = 31;
 const DEBUG_TRACKER_DEPTH = 33;
 
+/**
+ * Tới `maxDelta` px theo hướng `to`, KHÔNG BAO GIỜ vượt qua đích.
+ * Phaser 3.90 không có `Phaser.Math.MoveTowards` (chỉ có `Linear` → lerp
+ * tiệm cận), nên tự cung cấp ở đây.
+ */
+function moveTowards(from: number, to: number, maxDelta: number): number {
+  if (Math.abs(to - from) <= maxDelta) return to;
+  return from + Math.sign(to - from) * maxDelta;
+}
+
 /** Bật để dùng Tiled map thật (thay vì PlaceholderMap). */
 let USE_TILED_MAP = true;
 
@@ -1263,20 +1273,20 @@ export class WorldScene extends Phaser.Scene {
     const total = Phaser.Math.Distance.Between(
       this.stepStartX, this.stepStartY, this.stepTargetX, this.stepTargetY,
     );
-    // Approach: tiến tới đích đúng `step` px, không bao giờ vượt qua (clamp t ≤ 1).
-    const t = total > 0 ? Math.min(step / total, 1) : 1;
-    this.player.setPosition(
-      Phaser.Math.Linear(this.player.x, this.stepTargetX, t),
-      Phaser.Math.Linear(this.player.y, this.stepTargetY, t),
-    );
+    // Vận tốc TUYẾN TÍNH không đổi.
+    // KHÔNG dùng `Phaser.Math.Linear(cur, target, step/total)` — đó là suy giảm
+    // mũ: mỗi frame chỉ ăn ~11% quãng đường CÒN LẠI nên 1 ô (32px) mất
+    // 500–650ms thay vì 150ms, nhân vật "trôi lờ đờ" ở cuối ô và khoá input.
+    // `MoveTowards` tiến đúng `step` px/frame → hoàn tất chính xác sau 150ms.
+    const newX = moveTowards(this.player.x, this.stepTargetX, step);
+    const newY = moveTowards(this.player.y, this.stepTargetY, step);
+    this.player.setPosition(newX, newY);
 
-    const remaining = Phaser.Math.Distance.Between(
-      this.player.x, this.player.y, this.stepTargetX, this.stepTargetY,
-    );
-    const progress = total > 0 ? 1 - remaining / total : 1;
+    const remaining = Phaser.Math.Distance.Between(newX, newY, this.stepTargetX, this.stepTargetY);
+    const progress = total > 0 ? Math.min(Math.max(1 - remaining / total, 0), 1) : 1;
     this.player.animateWalk(delta, true, progress);
 
-    if (remaining > 1.0) return true;
+    if (remaining > 0.01) return true;
 
     // Đã tới tâm ô đích — snap chính xác rồi xử lý logic sau bước.
     this.player.setPosition(this.stepTargetX, this.stepTargetY);
@@ -1470,8 +1480,13 @@ export class WorldScene extends Phaser.Scene {
     else if (up) keyDirection = 'up';
     else if (down) keyDirection = 'down';
 
-    // Bỏ giữ phím → reset trạng thái.
-    if (!keyDirection) this.heldDir = null;
+    // Bỏ giữ phím → reset CẢ heldDir lẫn bufferedDir.
+    // Trước đây chỉ xóa heldDir nên cú "nhấp" (tap ~100–200ms) vẫn để lại hướng
+    // trong bufferedDir → advanceStep() sau khi tới tâm ô tự ép bước thêm ô thứ 2.
+    if (!keyDirection) {
+      this.heldDir = null;
+      this.bufferedDir = null;
+    }
 
     // Ưu tiên nội suy trượt ô — mọi input khác chờ tới tâm ô rồi xử lý.
     const walking = this.advanceStep(delta);
@@ -1495,7 +1510,8 @@ export class WorldScene extends Phaser.Scene {
     } else if (keyDirection && this.isJumping) {
       this.moving = true;
     } else if (keyDirection && walking) {
-      // Đang trượt ô — đệm hướng lại để nối bước ngay khi tới tâm ô.
+      // Đang trượt ô — đệm hướng CHỈ KHI phím vẫn đang tiếp tục được giữ
+      // (đã clear ở nhánh `!keyDirection` phía trên nên tap không còn gây bước 2).
       this.bufferedDir = keyDirection;
       this.heldDir = keyDirection;
       this.moving = true;

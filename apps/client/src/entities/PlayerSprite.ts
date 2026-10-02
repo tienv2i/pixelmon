@@ -70,16 +70,19 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
   ) {
     super(scene, x, y, sheetKey, frameName('down', 0));
     scene.add.existing(this);
-    // Origin Y theo từng loại sheet (xem HERO_FRAME_SIZE / trainer sheet):
-    // - hero: frame đã canh chân sát đáy  -> origin Y = 1.0
-    // - trainer cũ: vẽ trong 32px, chân ở ~y=31 -> 0.7 giữ như cũ
+    // `y` là TÂM Ô (tileCenter = col*32+16, row*32+16) → MẶT ĐẤT (đáy ô) ở y + 16.
+    // Ghim ĐÁY FRAME (chân) vào đáy ô để nhân vật đứng đúng mặt đất thay vì
+    // lơ lửng ở đường giữa ô:
+    // - hero (frame 64px):  originY = (64-16)/64 = 0.75
+    // - legacy (frame 32px): originY = (32-16)/32 = 0.5
     this.sheet = frameCount === 16 ? 'hero' : 'legacy';
-    this.setOrigin(0.5, this.sheet === 'hero' ? 1.0 : 0.7);
+    this.setOrigin(0.5, this.sheet === 'hero' ? 0.75 : 0.5);
     this.setDepth(10);
     this.hue = hueSeed;
 
+    // Bóng đặt ngay dưới chân (đáy ô = y + 16, hình bầu dục nằm phía dưới 1px).
     this.shadow = scene.add
-      .image(x, y + 2, 'shadow')
+      .image(x, y + 15, 'shadow')
       .setDepth(9)
       .setAlpha(0.6);
 
@@ -96,7 +99,8 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
   }
 
   private getNameOffsetY(): number {
-    return this.sheet === 'hero' ? 68 : TILE_SIZE + 4;
+    // hero: đỉnh đầu nằm ở y - 48 (64px × originY 0.75) → bảng tên đặt ở y - 52.
+    return this.sheet === 'hero' ? 52 : TILE_SIZE + 4;
   }
 
   /**
@@ -140,9 +144,10 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
     if (!this.scene.textures.exists(sheetKey)) return;
     this.sheet = frameCount === 16 ? 'hero' : 'legacy';
     this.setTexture(sheetKey, frameName(this.dir, this.walkFrame));
-    // Sheet mới có thể khác frame size → canh chân lại cho đúng
-    this.setOrigin(0.5, this.sheet === 'hero' ? 1.0 : 0.7);
+    // Sheet mới có thể khác frame size → canh lại originY để chân luôn đứng đáy ô (y+16)
+    this.setOrigin(0.5, this.sheet === 'hero' ? 0.75 : 0.5);
     this.nameText?.setPosition(this.x, this.y - this.getNameOffsetY());
+    this.shadow?.setPosition(this.x, this.y + 15);
   }
 
   /** Tint nhẹ để phân biệt người chơi (hash hueSeed). */
@@ -185,7 +190,7 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
       ease: 'Quad.easeOut',
       onUpdate: () => {
         this.nameText?.setPosition(this.x, this.y - this.getNameOffsetY());
-        this.shadow?.setPosition(this.x, this.y + 2);
+        this.shadow?.setPosition(this.x, this.y + 15);
       },
       onComplete: () => {
         this.setPosition(targetX, targetY);
@@ -234,7 +239,7 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
     // Phaser's Sprite constructor gọi setPosition() trong lúc super() —
     // lúc đó nameText/shadow chưa được gán → cần guard.
     this.nameText?.setPosition(x, y - this.getNameOffsetY());
-    this.shadow?.setPosition(x, y + 2);
+    this.shadow?.setPosition(x, y + 15);
     return this;
   }
 

@@ -617,6 +617,33 @@ python3 scripts/tools/inspect_image.py packages/shared/assets/tilesets/Outdoor.p
 - ✅ `pnpm run typecheck` 4/4 sạch; ✅ `vite build` thành công.
 - ✅ Đã test trên trình duyệt: role `player` → **không thấy** tab Debug; role `admin` → thấy tab; grid + tracking hiển thị đúng & persist qua reload; toggle toolbar ẩn/hiện icon Debug trên TopMenu (relayout không lệch); F3 mở đúng tab Debug; realtime map/coords cập nhật mỗi frame.
 
+### Fix Plan 2 — Sửa 3 lỗi di chuyển & vị trí đứng của nhân vật (2026-10-02)
+
+Nguồn: `fix-plan-2.md`. Đã sửa đủ 3 vấn đề.
+
+**1. Bấm 1 lần đi 2 ô (Double-stepping)** — `WorldScene.update()`
+- Nguyên nhân: khi nhả phím, code chỉ xóa `heldDir` mà **quên xóa `bufferedDir`**. Cú tap (~100–200ms) để lại hướng trong buffer → `advanceStep()` tới tâm ô tự ép bước ô thứ 2.
+- Sửa: `if (!keyDirection) { this.heldDir = null; this.bufferedDir = null; }`.
+- Kết quả: tap = đúng 1 ô, dừng dứt khoát. Giữ phím vẫn đệm hướng & nối bước liên tục như cũ.
+
+**2. Độ trễ / chuyển động lề mề** — `WorldScene.advanceStep(delta)`
+- Nguyên nhân: `Phaser.Math.Linear(player.x, targetX, step/total)` là **lerp tiệm cận**, mỗi frame chỉ ăn ~11% quãng đường *còn lại* → 1 ô (32px) mất **500–650ms** thay vì 150ms, nhân vật trôi lờ đờ ở cuối ô và khoá cứng `isWalking` (input trễ nặng).
+- Sửa: chuyển sang vận tốc **tuyến tính không đổi** — mỗi frame tiến đúng `step` px rồi snap khi chạm đích. Ngưỡng hoàn thành siết `remaining > 1.0` → `> 0.01`.
+- **Lưu ý:** `Phaser.Math.MoveTowards` **không tồn tại** trong typings Phaser 3.90 (chỉ có `Linear`) → tự thêm helper `moveTowards(from, to, maxDelta)` (có `Math.sign`, không vượt đích) ở top-level `WorldScene.ts`.
+- Kết quả: 1 ô = đúng 150ms (`WALK_SPEED_PX ≈ 213.3 px/s`), `animateWalk` nhận `progress` tuyến tính 0→1 nên chân đúng nhịp.
+
+**3. Vị trí đứng lơ lửng ở giữa ô** — `PlayerSprite.ts`
+- Nguyên nhân: `(x, y)` là **TÂM Ô** ⇒ mặt đất (đáy ô) ở `y + 16`. Nhưng `setOrigin(0.5, 1.0)` ghim đáy frame (chân) vào `y` ⇒ chân + bóng nằm ở đường giữa ô, lơ lửng 16px.
+- Sửa:
+  - `setOrigin(0.5, 0.75)` cho sheet `hero` (frame 64px, `(64-16)/64`), `0.5` cho `legacy` (frame 32px, `(32-16)/32`).
+  - Bóng: `y + 2` → **`y + 15`** ở **cả 4 nơi** (constructor, `setPosition`, `swapSheet`, onUpdate của `jumpTo`) — sót 1 chỗ là bóng lệch vị trí khi nhân vật đi/nhảy.
+  - `getNameOffsetY()`: `68` → **`52`** (đỉnh đầu ở `y - 48`, bảng tên đặt `y - 52`).
+  - `swapSheet()` cũng phải đổi originY theo công thức mới (trước đây hardcode `1.0`/`0.7`) và cập nhật lại shadow.
+- Hệ quả phụ: nhãn tracking toạ độ (Settings > Debug) tự dịch theo vì đã dùng `player.nameOffsetY`.
+
+- ✅ `pnpm run typecheck` 4/4 sạch; ✅ `vite build` thành công.
+- ⬜ Checklist nghiệm thu trình duyệt mục III của `fix-plan-2.md` (tap 1 ô / giữ phím / độ trễ / bàn chân đúng đáy ô / nhảy ledge) — chưa chạy.
+
 ---
 
 ## 10. Kế hoạch Tiếp theo (Roadmap & Next Steps)

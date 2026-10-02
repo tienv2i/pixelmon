@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { C, FONT } from './theme';
 import { UiModal } from './UiModal';
+import { t, onLangChange} from '../i18n';
 import type { HudMode } from './HudManager';
 
 export interface PlayerHudData {
@@ -13,8 +14,8 @@ export interface PlayerHudData {
 
 const NORMAL_W = 168;
 const NORMAL_H = 62;
-const MINI_W = 115;
-const MINI_H = 44;
+const MINI_W = 48;
+const MINI_H = 48;
 
 /**
  * **PlayerHud** — Bảng thông tin người chơi (UserInfo):
@@ -23,6 +24,7 @@ const MINI_H = 44;
  * - Hỗ trợ Responsive: tự động thu gọn sang chế độ Mini trên màn hình hẹp hoặc khi kích hoạt mini mode.
  */
 export class PlayerHud extends UiModal {
+  private unsubLang?: () => void;
   private avatar: Phaser.GameObjects.Image;
   private nameText: Phaser.GameObjects.Text;
   private moneyText: Phaser.GameObjects.Text;
@@ -38,7 +40,7 @@ export class PlayerHud extends UiModal {
     onClose?: () => void,
   ) {
     super(scene, {
-      title: '👤 NHÂN VẬT',
+      title: t('PLAYER_TITLE'),
       width: NORMAL_W,
       height: NORMAL_H,
       showTitleBar: false,
@@ -101,8 +103,11 @@ export class PlayerHud extends UiModal {
     this.contentContainer.add(this.realMoneyText);
 
     this.applyInternalLayout();
-    this.update({ name: 'Trainer', money: 5000, realMoney: 0 });
+    this.update({ name: t('PLAYER_TRAINER'), money: 5000, realMoney: 0 });
     this.show();
+  
+    // Cập nhật title khi đổi ngôn ngữ (chỉ 1 ngôn ngữ hiển thị)
+    this.unsubLang = onLangChange(() => this.setTitle(t('PLAYER_TITLE')));
   }
 
   /** Đặt lại chế độ hiển thị (normal/mini/hidden) — gọi từ HudManager. */
@@ -134,15 +139,15 @@ export class PlayerHud extends UiModal {
     const hasPreview128 = this.scene.textures.exists('user_preview_128');
 
     if (isMini) {
-      this.avatar.setPosition(20, 22);
+      this.avatar.setPosition(MINI_W / 2, MINI_H / 2);
       if (hasPreview128) {
-        this.avatar.setScale(34 / 128);
+        this.avatar.setScale(38 / 128);
       } else {
-        this.avatar.setScale(32 / Math.max(1, this._avatarFrameSize));
+        this.avatar.setScale(36 / Math.max(1, this._avatarFrameSize));
       }
 
-      this.nameText.setPosition(40, 6).setFontSize('11px');
-      this.moneyText.setPosition(40, 22).setFontSize('10px');
+      this.nameText.setVisible(false);
+      this.moneyText.setVisible(false);
       this.realMoneyText.setVisible(false);
     } else {
       this.avatar.setPosition(30, 31);
@@ -152,8 +157,8 @@ export class PlayerHud extends UiModal {
         this.avatar.setScale(44 / Math.max(1, this._avatarFrameSize));
       }
 
-      this.nameText.setPosition(62, 8).setFontSize('12px');
-      this.moneyText.setPosition(62, 25).setFontSize('11px');
+      this.nameText.setPosition(62, 8).setFontSize('12px').setVisible(true);
+      this.moneyText.setPosition(62, 25).setFontSize('11px').setVisible(true);
       this.realMoneyText.setPosition(62, 42).setFontSize('11px').setVisible(true);
     }
   }
@@ -194,6 +199,10 @@ export class PlayerHud extends UiModal {
 
   setVisible(v: boolean): void {
     if (v) this.show();
-    else this.close();
+    else this.close();  }
+
+  destroy(): void {
+    this.unsubLang?.();
+    super.destroy?.();
   }
 }

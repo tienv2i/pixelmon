@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { C, FONT } from './theme';
 import { UiModal } from './UiModal';
+import { t, onLangChange} from '../i18n';
 import type { UiZoomManager } from './UiZoomManager';
 import type { HudMode } from './HudManager';
 
@@ -19,6 +20,7 @@ const CHAT_H = 138;
  * - Enter mở input HTML để chat, Escape đóng input.
  */
 export class ChatLog extends UiModal {
+  private unsubLang?: () => void;
   private lines: string[] = [];
   private textObjects: Phaser.GameObjects.Text[] = [];
   private inputEl: HTMLInputElement | null = null;
@@ -27,7 +29,7 @@ export class ChatLog extends UiModal {
 
   constructor(scene: Phaser.Scene, onSend?: (msg: string) => void, onClose?: () => void) {
     super(scene, {
-      title: '💬 TRÒ CHUYỆN',
+      title: t('CHAT_TITLE'),
       width: CHAT_W,
       height: CHAT_H,
       headerHeight: 28,
@@ -53,13 +55,16 @@ export class ChatLog extends UiModal {
     // Tạo các dòng text ban đầu trong contentContainer
     this.recreateTextObjects();
 
-    this.addLine('--- Chào mừng đến với Pixelmon! ---');
+    this.addLine(t('CHAT_WELCOME'));
 
     if (scene.input.keyboard) {
       scene.input.keyboard.on('keydown-ENTER', () => this.toggleInput());
     }
 
     this.show();
+  
+    // Cập nhật title khi đổi ngôn ngữ (chỉ 1 ngôn ngữ hiển thị)
+    this.unsubLang = onLangChange(() => this.setTitle(t('CHAT_TITLE')));
   }
 
   setHudMode(mode: HudMode): void {
@@ -136,7 +141,7 @@ export class ChatLog extends UiModal {
 
     const input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = 'Nhắn tin... (Enter để gửi, Esc để huỷ)';
+    input.placeholder = t('CHAT_PLACEHOLDER');
     input.style.cssText = `
       position:absolute; padding:4px 8px; font-size:12px; font-family:monospace;
       border:1px solid #00cec9; background:#0f1020; color:#e8eaf6;
@@ -186,8 +191,7 @@ export class ChatLog extends UiModal {
       this.show();
     } else {
       this.removeInput();
-      this.close();
-    }
+      this.close();    }
   }
 
   /** Kích thước panel hiện tại. */
@@ -201,6 +205,8 @@ export class ChatLog extends UiModal {
   }
 
   destroy(): void {
+    this.unsubLang?.();
+
     this.removeInput();
     super.destroy();
   }

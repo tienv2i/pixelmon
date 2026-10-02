@@ -1,6 +1,7 @@
 # Project Status — Pixelmon (Pokémon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-02** (Plan 41 Phase 5 — Admin Maps: route `POST /api/admin/maps/:id/regenerate` + `computeMapStats()` + nút "♻️ Regenerate JSON" + card "Thống kê Map"; typecheck 4/4 sạch)  
+> Cập nhật lần cuối: **2026-10-02** (**Tính năng Đa ngôn ngữ (i18n) Toàn bộ Client** — dictionary 285 key VI/EN trong `apps/client/src/i18n/index.ts`, toggle 1-nút trong Settings > Hệ thống, tự động refresh Text bound qua `mkText()`; đơn giản hoá nhãn Settings bỏ chú thích lặp; thêm setting Anti-aliasing (text hết mờ); fix DebugModal layout/relayout/double icon; typecheck 4/4 sạch)  
+> **2026-10-02 (bổ sung):** Plan 41 Phase 5 — Admin Maps: route `POST /api/admin/maps/:id/regenerate` + `computeMapStats()` + nút "♻️ Regenerate JSON" + card "Thống kê Map"; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 3 — Tiled template `templates/pixelmon-map-template.tmj` + doc `docs/tiled-workflow.md`; fix bug `mapId is not defined` trong `deriveCollision`.  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 2 — `pnpm run build:map <id>` sinh server JSON từ `.tmj`; ⚠️ heuristic thuần layer sai 27% vì RMXP `passages`/`terrain_tags` là per-tile mà TMJ không lưu → cần tile property ở Phase 4; server JSON cũ đã restore.  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 1 — Tiled-first: `TiledMapLoader.ts` chuyển static import → `import.meta.glob`, thêm route static `/maps/tiled` trên Express; thêm map mới chỉ bằng copy `.tmj` + rebuild, không sửa code; typecheck 4/4 sạch.  
@@ -62,6 +63,15 @@
 > - **Destination Marker (`WorldScene.drawDestination`):** Khi người chơi click di chuyển tới, ô đích đến được tô sậm đen (65% opacity), bao quanh bởi viền kép neon cyan sắc nét và chấm tâm chỉ định điểm đến.  
 > - **Tích hợp vào Settings (`SettingsStorage.ts` & `SettingsPanel.ts`):** Bổ sung 2 tuỳ chọn checkbox độc lập trong tab Gameplay (`mouseTracking` và `targetMarker`), tự động lưu vào `localStorage` và cập nhật trực tiếp hiệu ứng đồ hoạ theo thời gian thực.  
 > - `pnpm run typecheck` 4/4 packages sạch sẽ 100%.  
+> **2026-10-02 (bổ sung 14):** **Tính năng Đa ngôn ngữ (i18n) Toàn bộ Client — song ngữ VI/EN, chỉ hiển thị 1 trong 2 ngôn ngữ tại một thời điểm:**  
+> - **Tạo module i18n (`apps/client/src/i18n/index.ts`):** từ điển **285 key** dạng tuple `[vi, en]` bao phủ toàn bộ UI (Settings, Debug, Chat, Help, Login, HUD, modal, thông báo WorldScene, lệnh CLI...); API: `t(key)` lấy chuỗi, `tr(text, key)` bind Text → tự dịch khi đổi ngôn ngữ, `mkText(scene, key, style, x?, y?)` tạo Text đã bind, `setLang/getLang/initLang`, `onLangChange(fn)` đăng ký callback, `isI18nKey()` type-guard.  
+> - **Cơ chế refresh:** `setLang()` phát event → `refreshBoundTexts()` tự cập nhật mọi Text tạo qua `mkText()`/`tr()`; 9 modal đăng ký `onLangChange(() => this.setTitle(t(...)))` (dọn subscription trong `destroy()`); `SelectToolsModal` render lại grid, `TopMenu.ICONS` là getter động, `DebugModal` refresh label tab.  
+> - **Khởi tạo:** `main.ts` gọi `initLang()` trước `new Phaser.Game()` đọc `pixelmon.settings.system.lang` (fallback `pixelmon.lang` cũ, mặc định `vi`).  
+> - **Settings > Hệ thống:** nút toggle **1 duy nhất** hiển thị đúng ngôn ngữ đang dùng (bấm để đổi VI↔EN) — không hiển thị song song 2 nút; lưu qua `SettingsStorage.setLanguage()` → `saveSettings` + `setLang()`.  
+> - **Đơn giản hoá nhãn Settings:** bỏ chú thích lặp trong ngoặc `(Player Names)`, `(Mini HUD)`, `(Grid Overlay)`... ở tab Giao diện/Lối chơi/Âm thanh.  
+> - **Setting Anti-aliasing mới** (fix chữ mờ): `system.antialias` mặc định `true` trong `SettingsStorage`; `main.ts` đọc qua `loadRenderQuality()` → config `antialias`/`pixelArt` lúc boot; checkbox "Làm mịn chữ & hình" + ghi chú ở tab Hệ thống; báo chat "áp dụng khi tải lại (F5)" vì chỉ đọc lúc boot; `resetAllSettings` khôi phục kèm.  
+> - **Fix DebugModal "bị loạn":** 6 object (`txtMapMain`, `txtPlayerMain`, `txtPerf`, `lbl1-3`) thiếu toạ độ → chồng ở (0,0); `renderTabButtons()` đồng bộ lại text + zone; thêm `override relayout()` (super + renderTabButtons) cho resize/UI-zoom; fix **double icon** tab (key i18n đã chứa emoji, không ghép thêm `def.icon`); button/pin label chuyển sang `mkText` (tự đổi ngôn ngữ).  
+> - Xác minh: `pnpm run typecheck` **4/4 sạch**; quét script 0 chuỗi VI hardcode còn sót trong code client.  
 > File này đóng vai trò là **Single Source of Truth (SSOT)** cho toàn bộ dự án, được thiết kế để AI Agent và lập trình viên nắm bắt toàn bộ kiến trúc, trạng thái và chi tiết kỹ thuật ngay tức thì.
 
 ---
@@ -81,6 +91,7 @@
 | **Client Frontend** | Phaser 3.87 (Canvas 2D pixel-art, 60 FPS) + Vite 6 (vanilla TS) | ✅ Pass |
 | **Admin Dashboard** | Quản lý Người chơi, Sprite, Dữ liệu game, Maps (Interactive Canvas preview) | ✅ Pass |
 | **Công cụ Debug Client** | Tách riêng: `DebugModal` (2 tab info & features), `DebugConsole` (bên phải), `DebugTrackerWidget` (chuột, player, NOCLIP) | ✅ Pass |
+| **Đa ngôn ngữ Client (i18n)** | Song ngữ VI/EN, chỉ hiển thị 1 ngôn ngữ tại một thời điểm; 285 key trong `i18n/index.ts`, toggle 1-nút trong Settings > Hệ thống, tự refresh Text qua `mkText()` | ✅ Pass |
 | **Xác thực & Bảo mật** | JWT token (Header + LocalStorage), Role-based (Admin, Player, Banned) | ✅ Pass |
 | **Định vị & Lưu trạng thái** | PostgreSQL persistence (x, y, map_id, direction) đồng bộ realtime | ✅ Pass |
 | **Kiểm tra Mã nguồn** | `pnpm run typecheck` (4/4 packages pass, 0 errors) | ✅ Pass |
@@ -165,7 +176,9 @@ pixelmon/
     ├── vite.config.ts              # Custom vite-plugin-tmj-json (parse .tmj thành JSON)
     ├── index.html
     └── src/
-        ├── main.ts                 # Cấu hình Phaser (Phaser.CANVAS, pixelArt: true, Scale.RESIZE)
+        ├── main.ts                 # Cấu hình Phaser (Phaser.CANVAS, Scale.RESIZE; antialias/pixelArt đọc từ Settings)
+        ├── i18n/
+        │   └── index.ts            # Từ điển song ngữ VI/EN (285 key): t/tr/mkText/setLang/initLang/onLangChange
         ├── scenes/
         │   ├── BootScene.ts        # Nạp assets, kiểm tra dev login
         │   ├── LoginScene.ts       # Giao diện đăng nhập / đăng ký
@@ -282,6 +295,28 @@ Nội dung tab gồm 4 nhóm:
 - Chỉ số object trong `layoutDebugTab` khai báo bằng hằng `I_TOOLS/I_CHK/I_LBL_LAYERS/I_LAYERS/I_MAP/I_PLAYER/I_TP/I_SPEED/I_CLI/I_LOG` (khớp thứ tự `push` của `buildDebugTab`, tổng 83 obj) — **không** dùng magic number rải rác.
 - Do modal khoá cứng `MODAL_H=580`, 5 checkbox xếp **2 cột** (`colW = w/2`); tổng chiều cao content ≈ 532 + `contentContainer.y=36` = **568 < 580** (còn 12px lề).
 - Reset Settings khôi phục cả 5 checkbox lẫn 3 nút toggle layer (đăng ký qua `checkboxSetters` với key `debugLayer.<key>`).
+
+### 4.3 Hệ thống Đa ngôn ngữ (i18n) Toàn bộ Client — Song ngữ VI/EN
+
+> **Nguyên tắc cốt lõi:** UI **chỉ hiển thị 1 trong 2 ngôn ngữ** tại một thời điểm — không bao giờ thấy song song VI + EN.
+
+- **Module:** `apps/client/src/i18n/index.ts` — từ điển **285 key** dạng tuple `['tiếng Việt', 'English']`, bao phủ toàn bộ: Settings (4 tab), DebugModal/DebugConsole/DebugTracker/DebugInfoWidgets, ChatLog, InfoPanel, PlayerHud, TopMenu, PartyStrip, HelpModal, ConfirmModal, SelectToolsModal, PcBoxModal, PokemonSummaryModal, LoginScene, BootScene, WorldScene (logout/tile/noclip/`/help`), ColyseusManager (401).
+- **API chính:**
+
+  | Hàm | Vai trò |
+  |---|---|
+  | `t(key)` | Lấy chuỗi ngôn ngữ hiện tại |
+  | `mkText(scene, key, style, x?, y?)` | Tạo `Phaser.Text` **đã bind key** → tự đổi khi đổi ngôn ngữ |
+  | `tr(text, key)` | Bind 1 Text có sẵn vào key |
+  | `setLang(lang)` / `getLang()` | Đổi / đọc ngôn ngữ, phát event |
+  | `onLangChange(fn)` | Đăng ký callback khi đổi ngôn ngữ (trả về `unsubscribe`) |
+  | `initLang()` | Gọi 1 lần trong `main.ts` **trước** `new Phaser.Game()` |
+  | `isI18nKey(s)` | Type-guard kiểm tra key tồn tại |
+
+- **Cơ chế tự refresh:** `setLang()` → `refreshBoundTexts()` duyệt mọi Text đã bind cập nhật lại nội dung; các modal (9 cái) đăng ký `onLangChange(() => this.setTitle(t(...)))` và dọn subscription trong `destroy()`; `SelectToolsModal` render lại grid; `TopMenu.ICONS` là **getter động** trả `t(key)` nên nhãn toolbar luôn khớp; `DebugModal` refresh label tab qua `unsubTabs`.
+- **Switcher trong Settings > Hệ thống:** **1 nút toggle duy nhất** hiển thị đúng ngôn ngữ hiện tại (`Tiếng Việt` / `English`), bấm để đổi — lưu qua `SettingsStorage` (`system.lang`, fallback key cũ `pixelmon.lang`, mặc định `vi`).
+- **Kết quả kiểm tra:** quét script 0 chuỗi VI hardcode còn sót trong code client; `pnpm run typecheck` 4/4 sạch.
+- **Kèm theo:** đơn giản hoá nhãn Settings (bỏ chú thích lặp `(Player Names)`, `(Mini HUD)`...), thêm setting **Anti-aliasing** (`system.antialias`, mặc định `true`, đọc lúc boot ở `main.ts` → fix chữ mờ).
 
 ---
 
@@ -862,6 +897,36 @@ Nguồn: `fix-plan-2.md`. Đã sửa đủ 3 vấn đề.
 **Xác minh:**
 - `pnpm run typecheck` **4/4 ✅**
 - `node scripts/build-server-map.ts daisys-house` và `--all` chạy OK — output khớp chính xác regex backend parse.
+
+### Plan 42 — Đa ngôn ngữ (i18n) Toàn bộ Client, setting Anti-aliasing & Fix DebugModal (2026-10-02)
+
+**Yêu cầu:** hoàn thiện tính năng song ngữ trong Settings, đảm bảo chỉ hiển thị 1 trong 2 ngôn ngữ; mở rộng ra toàn bộ UI client; đơn giản hoá nhãn settings kỳ lạ; thêm setting anti-alias (text đang quá mờ); sửa giao diện khung debug bị loạn.
+
+**1. Hệ thống i18n (`apps/client/src/i18n/index.ts` — mới):**
+- Từ điển **285 key** dạng tuple `[vi, en]` bao phủ toàn bộ UI client (xem mục 4.3).
+- API: `t()`, `tr()`, `mkText()` (bind Text → tự refresh khi đổi ngôn ngữ), `setLang/getLang/initLang`, `onLangChange()`, `isI18nKey()`.
+- `main.ts` gọi `initLang()` trước `new Phaser.Game()`; đọc `pixelmon.settings.system.lang` (fallback `pixelmon.lang` cũ, mặc định `vi`).
+- `setLang()` → `refreshBoundTexts()` tự cập nhật mọi Text đã bind; 9 modal đăng ký `onLangChange` refresh title (dọn trong `destroy()`); `SelectToolsModal` render lại grid; `TopMenu.ICONS` getter động; `DebugModal` refresh label tab.
+
+**2. Settings > Hệ thống — switcher 1 nút:**
+- Nút toggle **duy nhất** hiển thị đúng ngôn ngữ đang dùng (bấm để đổi VI↔EN) — không hiển thị song song 2 nút.
+- `setLanguage()` → `saveSettings` + `setLang(lang)`; `resetAllSettings` khôi phục kèm.
+
+**3. Đơn giản hoá nhãn:** bỏ chú thích lặp trong ngoặc ở tab Giao diện/Lối chơi/Âm thanh — VD `Hiện tên người chơi khác (Player Names)` → `Hiện tên người chơi`, `Giao diện tối giản (Chế độ Mini HUD)` → `Giao diện thu gọn (Mini HUD)`, `Tỉ lệ Giao diện (UI Zoom):` → `Tỉ lệ giao diện:`.
+
+**4. Setting Anti-aliasing (fix chữ mờ):**
+- Nguyên nhân: `main.ts` hardcode `antialias: false, pixelArt: true`.
+- `SettingsStorage`: thêm `system.antialias` (mặc định `true`, đọc/merge/reset đầy đủ).
+- `main.ts`: `loadRenderQuality()` đọc setting → config `antialias`/`pixelArt` lúc boot.
+- `SettingsPanel`: section "CHẤT LƯỢNG HIỂN THỊ (RENDERING)" + checkbox + ghi chú; `WorldScene` báo chat "áp dụng khi tải lại (F5)" (chỉ đọc lúc boot).
+
+**5. Fix DebugModal bị loạn:**
+- 6 object thiếu toạ độ (`txtMapMain`, `txtPlayerMain`, `txtPerf`, `lbl1-3`) → chồng ở (0,0); đã truyền đúng toạ độ.
+- `renderTabButtons()` đồng bộ lại `text` + `zone` mỗi lần gọi; thêm `override relayout()` (super + renderTabButtons) cho resize/UI-zoom.
+- Fix **double icon** tab: key i18n đã chứa emoji (`📊`, `⚙️`) → bỏ ghép thêm `def.icon`.
+- `createSimpleButton` + `pinTxt` + label tab chuyển sang `mkText` (tự đổi ngôn ngữ).
+
+**Xác minh:** `pnpm run typecheck` **4/4 sạch**; quét script 0 chuỗi VI hardcode còn sót trong code client.
 
 ---
 

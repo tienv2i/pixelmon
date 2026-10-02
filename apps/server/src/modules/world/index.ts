@@ -52,6 +52,10 @@ export class WorldRoom extends Room<WorldState> {
       this.handleMove(client, data);
     });
 
+    this.onMessage('teleport', (client, data: any) => {
+      this.handleTeleport(client, data);
+    });
+
     this.onMessage('change_map', (client, data: any) => {
       this.handleChangeMap(client, data);
     });
@@ -99,7 +103,10 @@ export class WorldRoom extends Room<WorldState> {
 
   // ── 3b. move handler — validate từng ô + speed limit ────────────────────
 
-  private handleMove(client: Client, data: { x: number; y: number; direction: string }): void {
+  private handleMove(
+    client: Client,
+    data: { x: number; y: number; direction: string; noclip?: boolean },
+  ): void {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
 
@@ -128,8 +135,8 @@ export class WorldRoom extends Room<WorldState> {
       return;
     }
 
-    // 2. Speed limit: nhịp giữa 2 bước phải ≥ MIN_STEP_INTERVAL_MS.
-    if (now - session.lastMoveAt < MIN_STEP_INTERVAL_MS - STEP_TIME_SLACK_MS) {
+    // 2. Speed limit: nhịp giữa 2 bước phải ≥ MIN_STEP_INTERVAL_MS (bỏ qua khi noclip).
+    if (!data.noclip && now - session.lastMoveAt < MIN_STEP_INTERVAL_MS - STEP_TIME_SLACK_MS) {
       this.rejectMove(client, player, 'too_fast');
       return;
     }
@@ -144,14 +151,39 @@ export class WorldRoom extends Room<WorldState> {
     const from = pixelToTile(player.x, player.y);
     const to = pixelToTile(data.x, data.y);
 
-    // 4. Validate ô đích: bước 1 ô, hoặc nhảy ledge 2 ô (đúng hướng).
+    // 4. Nếu bật noclip (đi xuyên tường): cho phép đi trong phạm vi bản đồ
+    if (data.noclip) {
+      const col = Math.max(0, Math.min(this.grid.width - 1, to.x));
+      const row = Math.max(0, Math.min(this.grid.height - 1, to.y));
+      const landed = tileToPixel(col, row);
+      player.x = landed.x;
+      player.y = landed.y;
+      player.direction = direction;
+      player.moving = 1;
+      session.lastMoveAt = now;
+      this.dirtyPlayerSessions.add(client.sessionId);
+      return;
+    }
+
+    // 5. Validate ô đích: bước 1 ô, hoặc nhảy ledge 2 ô (đúng hướng).
     const v = validateStep(this.grid, from, to, DEFAULT_WALK_OPTS);
     if (!v.ok || !v.to) {
+      // Nếu ô đích hoàn toàn hợp lệ (walkable), không đẩy người chơi về quá khứ (ví dụ vừa tắt noclip hoặc tele)
+      if (this.grid.walkable(to.x, to.y, DEFAULT_WALK_OPTS)) {
+        const landed = tileToPixel(to.x, to.y);
+        player.x = landed.x;
+        player.y = landed.y;
+        player.direction = direction;
+        player.moving = 1;
+        session.lastMoveAt = now;
+        this.dirtyPlayerSessions.add(client.sessionId);
+        return;
+      }
       this.rejectMove(client, player, v.reason ?? 'blocked');
       return;
     }
 
-    // 5. Nhận — cập nhật state (snap tâm ô để client/server luôn đồng nhất).
+    // 6. Nhận — cập nhật state (snap tâm ô để client/server luôn đồng nhất).
     const landed = tileToPixel(v.to.x, v.to.y);
     player.x = landed.x;
     player.y = landed.y;
@@ -159,6 +191,47 @@ export class WorldRoom extends Room<WorldState> {
     player.moving = 1;
     session.lastMoveAt = now;
     this.dirtyPlayerSessions.add(client.sessionId);
+  }
+
+  /** Dịch chuyển tức thời vị trí người chơi và lưu database. */
+  private async handleTeleport(
+    client: Client,
+    data: { x: number; y: number; direction?: string },
+  ): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (
+      !data ||
+      typeof data.x !== 'number' ||
+      typeof data.y !== 'number' ||
+      !isFinite(data.x) ||
+      !isFinite(data.y)
+    ) {
+      return;
+    }
+
+    const tile = pixelToTile(data.x, data.y);
+    const col = Math.max(0, Math.min(this.grid.width - 1, tile.x));
+    const row = Math.max(0, Math.min(this.grid.height - 1, tile.y));
+    const landed = tileToPixel(col, row);
+
+    player.x = landed.x;
+    player.y = landed.y;
+    if (data.direction) {
+      player.direction = normalizeDir(data.direction, player.direction as any);
+    }
+    player.moving = 0;
+    this.dirtyPlayerSessions.add(client.sessionId);
+
+    if (player.username) {
+      await this.savePlayerLocation(
+        player.username,
+        player.x,
+        player.y,
+        player.mapId,
+        player.direction,
+      );
+    }
   }
 
   private rejectMove(client: Client, player: PlayerState, reason: string): void {

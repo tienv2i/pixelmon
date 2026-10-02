@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { C, FONT } from './theme';
 import { UiModal } from './UiModal';
+import { t, mkText, onLangChange, type I18nKey } from '../i18n';
 
 export interface PokemonData {
   id: string;
@@ -95,10 +96,11 @@ export class PokemonSummaryModal extends UiModal {
   private tabButtons: Phaser.GameObjects.Text[] = [];
   private tabGraphics!: Phaser.GameObjects.Graphics;
   private tabContentContainer!: Phaser.GameObjects.Container;
+  private unsubLang?: () => void;
 
   constructor(scene: Phaser.Scene, onClose?: () => void) {
     super(scene, {
-      title: '📜 THÔNG TIN POKÉMON',
+      title: t('SUMMARY_TITLE'),
       width: MODAL_W,
       height: MODAL_H,
       headerHeight: 34,
@@ -125,23 +127,34 @@ export class PokemonSummaryModal extends UiModal {
 
     this.createTabsHeader();
     this.close(); // Mặc định ẩn, mở khi gọi showPokemon
+
+    // Cập nhật lại tiêu đề modal + nội dung tab khi đổi ngôn ngữ
+    this.unsubLang = onLangChange(() => {
+      this.setTitle(t('SUMMARY_TITLE'));
+      this.renderCurrentTab();
+    });
+  }
+
+  public override destroy(): void {
+    this.unsubLang?.();
+    super.destroy();
   }
 
   /** Mở modal và hiển thị dữ liệu Pokémon */
   public showPokemon(pkm: PokemonData): void {
     this.pokemon = pkm;
     const name = pkm.nickname || pkm.species_id;
-    this.setTitle(`📜 POKÉMON: ${name.toUpperCase()} (Lv.${pkm.level})`);
+    this.setTitle(t('SUMMARY_TITLE_NAMED').replace('{name}', name.toUpperCase()).replace('{level}', String(pkm.level)));
     this.currentTab = 'info';
     this.renderCurrentTab();
     this.show();
   }
 
   private createTabsHeader(): void {
-    const tabs: Array<{ id: SummaryTab; label: string }> = [
-      { id: 'info', label: '📌 TỔNG QUAN' },
-      { id: 'stats', label: '📊 CHỈ SỐ' },
-      { id: 'moves', label: '⚔ CHIÊU THỨC' },
+    const tabs: Array<{ id: SummaryTab; label: I18nKey }> = [
+      { id: 'info', label: 'SUMMARY_TAB_INFO' },
+      { id: 'stats', label: 'SUMMARY_TAB_STATS' },
+      { id: 'moves', label: 'SUMMARY_TAB_MOVES' },
     ];
 
     const tabW = 146;
@@ -149,13 +162,12 @@ export class PokemonSummaryModal extends UiModal {
 
     tabs.forEach((t, i) => {
       const tx = startX + i * (tabW + 8);
-      const btn = this.scene.add
-        .text(tx + tabW / 2, 16, t.label, {
-          fontSize: '11px',
-          fontFamily: FONT.sans,
-          fontStyle: 'bold',
-          color: t.id === this.currentTab ? '#00cec9' : '#8c94b8',
-        })
+      const btn = mkText(this.scene, t.label, {
+        fontSize: '11px',
+        fontFamily: FONT.sans,
+        fontStyle: 'bold',
+        color: t.id === this.currentTab ? '#00cec9' : '#8c94b8',
+      }, tx + tabW / 2, 16)
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true });
 
@@ -308,13 +320,12 @@ export class PokemonSummaryModal extends UiModal {
     cryBtnBg.strokeRoundedRect(centerX - 55, ly + 160, 110, 28, 4);
     this.tabContentContainer.add(cryBtnBg);
 
-    const cryTxt = this.scene.add
-      .text(centerX, ly + 174, '🔊 Tiếng kêu', {
-        fontSize: '11px',
-        fontFamily: FONT.sans,
-        color: '#00cec9',
-        fontStyle: 'bold',
-      })
+    const cryTxt = mkText(this.scene, 'SUMMARY_CRY', {
+      fontSize: '11px',
+      fontFamily: FONT.sans,
+      color: '#00cec9',
+      fontStyle: 'bold',
+    }, centerX, ly + 174)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
 
@@ -376,11 +387,12 @@ export class PokemonSummaryModal extends UiModal {
     const curHp = pkm.current_hp ?? maxHp;
     const hpRatio = Phaser.Math.Clamp(curHp / maxHp, 0, 1);
 
-    const hpLabel = this.scene.add.text(rx + 16, ry + 76, `HP: ${curHp} / ${maxHp}`, {
+    const hpLabel = mkText(this.scene, 'SUMMARY_HP', {
       fontSize: '12px',
       fontFamily: FONT.mono,
       color: '#a0aec0',
-    });
+    }, rx + 16, ry + 76);
+    hpLabel.setText(t('SUMMARY_HP').replace('{cur}', String(curHp)).replace('{max}', String(maxHp)));
     this.tabContentContainer.add(hpLabel);
 
     g.fillStyle(0x2d3748, 1);
@@ -394,11 +406,12 @@ export class PokemonSummaryModal extends UiModal {
     const prevExp = Math.pow(pkm.level, 3);
     const expRatio = Phaser.Math.Clamp((curExp - prevExp) / Math.max(1, nextExp - prevExp), 0, 1);
 
-    const expLabel = this.scene.add.text(rx + 16, ry + 116, `EXP: ${curExp} / ${nextExp}`, {
+    const expLabel = mkText(this.scene, 'SUMMARY_EXP', {
       fontSize: '11px',
       fontFamily: FONT.mono,
       color: '#a0aec0',
-    });
+    }, rx + 16, ry + 116);
+    expLabel.setText(t('SUMMARY_EXP').replace('{cur}', String(curExp)).replace('{next}', String(nextExp)));
     this.tabContentContainer.add(expLabel);
 
     g.fillStyle(0x2d3748, 1);
@@ -408,9 +421,13 @@ export class PokemonSummaryModal extends UiModal {
 
     // Thông tin cơ bản (gọn gàng, không giải thích rườm rà)
     const infoDetails = [
-      `Loài: ${pkm.species_id.toUpperCase()}`,
-      `Vị trí: ${pkm.party_slot !== null && pkm.party_slot !== undefined ? `Đội hình (#${pkm.party_slot + 1})` : 'PC Box'}`,
-      `Trạng thái: ${pkm.status ? pkm.status.toUpperCase() : 'Bình thường'}`,
+      t('SUMMARY_SPECIES').replace('{id}', pkm.species_id.toUpperCase()),
+      pkm.party_slot !== null && pkm.party_slot !== undefined
+        ? t('SUMMARY_LOCATION_PARTY').replace('{n}', String(pkm.party_slot + 1))
+        : t('SUMMARY_LOCATION_BOX'),
+      pkm.status
+        ? t('SUMMARY_STATUS_VALUE').replace('{status}', pkm.status.toUpperCase())
+        : t('SUMMARY_STATUS_NORMAL'),
     ];
 
     infoDetails.forEach((line, i) => {
@@ -444,7 +461,9 @@ export class PokemonSummaryModal extends UiModal {
     const incStat = pkm.nature?.increases;
     const decStat = pkm.nature?.decreases;
     const hasMod = Boolean(incStat && decStat && incStat !== decStat);
-    const natureStr = `Bản tính: ${natureName}${hasMod ? ` (+${incStat}, -${decStat})` : ' (Cân bằng)'}`;
+    const natureStr = hasMod
+      ? t('SUMMARY_NATURE_MOD').replace('{name}', natureName).replace('{inc}', String(incStat)).replace('{dec}', String(decStat))
+      : t('SUMMARY_NATURE_NEUTRAL').replace('{name}', natureName);
 
     const natureTxt = this.scene.add.text(bx + 16, by + 12, natureStr, {
       fontSize: '12px',
@@ -553,12 +572,11 @@ export class PokemonSummaryModal extends UiModal {
       g.strokeRoundedRect(mx, my, mw, mh, 6);
 
       if (!mv) {
-        const emptyTxt = this.scene.add
-          .text(mx + mw / 2, my + mh / 2, '— Ô Trống —', {
-            fontSize: '12px',
-            fontFamily: FONT.sans,
-            color: '#4a5568',
-          })
+        const emptyTxt = mkText(this.scene, 'SUMMARY_EMPTY_SLOT', {
+          fontSize: '12px',
+          fontFamily: FONT.sans,
+          color: '#4a5568',
+        }, mx + mw / 2, my + mh / 2)
           .setOrigin(0.5);
         this.tabContentContainer.add(emptyTxt);
         continue;
@@ -591,32 +609,43 @@ export class PokemonSummaryModal extends UiModal {
 
       // Phân loại chiêu
       const cat = mv.category || 'physical';
-      const catTxt = this.scene.add.text(mx + 74, my + 39, cat === 'physical' ? '⚔ Vật lý' : cat === 'special' ? '✨ Đặc biệt' : '🌀 Biến hoá', {
-        fontSize: '11px',
-        fontFamily: FONT.sans,
-        color: '#fdcb6e',
-      });
+      const catTxt = mkText(
+        this.scene,
+        cat === 'physical' ? 'SUMMARY_CAT_PHYSICAL' : cat === 'special' ? 'SUMMARY_CAT_SPECIAL' : 'SUMMARY_CAT_STATUS',
+        {
+          fontSize: '11px',
+          fontFamily: FONT.sans,
+          color: '#fdcb6e',
+        },
+        mx + 74,
+        my + 39,
+      );
       this.tabContentContainer.add(catTxt);
 
       // Uy lực & Độ chính xác
-      const pwrStr = mv.power ? `Sức mạnh: ${mv.power}` : 'Sức mạnh: —';
-      const accStr = mv.accuracy ? `Chính xác: ${mv.accuracy}%` : 'Chính xác: —';
-      const statsDetail = this.scene.add.text(mx + 12, my + 66, `${pwrStr}  |  ${accStr}`, {
+      const pwrStr = mv.power
+        ? t('SUMMARY_POWER').replace('{v}', String(mv.power))
+        : t('SUMMARY_POWER_NONE');
+      const accStr = mv.accuracy
+        ? t('SUMMARY_ACCURACY').replace('{v}', String(mv.accuracy))
+        : t('SUMMARY_ACCURACY_NONE');
+      const statsDetail = mkText(this.scene, `${pwrStr}  |  ${accStr}`, {
         fontSize: '11px',
         fontFamily: FONT.sans,
         color: '#a0aec0',
-      });
+      }, mx + 12, my + 66);
       this.tabContentContainer.add(statsDetail);
 
       // PP (xử lý không bao giờ undefined)
       const curPp = mv.currentPp ?? mv.pp ?? mv.maxPp ?? 0;
       const maxPp = mv.maxPp ?? mv.pp ?? mv.currentPp ?? 0;
-      const ppTxt = this.scene.add.text(mx + 12, my + 90, `PP: ${curPp} / ${maxPp}`, {
+      const ppTxt = mkText(this.scene, 'SUMMARY_PP', {
         fontSize: '11px',
         fontFamily: FONT.mono,
         fontStyle: 'bold',
         color: '#00cec9',
-      });
+      }, mx + 12, my + 90);
+      ppTxt.setText(t('SUMMARY_PP').replace('{cur}', String(curPp)).replace('{max}', String(maxPp)));
       this.tabContentContainer.add(ppTxt);
     }
   }

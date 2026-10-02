@@ -16,7 +16,11 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = LoginSchema.parse(req.body);
     const { rows } = await pool.query(
-      `SELECT id, username, password_hash, display_name, role, language FROM users WHERE username = $1`,
+      `SELECT u.id, u.username, u.password_hash, u.display_name, u.role, u.language,
+              p.x, p.y, p.map_id, p.direction
+       FROM users u
+       LEFT JOIN players p ON p.id = u.id
+       WHERE u.username = $1`,
       [body.username],
     );
 
@@ -60,6 +64,14 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
       displayName: user.display_name,
       role: user.role,
       language: user.language || 'en',
+      player: user.map_id
+        ? {
+            x: Number(user.x),
+            y: Number(user.y),
+            mapId: user.map_id,
+            direction: user.direction || 'down',
+          }
+        : null,
     });
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {

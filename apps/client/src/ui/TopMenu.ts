@@ -2,24 +2,61 @@ import Phaser from 'phaser';
 import { C, FONT } from './theme';
 import type { UiZoomManager } from './UiZoomManager';
 import type { HudMode } from './HudManager';
+import { SelectToolsModal } from './SelectToolsModal';
+import { t, type I18nKey } from '../i18n';
 
+/**
+ * Định nghĩa 1 icon trên toolbar.
+ * - `label` là getter động: luôn trả về chuỗi theo ngôn ngữ hiện tại
+ *   → đảm bảo chỉ hiển thị 1 trong 2 ngôn ngữ.
+ */
 export interface MenuIconDef {
   key: string;
-  label: string;
+  readonly label: string;
 }
 
-const ICONS: MenuIconDef[] = [
-  { key: 'pokedex', label: 'Pokédex' },
-  { key: 'bag', label: 'Túi đồ' },
-  { key: 'team', label: 'Đội hình' },
-  { key: 'pc', label: 'PC Box' },
-  { key: 'map', label: 'Bản đồ' },
-  { key: 'gps', label: 'GPS / Minimap' },
-  { key: 'debug', label: 'Debug (F3)' },
-  { key: 'settings', label: 'Cài đặt' },
-  { key: 'help', label: 'Hướng dẫn' },
-  { key: 'logout', label: 'Đăng xuất' },
-];
+/** Key i18n của từng icon — nguồn dịch duy nhất cho nhãn toolbar. */
+const MENU_LABEL_KEYS = {
+  pokedex: 'MENU_POKEDEX',
+  bag: 'MENU_BAG',
+  team: 'MENU_TEAM',
+  pc: 'MENU_PC',
+  map: 'MENU_MAP',
+  gps: 'MENU_GPS',
+  debug: 'MENU_DEBUG',
+  settings: 'MENU_SETTINGS',
+  help: 'MENU_HELP',
+  logout: 'MENU_LOGOUT',
+} as const satisfies Record<string, I18nKey>;
+
+export type MenuIconKey = keyof typeof MENU_LABEL_KEYS;
+
+/** Nhãn hiển thị của icon theo ngôn ngữ hiện tại. */
+export function menuIconLabel(key: string): string {
+  const k = (MENU_LABEL_KEYS as Record<string, I18nKey>)[key];
+  return k ? t(k) : key;
+}
+
+const ICONS: Array<MenuIconDef & { i18nKey: I18nKey }> = (
+  [
+    { key: 'pokedex', i18nKey: 'MENU_POKEDEX' },
+    { key: 'bag', i18nKey: 'MENU_BAG' },
+    { key: 'team', i18nKey: 'MENU_TEAM' },
+    { key: 'pc', i18nKey: 'MENU_PC' },
+    { key: 'map', i18nKey: 'MENU_MAP' },
+    { key: 'gps', i18nKey: 'MENU_GPS' },
+    { key: 'debug', i18nKey: 'MENU_DEBUG' },
+    { key: 'settings', i18nKey: 'MENU_SETTINGS' },
+    { key: 'help', i18nKey: 'MENU_HELP' },
+    { key: 'logout', i18nKey: 'MENU_LOGOUT' },
+  ] as Array<{ key: string; i18nKey: I18nKey }>
+).map((d) => ({
+  key: d.key,
+  i18nKey: d.i18nKey,
+  get label(): string {
+    return t(d.i18nKey);
+  },
+}));
 
 /**
  * Vẽ biểu tượng Pixel Art sắc nét cho từng nút chức năng trên Toolbar:
@@ -188,6 +225,7 @@ class IconButton {
   private currentY = 0;
   private currentSize = 28;
   private currentVisible = true;
+  /** Key i18n của nhãn hover (nếu có) — tự cập nhật khi đổi ngôn ngữ. */
 
   get key(): string {
     return this.def.key;
@@ -301,7 +339,7 @@ class IconButton {
 export class TopMenu {
   private buttons: IconButton[] = [];
   private toggleButton: IconButton;
-  private miniPanelGfx: Phaser.GameObjects.Graphics;
+  private toolsModal: SelectToolsModal;
   private hint?: Phaser.GameObjects.Text;
   private activeKey = '';
   private hoverLabel: string | null = null;
@@ -309,13 +347,13 @@ export class TopMenu {
   private rightBoundFn?: () => number;
 
   private isMini = false;
-  private isPopupOpen = false;
   private _uiZoomManager?: UiZoomManager;
   /** Các icon bị ẩn (vd: debug toolbar tắt trong Settings). */
   private hiddenIcons = new Set<string>();
 
   setUiZoomManager(m: UiZoomManager): void {
     this._uiZoomManager = m;
+    this.toolsModal.setUiZoomManager(m);
     this.scene.scale.on('ui-zoom-change', () => this.relayout());
   }
 
@@ -323,7 +361,23 @@ export class TopMenu {
   setIconVisible(key: string, visible: boolean): void {
     if (visible) this.hiddenIcons.delete(key);
     else this.hiddenIcons.add(key);
+    this.toolsModal.setHiddenTools(this.hiddenIcons);
     this.relayout();
+  }
+
+  /** Mở modal Select Tools */
+  openToolsModal(): void {
+    this.toolsModal.show();
+  }
+
+  /** Đóng modal Select Tools */
+  closeToolsModal(): void {
+    this.toolsModal.close();
+  }
+
+  /** Kiểm tra modal Select Tools đang mở hay đóng */
+  isToolsModalOpen(): boolean {
+    return this.toolsModal.isOpen();
   }
 
   /** Danh sách icon đang hiển thị (đã trừ icon bị ẩn). */
@@ -340,31 +394,40 @@ export class TopMenu {
     private scene: Phaser.Scene,
     private onIconClick: (key: string) => void,
   ) {
-    this.miniPanelGfx = scene.add.graphics().setScrollFactor(0).setDepth(138).setVisible(false);
+    // Modal chọn công cụ kích thước lớn tối ưu cho di động / màn hình nhỏ
+    this.toolsModal = new SelectToolsModal(scene, {
+      onSelectTool: (k) => {
+        this.toolsModal.close();
+        this.onIconClick(k);
+      },
+    });
+    this.toolsModal.close();
 
-    // Nút toggle mini (dùng icon settings hoặc burger pixel)
+    // Nút toggle mở Select Tools Modal
     this.toggleButton = new IconButton(
       scene,
-      { key: 'settings', label: 'Menu' },
+      { key: 'settings', label: 'Select Tools' },
       () => {
-        this.isPopupOpen = !this.isPopupOpen;
-        this.relayout();
+        if (this.toolsModal.isOpen()) {
+          this.toolsModal.close();
+        } else {
+          this.toolsModal.show();
+        }
       },
-      null,
+      (l) => {
+        this.hoverLabel = l;
+        this.updateHint();
+      },
     );
     this.toggleButton.setVisible(false);
 
-    // Các icon chính
+    // Các icon chính khi ở màn hình lớn / chế độ Normal
     this.buttons = ICONS.map(
       (def) =>
         new IconButton(
           scene,
           def,
           (k) => {
-            if (this.isMini) {
-              this.isPopupOpen = false;
-              this.relayout();
-            }
             this.onIconClick(k);
           },
           (l) => {
@@ -387,18 +450,6 @@ export class TopMenu {
       .setDepth(150)
       .setVisible(false);
 
-    // Click ngoài canvas đóng pop-up mini
-    scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.isPopupOpen && this.isMini) {
-        const x = pointer.x;
-        const y = pointer.y;
-        if (y > 90 || x < 20 || x > scene.scale.width - 20) {
-          this.isPopupOpen = false;
-          this.relayout();
-        }
-      }
-    });
-
     this.relayout();
   }
 
@@ -417,7 +468,7 @@ export class TopMenu {
     const mini = mode === 'mini';
     if (this.isMini !== mini) {
       this.isMini = mini;
-      if (!mini) this.isPopupOpen = false;
+      if (!mini) this.toolsModal.close();
       this.relayout();
     }
   }
@@ -426,7 +477,7 @@ export class TopMenu {
     if (!v) {
       this.toggleButton.setVisible(false);
       this.buttons.forEach((b) => b.setVisible(false));
-      this.miniPanelGfx.setVisible(false);
+      this.toolsModal.close();
       this.hint?.setVisible(false);
     } else {
       this.relayout();
@@ -435,8 +486,8 @@ export class TopMenu {
 
   getGameObjects(): Phaser.GameObjects.GameObject[] {
     const list: Phaser.GameObjects.GameObject[] = [
-      this.miniPanelGfx,
       ...this.toggleButton.getGameObjects(),
+      ...this.toolsModal.getGameObjects(),
     ];
     this.buttons.forEach((b) => list.push(...b.getGameObjects()));
     if (this.hint) list.push(this.hint);
@@ -444,7 +495,7 @@ export class TopMenu {
   }
 
   destroy(): void {
-    this.miniPanelGfx.destroy();
+    this.toolsModal.destroy();
     this.toggleButton.destroy();
     this.buttons.forEach((b) => b.destroy());
     this.hint?.destroy();
@@ -467,60 +518,25 @@ export class TopMenu {
 
     const baseBtnSize = Math.round(26 * z);
     const gap = Math.round(6 * z);
-    const pad = Math.round(6 * z);
 
     if (isSmall) {
-      // ── CHẾ ĐỘ MINI: 1 Nút Toggle ──
-      const btnSize = Math.max(28, baseBtnSize);
+      // ── CHẾ ĐỘ MINI HOẶC MÀN HÌNH NHỎ: 1 Nút bấm to mở Select Tools Modal ──
+      const btnSize = Math.max(32, Math.round(baseBtnSize * 1.15));
       const x0 = Math.floor(W / 2 - btnSize / 2);
       const y0 = Math.round(6 * z);
 
       this.toggleButton.setVisible(true);
       this.toggleButton.setPosition(x0, y0, btnSize);
 
-      if (this.isPopupOpen) {
-        // Bung ra Toolbar Mini Panel
-        const icons = this.visibleIcons();
-        const iconSize = Math.max(26, baseBtnSize);
-        const totalW = icons.length * iconSize + (icons.length - 1) * gap;
-        const panelW = totalW + pad * 2;
-        const panelH = iconSize + pad * 2;
-        const px = Math.max(8, Math.min(W - panelW - 8, Math.floor((W - panelW) / 2)));
-        const py = y0 + btnSize + 8;
+      // Ẩn toàn bộ nút ngang
+      this.buttons.forEach((b) => b.setVisible(false));
 
-        this.miniPanelGfx.clear();
-        this.miniPanelGfx.setVisible(true);
-        // Shadow
-        this.miniPanelGfx.fillStyle(0x000000, 0.45);
-        this.miniPanelGfx.fillRoundedRect(px + 3, py + 3, panelW, panelH, 6);
-        // Background
-        this.miniPanelGfx.fillStyle(C.panel, 0.98);
-        this.miniPanelGfx.fillRoundedRect(px, py, panelW, panelH, 6);
-        // Border
-        this.miniPanelGfx.lineStyle(1.5, C.accent, 0.95);
-        this.miniPanelGfx.strokeRoundedRect(px, py, panelW, panelH, 6);
-
-        this.buttons.forEach((b) => {
-          if (this.hiddenIcons.has(b.key)) {
-            b.setVisible(false);
-            return;
-          }
-          const idx = this.visibleIndexOf(b.key);
-          b.setVisible(true);
-          b.setPosition(px + pad + idx * (iconSize + gap), py + pad, iconSize);
-        });
-
-        if (this.hint && this.hint.visible) {
-          this.hint.setPosition(px + panelW / 2, py + panelH + 4);
-        }
-      } else {
-        this.miniPanelGfx.setVisible(false);
-        this.buttons.forEach((b) => b.setVisible(false));
+      if (this.hint && this.hint.visible) {
+        this.hint.setPosition(x0 + btnSize / 2, y0 + btnSize + 6);
       }
     } else {
       // ── CHẾ ĐỘ NORMAL: Dàn ngang toàn bộ icon ──
       this.toggleButton.setVisible(false);
-      this.miniPanelGfx.setVisible(false);
 
       const icons = this.visibleIcons();
       const iconSize = baseBtnSize;

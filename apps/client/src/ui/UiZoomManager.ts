@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { loadSettings, saveSettings } from './SettingsStorage';
 
 const LS_KEY = 'pixelmon.uiZoom';
 const ZOOM_MIN = 0.7;
@@ -103,6 +104,7 @@ export class UiZoomManager {
   private persist(): void {
     try {
       localStorage.setItem(LS_KEY, String(this._uiZoom));
+      saveSettings({ zoom: { uiZoom: this._uiZoom } });
     } catch {
       // localStorage bị chặn (private mode) — bỏ qua, zoom vẫn hoạt động
     }
@@ -110,6 +112,10 @@ export class UiZoomManager {
 
   private load(): number {
     try {
+      const saved = loadSettings();
+      if (typeof saved.zoom?.uiZoom === 'number') {
+        return Math.round(Phaser.Math.Clamp(saved.zoom.uiZoom, ZOOM_MIN, ZOOM_MAX) * 10) / 10;
+      }
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return ZOOM_DEFAULT;
       const n = parseFloat(raw);

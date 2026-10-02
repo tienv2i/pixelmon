@@ -41,6 +41,10 @@
       "description": "Kiểm tra TypeScript strict trong toàn bộ monorepo (4 packages)",
       "template": "pnpm run typecheck"
     },
+    "dev-flow": {
+      "description": "Kiểm tra typecheck và trạng thái dev nhanh cho Developer",
+      "template": "pnpm run typecheck && ./scripts/pm.sh status"
+    },
     "query": {
       "description": "Truy xuất nhanh thông tin loài Pokémon, chiêu thức, item, map mà không nạp file JSON lớn",
       "template": "python3 scripts/tools/query_data.py $ARGUMENTS"

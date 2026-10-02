@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { FONT } from './theme';
 import { UiModal } from './UiModal';
+import { t, onLangChange} from '../i18n';
 import type { HudMode } from './HudManager';
 
 interface WeatherDef {
@@ -18,8 +19,8 @@ const WEATHERS: WeatherDef[] = [
 
 const NORMAL_W = 140;
 const NORMAL_H = 46;
-const MINI_W = 100;
-const MINI_H = 38;
+const MINI_W = 54;
+const MINI_H = 50;
 
 /**
  * **InfoPanel** — Bảng thông tin góc trên-phải: Đồng hồ (Poke Time + Real Time) & Thời tiết (Weather):
@@ -30,6 +31,7 @@ const MINI_H = 38;
  * - Hỗ trợ Responsive linh hoạt co giãn theo kích thước màn hình và UI Zoom.
  */
 export class InfoPanel extends UiModal {
+  private unsubLang?: () => void;
   private pokeTimeText: Phaser.GameObjects.Text;
   private realTimeText: Phaser.GameObjects.Text;
   private divider: Phaser.GameObjects.Graphics;
@@ -39,7 +41,7 @@ export class InfoPanel extends UiModal {
 
   constructor(scene: Phaser.Scene, seed = 0, onClose?: () => void) {
     super(scene, {
-      title: '🌤 THỜI TIẾT',
+      title: t('INFO_WEATHER'),
       width: NORMAL_W,
       height: NORMAL_H,
       showTitleBar: false,
@@ -98,6 +100,9 @@ export class InfoPanel extends UiModal {
     scene.time.addEvent({ delay: 1000, loop: true, callback: () => this.updateClock() });
 
     this.show();
+  
+    // Cập nhật title khi đổi ngôn ngữ (chỉ 1 ngôn ngữ hiển thị)
+    this.unsubLang = onLangChange(() => this.setTitle(t('INFO_WEATHER')));
   }
 
   setHudMode(mode: HudMode): void {
@@ -127,23 +132,19 @@ export class InfoPanel extends UiModal {
     const isMini = this.isMiniMode();
 
     if (isMini) {
-      this.pokeTimeText.setPosition(8, 4).setFontSize('10px');
-      this.realTimeText.setPosition(8, 19).setFontSize('10px');
-
+      this.weatherGlyph.setPosition(MINI_W / 2, 17).setFontSize('22px').setOrigin(0.5, 0.5);
       this.divider.clear();
-      this.divider.lineStyle(1, 0x2e3358, 0.8);
-      this.divider.lineBetween(74, 5, 74, 33);
-
-      this.weatherGlyph.setPosition(88, 19).setFontSize('18px');
+      this.pokeTimeText.setPosition(MINI_W / 2, 38).setFontSize('11px').setOrigin(0.5, 0.5).setVisible(true);
+      this.realTimeText.setVisible(false);
     } else {
-      this.pokeTimeText.setPosition(10, 6).setFontSize('11px');
-      this.realTimeText.setPosition(10, 23).setFontSize('11px');
+      this.pokeTimeText.setPosition(10, 6).setFontSize('11px').setOrigin(0, 0).setVisible(true);
+      this.realTimeText.setPosition(10, 23).setFontSize('11px').setOrigin(0, 0).setVisible(true);
 
       this.divider.clear();
       this.divider.lineStyle(1, 0x2e3358, 0.8);
       this.divider.lineBetween(96, 6, 96, 40);
 
-      this.weatherGlyph.setPosition(118, 23).setFontSize('22px');
+      this.weatherGlyph.setPosition(118, 23).setFontSize('22px').setOrigin(0.5, 0.5);
     }
   }
 
@@ -172,8 +173,13 @@ export class InfoPanel extends UiModal {
     const pokeTimeStr = `${pokeH}:${pokeM}`;
 
     const isMini = this.isMiniMode();
-    this.pokeTimeText.setText(isMini ? `P ${pokeTimeStr}` : `Poke: ${pokeTimeStr}`);
-    this.realTimeText.setText(isMini ? `R ${realTimeStr}` : `Real: ${realTimeStr}`);
+    if (isMini) {
+      // Chỉ hiển thị thời gian, bỏ đi title poketime, realtime
+      this.pokeTimeText.setText(pokeTimeStr);
+    } else {
+      this.pokeTimeText.setText(`${t('INFO_POKE')}: ${pokeTimeStr}`);
+      this.realTimeText.setText(`${t('INFO_REAL')}: ${realTimeStr}`);
+    }
 
     // 3. Thời tiết (dựa trên Poke Time ngày hoặc đêm)
     const pokeHourNum = parseInt(pokeH, 10);
@@ -192,8 +198,16 @@ export class InfoPanel extends UiModal {
     this.setTitle(`🌤 ${pokeTimeStr}`);
   }
 
+  isVisible(): boolean {
+    return this.isOpen();
+  }
+
   setVisible(v: boolean): void {
     if (v) this.show();
-    else this.close();
+    else this.close();  }
+
+  destroy(): void {
+    this.unsubLang?.();
+    super.destroy?.();
   }
 }

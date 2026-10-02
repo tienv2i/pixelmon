@@ -47,6 +47,17 @@ export class Minimap {
     this.relayout();
   }
 
+  setAnchorY(y: number): void {
+    this.anchorY = y;
+    this.relayout();
+  }
+
+  getBottomY(): number {
+    if (!this.visible) return this.anchorY;
+    const { y, h } = this.getLayout();
+    return y + h + PAD;
+  }
+
   private anchorProvider?: () => number;
 
   constructor(scene: Phaser.Scene) {

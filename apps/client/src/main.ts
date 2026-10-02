@@ -5,27 +5,45 @@ import { WorldScene } from './scenes/WorldScene';
 import { BattleScene } from './scenes/BattleScene';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@pixelmon/shared';
 import { C } from './ui/theme';
+import { initLang } from './i18n';
 
 /**
  * Scale manager config:
  * - RESIZE: canvas tự động fill theo cửa sổ, giữ nguyên aspect ratio 4:3.
- * - antialias: BẬT để text HUD sắc nét. (pixelArt=true sẽ tắt antialias và làm mờ text.)
+ * - antialias + pixelArt đọc từ Settings (xem `loadRenderQuality()`):
+ *     · antialias=true  → mượt, chữ sắc nét (mặc định)
+ *     · antialias=false → giữ nét pixel-art gốc, chữ mờ hơn
  *
  * Khi resize, scene.scale.width/height thay đổi → UI elements tự cập nhật
  * thông qua scene.scale.on('resize').
  */
+import { loadSettings } from './ui/SettingsStorage';
+
 // Dùng Phaser.CANVAS để render bộ tileset chuẩn Pokémon Essentials (Outdoor.png cao 16096px).
 // WebGL có giới hạn MAX_TEXTURE_SIZE (thường là 8192px trên nhiều GPU) sẽ gây lỗi
 // "texImage2D: width or height out of range". Canvas 2D không bị giới hạn này
 // và render pixel-perfect 100% khớp với Admin map canvas.
+
+/** Đọc lựa chọn chất lượng hiển thị từ Settings đã lưu. */
+function loadRenderQuality(): { antialias: boolean; pixelArt: boolean } {
+  try {
+    const aa = loadSettings().system.antialias;
+    return { antialias: aa, pixelArt: !aa };
+  } catch {
+    return { antialias: true, pixelArt: false };
+  }
+}
+
+const renderQuality = loadRenderQuality();
+
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.CANVAS,
   width: CANVAS_WIDTH,
   height: CANVAS_HEIGHT,
   parent: 'game-container',
   backgroundColor: C.bg,
-  pixelArt: true,
-  antialias: false,
+  pixelArt: renderQuality.pixelArt,
+  antialias: renderQuality.antialias,
   roundPixels: true,
   scale: {
     mode: Phaser.Scale.RESIZE,
@@ -41,6 +59,9 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   scene: [BootScene, LoginScene, WorldScene, BattleScene],
 };
+
+// Khởi tạo ngôn ngữ từ settings đã lưu — phải chạy TRƯỚC khi dựng UI.
+initLang();
 
 const game = new Phaser.Game(config);
 

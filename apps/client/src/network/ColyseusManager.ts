@@ -1,5 +1,6 @@
 import { Client, type Room } from 'colyseus.js';
 import { type WorldState, type BattleState } from '@pixelmon/shared/schema';
+import { t } from '../i18n';
 
 const SERVER_URL: string = (import.meta as any).env?.VITE_SERVER_URL ?? 'ws://localhost:2567';
 const HTTP_URL: string = SERVER_URL.replace(/^ws/, 'http');
@@ -8,6 +9,7 @@ const LS_TOKEN = 'pixelmon.token';
 const LS_USER_ID = 'pixelmon.userId';
 const LS_NAME = 'pixelmon.displayName';
 const LS_ROLE = 'pixelmon.role';
+const LS_LOCATION = 'pixelmon.location';
 
 /** Thứ tự quyền — số càng lớn càng cao. `banned` nằm ngoài thang này. */
 const ROLE_RANK: Record<string, number> = {
@@ -18,6 +20,14 @@ const ROLE_RANK: Record<string, number> = {
 
 /** Quyền tối thiểu được phép mở tab Debug trong Settings. */
 const DEBUG_MIN_ROLE = 'moderator';
+
+/** Vị trí lưu của người chơi (toạ độ và bản đồ). */
+export interface PlayerSavedLocation {
+  mapId: string;
+  x: number;
+  y: number;
+  direction?: string;
+}
 
 /** Sprite user được gán trong admin (từ `GET /api/auth/me`). */
 export interface UserSprite {
@@ -42,6 +52,8 @@ export class ColyseusManager {
   private userRole: string = 'player';
   /** Sprite nhân vật user được gán (null = dùng sheet mặc định). */
   private sprite: UserSprite | null = null;
+  /** Toạ độ và map đã lưu của người chơi. */
+  public savedLocation: PlayerSavedLocation | null = null;
 
   private constructor() {
     this.client = new Client(SERVER_URL);
@@ -108,7 +120,7 @@ export class ColyseusManager {
     this.sprite = s && typeof s.sheetUrl === 'string' && s.sheetUrl ? s : null;
   }
 
-  /** Fetch `/api/auth/me` và lưu role + sprite (best-effort, không ném lỗi). */
+  /** Fetch `/api/auth/me` và lưu role + sprite + location (best-effort, không ném lỗi). */
   private async loadSprite(): Promise<void> {
     try {
       const res = await fetch(`${HTTP_URL}/api/auth/me`, {
@@ -117,6 +129,15 @@ export class ColyseusManager {
       if (!res.ok) return;
       const me = await res.json();
       this.setProfileFromMe(me?.user);
+      if (me?.player && me.player.mapId) {
+        this.savedLocation = {
+          mapId: me.player.mapId,
+          x: Number(me.player.x),
+          y: Number(me.player.y),
+          direction: me.player.direction || 'down',
+        };
+        this.saveSession();
+      }
     } catch {
       this.sprite = null;
     }
@@ -142,6 +163,14 @@ export class ColyseusManager {
         if (typeof data.role === 'string' && data.role in ROLE_RANK) {
           this.userRole = data.role;
         }
+        if (data.player && data.player.mapId) {
+          this.savedLocation = {
+            mapId: data.player.mapId,
+            x: Number(data.player.x),
+            y: Number(data.player.y),
+            direction: data.player.direction || 'down',
+          };
+        }
         this.saveSession();
         // Lấy sprite user được gán (best-effort — lỗi thì dùng sheet mặc định).
         // Await để WorldScene đọc được ngay sau khi connect() resolve.
@@ -151,8 +180,8 @@ export class ColyseusManager {
         const err = await loginRes.json().catch(() => ({}));
         const msg =
           loginRes.status === 401
-            ? 'Sai tên đăng nhập hoặc mật khẩu'
-            : err.message || `Lỗi server (${loginRes.status})`;
+            ? t('AUTH_BAD_CREDENTIALS')
+            : err.message || `${t('AUTH_SERVER_ERR')} (${loginRes.status})`;
         throw new Error(msg);
       }
     } catch (err: any) {
@@ -170,8 +199,8 @@ export class ColyseusManager {
       this.clearSession();
     }
 
-    // 2. Join world room
-    await this.joinWorld();
+    // 2. Join world room theo map đã lưu
+    await this.joinWorld(this.savedLocation?.mapId);
   }
 
   /**
@@ -191,10 +220,19 @@ export class ColyseusManager {
         this.clearSession();
         return false;
       }
-      // Đọc role + sprite ngay từ response này (không fetch thêm)
+      // Đọc role + sprite + location ngay từ response này (không fetch thêm)
       try {
         const me = await res.json();
         this.setProfileFromMe(me?.user);
+        if (me?.player && me.player.mapId) {
+          this.savedLocation = {
+            mapId: me.player.mapId,
+            x: Number(me.player.x),
+            y: Number(me.player.y),
+            direction: me.player.direction || 'down',
+          };
+          this.saveSession();
+        }
       } catch {
         /* ignore */
       }
@@ -202,8 +240,19 @@ export class ColyseusManager {
       // Không gọi được server → coi như offline, vẫn cho vào game
       console.warn('[network] cannot verify token, continuing offline');
     }
-    await this.joinWorld();
+    await this.joinWorld(this.savedLocation?.mapId);
     return true;
+  }
+
+  /** Cập nhật vị trí hiện tại của người chơi vào session để giữ khi logout / refresh. */
+  updateLocation(mapId: string, x: number, y: number, direction?: string): void {
+    this.savedLocation = {
+      mapId,
+      x,
+      y,
+      direction: direction ?? this.savedLocation?.direction ?? 'down',
+    };
+    this.saveSession();
   }
 
   /** true nếu có phiên đã lưu (chưa chắc token còn hạn). */
@@ -217,6 +266,9 @@ export class ColyseusManager {
       localStorage.setItem(LS_USER_ID, this.userId);
       localStorage.setItem(LS_NAME, this.displayName);
       localStorage.setItem(LS_ROLE, this.userRole);
+      if (this.savedLocation) {
+        localStorage.setItem(LS_LOCATION, JSON.stringify(this.savedLocation));
+      }
     } catch {
       // localStorage bị chặn (private mode) — phiên không tồn tại sau refresh
     }
@@ -228,11 +280,16 @@ export class ColyseusManager {
       this.userId = localStorage.getItem(LS_USER_ID) ?? '';
       this.displayName = localStorage.getItem(LS_NAME) ?? '';
       this.userRole = localStorage.getItem(LS_ROLE) ?? 'player';
+      const locStr = localStorage.getItem(LS_LOCATION);
+      if (locStr) {
+        this.savedLocation = JSON.parse(locStr);
+      }
     } catch {
       this.authToken = '';
       this.userId = '';
       this.displayName = '';
       this.userRole = 'player';
+      this.savedLocation = null;
     }
   }
 
@@ -241,17 +298,20 @@ export class ColyseusManager {
     this.userId = '';
     this.displayName = '';
     this.userRole = 'player';
+    this.savedLocation = null;
     try {
       localStorage.removeItem(LS_TOKEN);
       localStorage.removeItem(LS_USER_ID);
       localStorage.removeItem(LS_NAME);
       localStorage.removeItem(LS_ROLE);
+      localStorage.removeItem(LS_LOCATION);
     } catch {
       // ignore
     }
   }
 
-  async joinWorld(mapId: string = 'lappet-town'): Promise<void> {
+  async joinWorld(mapId?: string): Promise<void> {
+    const targetMapId = mapId ?? this.savedLocation?.mapId ?? 'lappet-town';
     if (this.worldRoom) {
       this.worldRoom.leave();
     }
@@ -259,9 +319,9 @@ export class ColyseusManager {
       this.worldRoom = await this.client.joinOrCreate<WorldState>('world', {
         userId: this.userId,
         displayName: this.displayName,
-        mapId,
+        mapId: targetMapId,
       });
-      console.log('[network] joined world room', this.worldRoom.roomId);
+      console.log('[network] joined world room', this.worldRoom.roomId, 'for map', targetMapId);
     } catch (err) {
       console.warn('[network] falling back to offline mode:', err);
       // Create a local state for offline play
@@ -287,8 +347,12 @@ export class ColyseusManager {
     }
   }
 
-  sendMove(x: number, y: number, direction: string): void {
-    this.worldRoom?.send('move', { x, y, direction });
+  sendMove(x: number, y: number, direction: string, noclip?: boolean): void {
+    this.worldRoom?.send('move', { x, y, direction, noclip });
+  }
+
+  sendTeleport(x: number, y: number, direction?: string): void {
+    this.worldRoom?.send('teleport', { x, y, direction });
   }
 
   /**

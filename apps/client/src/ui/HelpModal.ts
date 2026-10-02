@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { C, FONT, ts } from './theme';
 import { UiModal } from './UiModal';
+import { t, mkText, onLangChange} from '../i18n';
 
 const MODAL_W = 440;
 const MODAL_H = 360;
@@ -20,9 +21,10 @@ interface ShortcutItem {
  * - Nút Tắt (✕): đóng bảng hướng dẫn.
  */
 export class HelpModal extends UiModal {
+  private unsubLang?: () => void;
   constructor(scene: Phaser.Scene, onClose?: () => void) {
     super(scene, {
-      title: '❓ HƯỚNG DẪN ĐIỀU KHIỂN',
+      title: t('HELP_TITLE'),
       width: MODAL_W,
       height: MODAL_H,
       headerHeight: HEADER_H,
@@ -39,6 +41,9 @@ export class HelpModal extends UiModal {
 
     this.buildContent();
     this.close();
+  
+    // Cập nhật title khi đổi ngôn ngữ (chỉ 1 ngôn ngữ hiển thị)
+    this.unsubLang = onLangChange(() => this.setTitle(t('HELP_TITLE')));
   }
 
   private buildContent(): void {
@@ -46,21 +51,20 @@ export class HelpModal extends UiModal {
     let curY = 12;
 
     // Nhóm 1: Bàn phím
-    const lblKb = this.scene.add
-      .text(padX, curY, '⌨ PHÍM TẮT BÀN PHÍM (KEYBOARD):', ts(11, '#6c5ce7', FONT.ui))
+    const lblKb = mkText(this.scene, 'HELP_KEYBOARD', ts(11, '#6c5ce7', FONT.ui), padX, curY)
       .setOrigin(0, 0);
     this.contentContainer.add(lblKb);
     curY += 20;
 
     const kbShortcuts: ShortcutItem[] = [
-      { key: 'W, A, S, D / Arrows', desc: 'Di chuyển nhân vật trong thế giới' },
-      { key: 'Enter', desc: 'Mở / Gửi tin nhắn vào khung chat' },
-      { key: 'P', desc: 'Ẩn / hiện Đội hình Pokémon (Party)' },
-      { key: 'B', desc: 'Mở / đóng Hộp lưu trữ Pokémon (PC Box)' },
-      { key: 'M', desc: 'Bật / tắt bản đồ thu nhỏ (Minimap)' },
-      { key: 'F3  hoặc  F2', desc: 'Mở / đóng Panel Debug & Thông số Map, Toạ độ' },
-      { key: 'H  hoặc nút  ?', desc: 'Bật / tắt bảng hướng dẫn này' },
-      { key: 'Esc  hoặc nút  ⚙', desc: 'Mở bảng Cài đặt hệ thống' },
+      { key: t('HELP_KEY_KB_MOVE'), desc: t('HELP_KB_MOVE') },
+      { key: t('HELP_KEY_ENTER'), desc: t('HELP_KB_ENTER') },
+      { key: t('HELP_KEY_P'), desc: t('HELP_KB_P') },
+      { key: t('HELP_KEY_B'), desc: t('HELP_KB_B') },
+      { key: t('HELP_KEY_M'), desc: t('HELP_KB_M') },
+      { key: t('HELP_KEY_F3'), desc: t('HELP_KB_F3') },
+      { key: t('HELP_KEY_H'), desc: t('HELP_KB_H') },
+      { key: t('HELP_KEY_ESC'), desc: t('HELP_KB_ESC') },
     ];
 
     for (const item of kbShortcuts) {
@@ -71,16 +75,15 @@ export class HelpModal extends UiModal {
     curY += 8;
 
     // Nhóm 2: Chuột & Cảm ứng
-    const lblMouse = this.scene.add
-      .text(padX, curY, '🖱 THAO TÁC CHUỘT & CẢM ỨNG (MOUSE & TOUCH):', ts(11, '#6c5ce7', FONT.ui))
+    const lblMouse = mkText(this.scene, 'HELP_MOUSE', ts(11, '#6c5ce7', FONT.ui), padX, curY)
       .setOrigin(0, 0);
     this.contentContainer.add(lblMouse);
     curY += 20;
 
     const mouseShortcuts: ShortcutItem[] = [
-      { key: 'Chuột trái / Touch (LMB)', desc: 'Đi tới vị trí ô được chỉ định (Click-to-move)' },
-      { key: 'Chuột giữa / Shift + Kéo', desc: 'Kéo di chuyển góc nhìn camera tự do' },
-      { key: 'Con lăn chuột (Wheel)', desc: 'Thu phóng thế giới (khi bật trong Cài đặt)' },
+      { key: t('HELP_KEY_LMB'), desc: t('HELP_MOUSE_LMB') },
+      { key: t('HELP_KEY_MMB'), desc: t('HELP_MOUSE_MMB') },
+      { key: t('HELP_KEY_WHEEL'), desc: t('HELP_MOUSE_WHEEL') },
     ];
 
     for (const item of mouseShortcuts) {
@@ -102,8 +105,7 @@ export class HelpModal extends UiModal {
     btnBg.strokeRoundedRect(btnX, curY, btnW, btnH, 4);
     this.contentContainer.add(btnBg);
 
-    const btnText = this.scene.add
-      .text(btnX + btnW / 2, curY + btnH / 2, '✔ ĐÃ HIỂU [H]', ts(11, '#00cec9', FONT.ui))
+    const btnText = mkText(this.scene, 'HELP_GOT_IT', ts(11, '#00cec9', FONT.ui), btnX + btnW / 2, curY + btnH / 2)
       .setOrigin(0.5);
     this.contentContainer.add(btnText);
 
@@ -130,8 +132,7 @@ export class HelpModal extends UiModal {
 
     btnZone.on('pointerdown', (p: Phaser.Input.Pointer) => {
       p.event?.stopPropagation();
-      this.close();
-    });
+      this.close();    });
 
     this.contentContainer.add(btnZone);
   }
@@ -158,5 +159,10 @@ export class HelpModal extends UiModal {
       .text(x + keyBoxW + 12, y + keyBoxH / 2, descText, ts(11, C.text, FONT.ui))
       .setOrigin(0, 0.5);
     this.contentContainer.add(descLabel);
+  }
+
+  destroy(): void {
+    this.unsubLang?.();
+    super.destroy?.();
   }
 }

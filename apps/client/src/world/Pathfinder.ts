@@ -28,7 +28,22 @@ export function findPath(
 
   // Nếu đích đứng trên ô bị chặn → tìm ô đi được gần nhất
   const target = isWalkable(goal.col, goal.row) ? goal : nearestWalkable(goal, isWalkable);
-  if (!target || (target.col === start.col && target.row === start.row)) return [];
+  if (!target) return [];
+
+  // Nếu điểm xuất phát đang ở ô blocked (ví dụ vừa tắt noclip hoặc kẹt tường)
+  let searchStart = start;
+  let escapeStep: Pt | null = null;
+  if (!isWalkable(start.col, start.row)) {
+    const safe = nearestWalkable(start, isWalkable);
+    if (safe) {
+      searchStart = safe;
+      escapeStep = safe;
+    }
+  }
+
+  if (target.col === start.col && target.row === start.row) {
+    return escapeStep ? [escapeStep] : [];
+  }
 
   const open = new Map<number, Node>();
   const closed = new Set<number>();
@@ -36,13 +51,13 @@ export function findPath(
 
   const h = (a: Pt, b: Pt) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
   const startNode: Node = {
-    col: start.col,
-    row: start.row,
+    col: searchStart.col,
+    row: searchStart.row,
     g: 0,
-    f: h(start, target),
+    f: h(searchStart, target),
     parent: null,
   };
-  open.set(key(start.col, start.row), startNode);
+  open.set(key(searchStart.col, searchStart.row), startNode);
 
   let guard = 0;
   const MAX_NODES = 100000;
@@ -63,7 +78,13 @@ export function findPath(
     closed.add(bestKey);
 
     if (current.col === target.col && current.row === target.row) {
-      return reconstruct(current);
+      const res = reconstruct(current);
+      if (escapeStep) {
+        if (res.length === 0 || (res[0].col !== escapeStep.col || res[0].row !== escapeStep.row)) {
+          res.unshift(escapeStep);
+        }
+      }
+      return res;
     }
 
     for (const [dc, dr] of NEIGHBORS) {
@@ -88,7 +109,7 @@ export function findPath(
     }
   }
 
-  return [];
+  return escapeStep ? [escapeStep] : [];
 }
 
 const NEIGHBORS: Array<[number, number]> = [
@@ -115,9 +136,9 @@ function reconstruct(node: Node): Pt[] {
   return path;
 }
 
-/** Tìm ô đi được gần nhất trong bán kính 6 ô (dùng collider). */
+/** Tìm ô đi được gần nhất trong bán kính 12 ô (dùng collider). */
 function nearestWalkable(p: Pt, isWalkable: TileCollider): Pt | null {
-  for (let r = 1; r <= 6; r++) {
+  for (let r = 1; r <= 12; r++) {
     for (let dr = -r; dr <= r; dr++) {
       for (let dc = -r; dc <= r; dc++) {
         if (Math.max(Math.abs(dc), Math.abs(dr)) !== r) continue;

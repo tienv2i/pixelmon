@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { t } from '../i18n';
 import { ColyseusManager } from '../network/ColyseusManager';
 
 declare global {
@@ -201,7 +202,7 @@ export class LoginScene extends Phaser.Scene {
     if (!btn) return;
     btn.addEventListener('click', async () => {
       btn.disabled = true;
-      btn.textContent = 'Đang vào...';
+      btn.textContent = t('LOG_DEV_ENTER');
       try {
         await ColyseusManager.getInstance().connect('admin', 'admin123');
         this.destroyOverlay();
@@ -249,12 +250,12 @@ export class LoginScene extends Phaser.Scene {
       const username = String(fd.get('username') ?? '').trim();
       const password = String(fd.get('password') ?? '').trim();
       if (!username || !password) {
-        this.showMsg(msgEl, 'Vui lòng nhập đầy đủ thông tin.', 'warn');
+        this.showMsg(msgEl, t('LOG_REQUIRED_FIELDS'), 'warn');
         return;
       }
 
       btn.disabled = true;
-      btn.textContent = 'Đang đăng nhập…';
+      btn.textContent = t('LOG_SIGNING_IN');
       this.hideMsg(root, 'login-msg');
 
       try {
@@ -262,10 +263,10 @@ export class LoginScene extends Phaser.Scene {
         this.destroyOverlay();
         this.scene.start('World');
       } catch (err: any) {
-        const msg = err?.message || 'Không thể kết nối server.';
+        const msg = err?.message || t('LOG_NO_SERVER');
         this.showMsg(msgEl, msg, 'error');
         btn.disabled = false;
-        btn.textContent = 'Vào game';
+        btn.textContent = t('LOG_ENTER_GAME');
       }
     });
   }
@@ -297,7 +298,7 @@ export class LoginScene extends Phaser.Scene {
           }) => {
             if (!d.ok || !d.sprites || d.sprites.length === 0) {
               spriteListEl.innerHTML =
-                '<span style="font-size:12px; color:#a0aec0;">Mặc định</span>';
+                t('LOG_SPRITE_DEFAULT');
               return;
             }
             spriteListEl.innerHTML = '';
@@ -353,7 +354,7 @@ export class LoginScene extends Phaser.Scene {
         .catch(() => {
           if (spriteListEl)
             spriteListEl.innerHTML =
-              '<span style="font-size:12px; color:#718096;">Không thể tải danh sách</span>';
+              `<span style="font-size:12px; color:#718096;">${t('LOG_SPRITES_LOAD_FAIL')}</span>`;
         });
     }
 
@@ -367,24 +368,24 @@ export class LoginScene extends Phaser.Scene {
       const spriteId = String(fd.get('spriteId') ?? '').trim() || null;
 
       if (!username || !displayName || !password || !confirmPassword) {
-        this.showMsg(msgEl, 'Vui lòng nhập đầy đủ thông tin.', 'warn');
+        this.showMsg(msgEl, t('LOG_REQUIRED_FIELDS'), 'warn');
         return;
       }
       if (username.length < 3) {
-        this.showMsg(msgEl, 'Tên đăng nhập tối thiểu 3 ký tự.', 'warn');
+        this.showMsg(msgEl, t('LOG_USER_MIN3'), 'warn');
         return;
       }
       if (password.length < 6) {
-        this.showMsg(msgEl, 'Mật khẩu tối thiểu 6 ký tự.', 'warn');
+        this.showMsg(msgEl, t('LOG_PASS_MIN6'), 'warn');
         return;
       }
       if (password !== confirmPassword) {
-        this.showMsg(msgEl, 'Mật khẩu xác nhận không khớp.', 'warn');
+        this.showMsg(msgEl, t('LOG_PASS_MISMATCH'), 'warn');
         return;
       }
 
       btn.disabled = true;
-      btn.textContent = 'Đang tạo tài khoản…';
+      btn.textContent = t('LOG_CREATING');
       this.hideMsg(root, 'register-msg');
 
       try {
@@ -395,9 +396,9 @@ export class LoginScene extends Phaser.Scene {
         });
         const data: AuthResponse = await res.json();
         if (!data.ok) {
-          this.showMsg(msgEl, data.message || 'Đăng ký thất bại.', 'error');
+          this.showMsg(msgEl, data.message || t('LOG_REGISTER_FAIL'), 'error');
           btn.disabled = false;
-          btn.textContent = 'Tạo tài khoản';
+          btn.textContent = t('LOG_CREATE_ACCOUNT');
           return;
         }
         // Thành công → tự đăng nhập
@@ -405,9 +406,9 @@ export class LoginScene extends Phaser.Scene {
         this.destroyOverlay();
         this.scene.start('World');
       } catch {
-        this.showMsg(msgEl, 'Không thể kết nối server. Thử lại sau.', 'error');
+        this.showMsg(msgEl, t('LOG_SERVER_RETRY'), 'error');
         btn.disabled = false;
-        btn.textContent = 'Tạo tài khoản';
+        btn.textContent = t('LOG_CREATE_ACCOUNT');
       }
     });
   }

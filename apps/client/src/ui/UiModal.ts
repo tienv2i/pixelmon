@@ -38,6 +38,16 @@ export interface UiModalOptions {
   headerHeight?: number;
   /** Ẩn/hiện thanh tiêu đề Title Bar (mặc định: true). Nếu false, không vẽ header bar và không cho drag bằng header. */
   showTitleBar?: boolean;
+  /**
+   * Chiều cao vùng kéo padding ở phía trên modal (mặc định: 0 / tắt).
+   * Dùng để kéo modal khi không có title bar (showTitleBar: false) hoặc muốn có khoảng đệm riêng để drag.
+   * Vùng này không chứa title text hay bất kỳ nút điều khiển nào.
+   */
+  topDragPadding?: number;
+  /**
+   * Hiển thị vạch nắm (grip handle bar) ở vùng topDragPadding để nhận diện trực quan (mặc định: true nếu topDragPadding > 0).
+   */
+  showDragGrip?: boolean;
 
   /** Chế độ khóa UI: phủ overlay mờ đen khóa toàn bộ gameplay & UI bên dưới (mặc định: false) */
   lockUi?: boolean;
@@ -77,6 +87,8 @@ export interface UiModalOptions {
   onMinimize?: (minimized: boolean) => void;
   onDock?: (docked: boolean) => void;
   onDragEnd?: (x: number, y: number) => void;
+  /** Callback khi modal được double-click reset về vị trí mặc định */
+  onResetPosition?: () => void;
 }
 
 /**
@@ -119,6 +131,10 @@ export class UiModal {
   protected titleText?: Phaser.GameObjects.Text;
   protected headerZone?: Phaser.GameObjects.Zone;
 
+  // Drag padding bar (khi không có title bar)
+  protected dragPaddingGfx?: Phaser.GameObjects.Graphics;
+  protected dragPaddingZone?: Phaser.GameObjects.Zone;
+
   // Footer bar
   protected footerBg?: Phaser.GameObjects.Graphics;
   public readonly footerContainer?: Phaser.GameObjects.Container;
@@ -146,6 +162,8 @@ export class UiModal {
     this.opts = {
       headerHeight: 34,
       showTitleBar: true,
+      topDragPadding: 0,
+      showDragGrip: true,
       lockUi: false,
       draggable: true,
       docked: false,
@@ -178,12 +196,14 @@ export class UiModal {
         .setOrigin(0, 0)
         .setDepth(depth)
         .setScrollFactor(0)
-        .setVisible(false)
-        .setInteractive({ cursor: 'default' });
+        .setVisible(false);
 
       this.overlayBlocker.on('pointerdown', (p: Phaser.Input.Pointer) => {
         p.event?.stopPropagation();
       });
+      if (this.open) {
+        this.overlayBlocker.setInteractive({ cursor: 'default' });
+      }
       this.allObjects.push(this.overlayBlocker);
     }
 
@@ -221,11 +241,27 @@ export class UiModal {
       this.modalContainer.add(this.headerZone);
 
       this.buildHeaderButtons();
+    } else if ((this.opts.topDragPadding ?? 0) > 0) {
+      // 4b. Vùng Drag Padding ở phía trên (khi không dùng Title Bar nhưng muốn kéo thả)
+      this.dragPaddingGfx = scene.add.graphics();
+      this.modalContainer.add(this.dragPaddingGfx);
+
+      this.dragPaddingZone = scene.add
+        .zone(0, 0, this.opts.width, this.opts.topDragPadding!)
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: !this.isDocked && !!this.opts.draggable });
+      this.modalContainer.add(this.dragPaddingZone);
+
+      if (this.opts.draggable) {
+        this.updateHeaderCursor();
+        this.setupDragEvents();
+      }
     }
 
     // 5. Container nội dung
     const pad = this.getPadding();
-    const contentTop = (this.opts.showTitleBar ? this.opts.headerHeight! : 0) + pad.top;
+    const topBarH = this.opts.showTitleBar ? this.opts.headerHeight! : (this.opts.topDragPadding ?? 0);
+    const contentTop = topBarH + pad.top;
     this.contentContainer = scene.add.container(pad.left, contentTop);
     this.modalContainer.add(this.contentContainer);
 
@@ -386,19 +422,50 @@ export class UiModal {
 
   // ── Drag & Drop ────────────────────────────────────────────────────────────
   protected setupDragEvents(): void {
-    if (!this.headerZone) return;
+    const zones = [this.headerZone, this.dragPaddingZone].filter(Boolean) as Phaser.GameObjects.Zone[];
+    if (zones.length === 0) return;
 
-    this.headerZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.button !== 0) return;
-      // Nếu đang ở chế độ neo thì BỊ GẮN CỨNG và KHÔNG THỂ DRAG ĐI
-      if (this.isDocked) return;
+    let lastTapTime = 0;
 
-      pointer.event?.stopPropagation();
-      this.isDragging = true;
-      this.dragOffset = {
-        x: pointer.x - this.modalContainer.x,
-        y: pointer.y - this.modalContainer.y,
-      };
+    zones.forEach((zone) => {
+      zone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if (pointer.button !== 0) return;
+
+        // Double click / double tap detection (< 320ms): tự trở về vị trí mặc định
+        const now = Date.now();
+        if (now - lastTapTime < 320) {
+          lastTapTime = 0;
+          pointer.event?.stopPropagation();
+          this.resetPosition();
+          return;
+        }
+        lastTapTime = now;
+
+        // Nếu đang ở chế độ neo thì BỊ GẮN CỨNG và KHÔNG THỂ DRAG ĐI
+        if (this.isDocked) return;
+
+        pointer.event?.stopPropagation();
+        this.isDragging = true;
+        this.dragOffset = {
+          x: pointer.x - this.modalContainer.x,
+          y: pointer.y - this.modalContainer.y,
+        };
+        if (zone.input) zone.input.cursor = 'grabbing';
+        if (this.dragPaddingGfx) this.drawDragPaddingGrip(true);
+      });
+
+      zone.on('pointerover', () => {
+        if (!this.isDocked && this.opts.draggable) {
+          if (zone.input) zone.input.cursor = 'grab';
+          if (this.dragPaddingGfx) this.drawDragPaddingGrip(true);
+        }
+      });
+
+      zone.on('pointerout', () => {
+        if (!this.isDragging && this.dragPaddingGfx) {
+          this.drawDragPaddingGrip(false);
+        }
+      });
     });
 
     this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
@@ -416,6 +483,10 @@ export class UiModal {
     const endDrag = () => {
       if (this.isDragging) {
         this.isDragging = false;
+        zones.forEach((zone) => {
+          if (zone.input) zone.input.cursor = 'grab';
+        });
+        if (this.dragPaddingGfx) this.drawDragPaddingGrip(false);
         this.opts.onDragEnd?.(this.currentX, this.currentY);
       }
     };
@@ -423,13 +494,49 @@ export class UiModal {
     this.scene.input.on('pointerupoutside', endDrag);
   }
 
+  /**
+   * Đặt lại modal về vị trí mặc định (Alignment + Offset) hoặc vị trí Stack.
+   * Xoá toạ độ tuỳ biến do kéo thả và gọi relayout().
+   */
+  public resetPosition(): void {
+    this.customX = undefined;
+    this.customY = undefined;
+    this.relayout();
+    this.opts.onResetPosition?.();
+  }
+
+  /**
+   * Kiểm tra xem modal có đang ở toạ độ tự do do người dùng kéo thả hay không.
+   */
+  public isCustomPositioned(): boolean {
+    return this.customX !== undefined && this.customY !== undefined;
+  }
+
   private updateHeaderCursor(): void {
-    if (!this.headerZone) return;
+    const zone = this.headerZone ?? this.dragPaddingZone;
+    if (!zone) return;
     if (this.isDocked || !this.opts.draggable) {
-      this.headerZone.input?.cursor && (this.headerZone.input.cursor = 'default');
+      zone.input?.cursor && (zone.input.cursor = 'default');
     } else {
-      this.headerZone.input?.cursor && (this.headerZone.input.cursor = 'grab');
+      zone.input?.cursor && (zone.input.cursor = 'grab');
     }
+  }
+
+  /** Vẽ vạch nắm (grip handle) ở vùng kéo topDragPadding. */
+  protected drawDragPaddingGrip(highlight = false): void {
+    if (!this.dragPaddingGfx || (this.opts.topDragPadding ?? 0) <= 0) return;
+    this.dragPaddingGfx.clear();
+    if (this.opts.showDragGrip === false) return;
+
+    const W = this.opts.width;
+    const topH = this.opts.topDragPadding!;
+    const gripW = Math.min(32, Math.max(16, Math.round(W * 0.35)));
+    const gripH = 3;
+    const gripX = Math.round((W - gripW) / 2);
+    const gripY = Math.round((topH - gripH) / 2);
+
+    this.dragPaddingGfx.fillStyle(highlight ? 0x00cec9 : 0x4a5280, highlight ? 0.9 : 0.6);
+    this.dragPaddingGfx.fillRoundedRect(gripX, gripY, gripW, gripH, 1.5);
   }
 
   // ── Padding Helper ─────────────────────────────────────────────────────────
@@ -550,7 +657,10 @@ export class UiModal {
   show(): void {
     this.open = true;
     if (this.overlay) this.overlay.setVisible(true);
-    if (this.overlayBlocker) this.overlayBlocker.setVisible(true);
+    if (this.overlayBlocker) {
+      this.overlayBlocker.setVisible(true);
+      this.overlayBlocker.setInteractive({ cursor: 'default' });
+    }
     this.modalContainer.setVisible(true);
     this.relayout();
   }
@@ -559,7 +669,10 @@ export class UiModal {
     this.open = false;
     this.isDragging = false;
     if (this.overlay) this.overlay.setVisible(false);
-    if (this.overlayBlocker) this.overlayBlocker.setVisible(false);
+    if (this.overlayBlocker) {
+      this.overlayBlocker.setVisible(false);
+      this.overlayBlocker.disableInteractive();
+    }
     this.modalContainer.setVisible(false);
     this.opts.onClose?.();
   }
@@ -646,6 +759,22 @@ export class UiModal {
     this.updateHeaderCursor();
     if (this.btnDock) this.btnDock.setColor(C.muted);
     this.relayout();
+  }
+
+  /** Thiết lập offset Y mặc định (dùng cho stack neo cạnh phải / cạnh trái) */
+  public setDefaultOffsetY(y: number): this {
+    this.opts.defaultOffsetY = y;
+    if (this.customY === undefined || this.isDocked) {
+      if (this.open) this.relayout();
+    }
+    return this;
+  }
+
+  /** Tính toạ độ đáy thực tế của modal trên màn hình */
+  public getBottomY(): number {
+    if (!this.open) return this.opts.defaultOffsetY ?? 0;
+    const { actualH } = this.getScaleAndBounds();
+    return this.currentY + actualH;
   }
 
   getPosition(): { x: number; y: number } {
@@ -760,6 +889,14 @@ export class UiModal {
       }
       const maxTitleW = Math.max(30, W - btnRightOffset - 16);
       this.titleText.setWordWrapWidth(maxTitleW, false);
+    } else if (!showHeader && (this.opts.topDragPadding ?? 0) > 0 && this.dragPaddingZone) {
+      // 4b. Cập nhật vùng Top Drag Padding nếu không có title bar
+      const topDragH = this.opts.topDragPadding!;
+      this.dragPaddingZone.setPosition(0, 0).setSize(W, topDragH);
+      if (this.dragPaddingZone.input && this.dragPaddingZone.input.hitArea) {
+        (this.dragPaddingZone.input.hitArea as Phaser.Geom.Rectangle).setSize(W, topDragH);
+      }
+      this.drawDragPaddingGrip(false);
     }
 
     // 5. Vẽ Footer Bar nếu bật showFooter

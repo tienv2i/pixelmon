@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { C, FONT } from './theme';
 import { UiModal } from './UiModal';
+import { t, mkText, onLangChange, type I18nKey } from '../i18n';
 import type { PokemonData, PokemonSummaryModal } from './PokemonSummaryModal';
 
 export interface StorageBoxState {
@@ -59,6 +60,7 @@ export class PcBoxModal extends UiModal {
 
   private summaryModal?: PokemonSummaryModal;
   private onPartyChanged?: (party: PokemonData[]) => void;
+  private unsubLang?: () => void;
 
   // Visual containers & graphics
   private boxGridGraphics!: Phaser.GameObjects.Graphics;
@@ -77,7 +79,7 @@ export class PcBoxModal extends UiModal {
     onClose?: () => void,
   ) {
     super(scene, {
-      title: '🖥️ HỘP LƯU TRỮ POKÉMON (PC BOX)',
+      title: t('PC_TITLE'),
       width: MODAL_W,
       height: MODAL_H,
       headerHeight: 34,
@@ -118,6 +120,17 @@ export class PcBoxModal extends UiModal {
     this.createBoxHeader();
     this.renderAll();
     this.close();
+
+    // Cập nhật lại tiêu đề modal + các nhãn động khi đổi ngôn ngữ
+    this.unsubLang = onLangChange(() => {
+      this.setTitle(t('PC_TITLE'));
+      this.renderAll();
+    });
+  }
+
+  public override destroy(): void {
+    this.unsubLang?.();
+    super.destroy();
   }
 
   public override show(): void {
@@ -161,14 +174,12 @@ export class PcBoxModal extends UiModal {
     this.contentContainer.add(prevBtn);
 
     // Tiêu đề Box
-    this.boxTitleText = this.scene.add
-      .text(barX + barW / 2, barY + 14, `HỘP ${this.currentBoxIndex + 1} / ${this.totalBoxes}`, {
-        fontSize: '13px',
-        fontFamily: FONT.sans,
-        fontStyle: 'bold',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
+    this.boxTitleText = mkText(this.scene, this.boxTitle(), {
+      fontSize: '13px',
+      fontFamily: FONT.sans,
+      fontStyle: 'bold',
+      color: '#ffffff',
+    }, barX + barW / 2, barY + 14).setOrigin(0.5);
     this.contentContainer.add(this.boxTitleText);
 
     // Nút Box sau ▶
@@ -195,6 +206,11 @@ export class PcBoxModal extends UiModal {
     this.renderPreviewPanel();
   }
 
+  /** Nhãn tiêu đề Box hiện tại (VD: "HỘP 1 / 8") */
+  private boxTitle(): string {
+    return `${t('PC_BOX_LABEL')}${this.currentBoxIndex + 1} / ${this.totalBoxes}`;
+  }
+
   /** Lấy danh sách Pokémon trong Box hiện tại (tối đa 30 con) */
   private getCurrentBoxPokemon(): PokemonData[] {
     const start = this.currentBoxIndex * 30;
@@ -206,7 +222,7 @@ export class PcBoxModal extends UiModal {
     this.boxGridGraphics.clear();
     this.gridIconsContainer.removeAll(true);
 
-    this.boxTitleText.setText(`HỘP ${this.currentBoxIndex + 1} / ${this.totalBoxes}`);
+    this.boxTitleText.setText(this.boxTitle());
 
     const startX = 14;
     const startY = 38;
@@ -296,12 +312,12 @@ export class PcBoxModal extends UiModal {
     this.partyGraphics.lineStyle(1.5, 0x2e355b, 1);
     this.partyGraphics.strokeRoundedRect(px, py, pw, ph, 6);
 
-    const title = this.scene.add.text(px + pw / 2, py + 14, `ĐỘI HÌNH (${this.partyPokemon.length}/6)`, {
+    const title = mkText(this.scene, this.partyTitle(), {
       fontSize: '11px',
       fontFamily: FONT.sans,
       fontStyle: 'bold',
       color: '#00cec9',
-    }).setOrigin(0.5);
+    }, px + pw / 2, py + 14).setOrigin(0.5);
     this.partyIconsContainer.add(title);
 
     const slotH = 34;
@@ -318,13 +334,11 @@ export class PcBoxModal extends UiModal {
       this.partyGraphics.strokeRoundedRect(px + 6, sy, pw - 12, slotH, 4);
 
       if (!pkm) {
-        const emptyTxt = this.scene.add
-          .text(px + pw / 2, sy + slotH / 2, '+ Trống', {
-            fontSize: '11px',
-            fontFamily: FONT.sans,
-            color: '#4a5568',
-          })
-          .setOrigin(0.5);
+        const emptyTxt = mkText(this.scene, 'PC_SLOT_EMPTY', {
+          fontSize: '11px',
+          fontFamily: FONT.sans,
+          color: '#4a5568',
+        }, px + pw / 2, sy + slotH / 2).setOrigin(0.5);
         this.partyIconsContainer.add(emptyTxt);
       } else {
         // Icon
@@ -384,6 +398,11 @@ export class PcBoxModal extends UiModal {
     }
   }
 
+  /** Nhãn tiêu đề danh sách đội hình (VD: "ĐỘI HÌNH (3/6)") */
+  private partyTitle(): string {
+    return `${t('PC_PARTY_TITLE')} (${this.partyPokemon.length}/6)`;
+  }
+
   /** Vẽ Panel Xem trước & Nút thao tác (Cột phải) */
   private renderPreviewPanel(): void {
     this.previewGraphics.clear();
@@ -401,14 +420,12 @@ export class PcBoxModal extends UiModal {
 
     const pkm = this.selectedPokemon;
     if (!pkm) {
-      const noneTxt = this.scene.add
-        .text(rx + rw / 2, ry + rh / 2, 'Chọn một Pokémon\nđể thao tác', {
-          fontSize: '12px',
-          fontFamily: FONT.sans,
-          color: '#718096',
-          align: 'center',
-        })
-        .setOrigin(0.5);
+      const noneTxt = mkText(this.scene, 'PC_PREVIEW_NONE', {
+        fontSize: '12px',
+        fontFamily: FONT.sans,
+        color: '#718096',
+        align: 'center',
+      }, rx + rw / 2, ry + rh / 2).setOrigin(0.5);
       this.previewContainer.add(noneTxt);
       return;
     }
@@ -439,11 +456,16 @@ export class PcBoxModal extends UiModal {
     }).setOrigin(0.5);
     this.previewContainer.add(nameTxt);
 
-    const lvTxt = this.scene.add.text(rx + rw / 2, ry + 92, `Cấp ${pkm.level}  •  ${this.selectedSource === 'party' ? 'Đội hình' : 'Kho lưu trữ'}`, {
-      fontSize: '10px',
-      fontFamily: FONT.sans,
-      color: '#00cec9',
-    }).setOrigin(0.5);
+    const lvTxt = this.scene.add.text(
+      rx + rw / 2,
+      ry + 92,
+      `${t('PC_LEVEL_LABEL')}${pkm.level}  •  ${this.selectedSource === 'party' ? t('PC_SRC_PARTY') : t('PC_SRC_BOX')}`,
+      {
+        fontSize: '10px',
+        fontFamily: FONT.sans,
+        color: '#00cec9',
+      },
+    ).setOrigin(0.5);
     this.previewContainer.add(lvTxt);
 
     // ── Nút Thao tác ──
@@ -452,7 +474,7 @@ export class PcBoxModal extends UiModal {
     const btnX = rx + 13;
     let btnY = ry + 114;
 
-    const createActionBtn = (label: string, col: number, onClick: () => void) => {
+    const createActionBtn = (label: I18nKey | string, col: number, onClick: () => void) => {
       const g = this.scene.add.graphics();
       g.fillStyle(0x272b49, 1);
       g.fillRoundedRect(btnX, btnY, btnW, btnH, 4);
@@ -460,13 +482,12 @@ export class PcBoxModal extends UiModal {
       g.strokeRoundedRect(btnX, btnY, btnW, btnH, 4);
       this.previewContainer.add(g);
 
-      const txt = this.scene.add
-        .text(btnX + btnW / 2, btnY + btnH / 2, label, {
-          fontSize: '11px',
-          fontFamily: FONT.sans,
-          fontStyle: 'bold',
-          color: `#${col.toString(16).padStart(6, '0')}`,
-        })
+      const txt = mkText(this.scene, label, {
+        fontSize: '11px',
+        fontFamily: FONT.sans,
+        fontStyle: 'bold',
+        color: `#${col.toString(16).padStart(6, '0')}`,
+      }, btnX + btnW / 2, btnY + btnH / 2)
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true });
 
@@ -479,7 +500,7 @@ export class PcBoxModal extends UiModal {
     if (this.selectedSource === 'box') {
       const canWithdraw = this.partyPokemon.length < 6;
       createActionBtn(
-        canWithdraw ? '📤 Rút về Đội' : '❌ Đội đã đầy 6/6',
+        canWithdraw ? 'PC_BTN_WITHDRAW' : 'PC_BTN_PARTY_FULL',
         canWithdraw ? 0x00cec9 : 0x718096,
         () => {
           if (canWithdraw) this.handleWithdraw(pkm);
@@ -488,7 +509,7 @@ export class PcBoxModal extends UiModal {
     } else {
       const canDeposit = this.partyPokemon.length > 1;
       createActionBtn(
-        canDeposit ? '📥 Gửi vào Box' : '❌ Giữ ít nhất 1 con',
+        canDeposit ? 'PC_BTN_DEPOSIT' : 'PC_BTN_KEEP_ONE',
         canDeposit ? 0xfdcb6e : 0x718096,
         () => {
           if (canDeposit) this.handleDeposit(pkm);
@@ -497,12 +518,12 @@ export class PcBoxModal extends UiModal {
     }
 
     // 2. Xem chi tiết
-    createActionBtn('🔍 Xem chi tiết', 0x74b9ff, () => {
+    createActionBtn('PC_BTN_DETAIL', 0x74b9ff, () => {
       this.summaryModal?.showPokemon(pkm);
     });
 
     // 3. Thả
-    createActionBtn('🗑 Thả Pokémon', 0xff7675, () => {
+    createActionBtn('PC_BTN_RELEASE', 0xff7675, () => {
       this.handleRelease(pkm);
     });
   }
@@ -518,7 +539,7 @@ export class PcBoxModal extends UiModal {
       });
       const data = await res.json();
       if (!data.ok) {
-        alert(data.message || 'Không thể rút Pokémon!');
+        alert(data.message || t('PC_ERR_WITHDRAW'));
         return;
       }
 
@@ -546,7 +567,7 @@ export class PcBoxModal extends UiModal {
       });
       const data = await res.json();
       if (!data.ok) {
-        alert(data.message || 'Không thể gửi Pokémon!');
+        alert(data.message || t('PC_ERR_DEPOSIT'));
         return;
       }
 
@@ -564,7 +585,9 @@ export class PcBoxModal extends UiModal {
 
   /** Gọi API Thả Pokémon */
   private async handleRelease(pkm: PokemonData): Promise<void> {
-    const confirmRelease = window.confirm(`Bạn có chắc muốn thả ${pkm.nickname || pkm.species_id} về tự nhiên?`);
+    const confirmRelease = window.confirm(
+      t('PC_CONFIRM_RELEASE').replace('{name}', pkm.nickname || pkm.species_id),
+    );
     if (!confirmRelease) return;
 
     try {
@@ -576,7 +599,7 @@ export class PcBoxModal extends UiModal {
       });
       const data = await res.json();
       if (!data.ok) {
-        alert(data.message || 'Không thể thả Pokémon!');
+        alert(data.message || t('PC_ERR_RELEASE'));
         return;
       }
 

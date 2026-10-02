@@ -1,8 +1,21 @@
 import { Room, type Client } from '@colyseus/core';
 import { WorldState, PlayerState } from '@pixelmon/shared/schema';
-import { MAPS, MOVE_COOLDOWN_MS, resolveSpawnTile, isGrass } from '@pixelmon/shared';
-import { mapLoader } from '@pixelmon/shared/data';
+import {
+  MAPS,
+  MOVE_COOLDOWN_MS,
+  resolveSpawnTile,
+  isGrass,
+  rollEncounter,
+  generatePokemon,
+} from '@pixelmon/shared';
+import { mapLoader, gameData } from '@pixelmon/shared/data';
 import { pool } from '../../config/index.js';
+import { createPendingBattle } from '../battle/manager.js';
+import {
+  loadBattleParty,
+  ownedToMember,
+  type BattleTeamMember,
+} from '../pokemon/battleParty.js';
 import {
   CollideGrid,
   DEFAULT_WALK_OPTS,
@@ -37,6 +50,8 @@ export class WorldRoom extends Room<WorldState> {
   /** Grid va chạm của map mà room này phụ trách — nạp 1 lần lúc `onCreate`. */
   private grid!: CollideGrid;
   private moveSessions = new Map<string, MoveSession>();
+  /** Session đang trong trận wild — chặn roll encounter trùng (Plan 44). */
+  private inBattleSessions = new Set<string>();
 
   async onCreate(options: { mapId?: string } = {}) {
     const mapId = normalizeMapId(options.mapId);
@@ -70,27 +85,9 @@ export class WorldRoom extends Room<WorldState> {
       });
     });
 
-    this.onMessage('start_battle', (client, data?: { x?: number; y?: number }) => {
-      // Wild encounter: chỉ trigger khi người chơi ĐANG đứng trên ô cỏ (GRASS flag).
-      const mapData = MAPS[this.state.mapId];
-      if (!mapData || mapData.encounterRate <= 0) return;
-
-      const player = this.state.players.get(client.sessionId);
-      if (!player) return;
-      const tile = pixelToTile(player.x, player.y);
-      // Ưu tiên toạ độ client báo (nếu hợp lệ & cùng map), fallback về server-side.
-      const cx = typeof data?.x === 'number' && Number.isFinite(data.x) ? Math.floor(data.x) : tile.x;
-      const cy = typeof data?.y === 'number' && Number.isFinite(data.y) ? Math.floor(data.y) : tile.y;
-      if (cx !== tile.x || cy !== tile.y) return; // client/server lệch → bỏ qua (không cheat)
-
-      if (!isGrass(this.grid.map, cx, cy)) return; // không phải ô cỏ → không encounter
-      if (Math.random() * 100 > mapData.encounterRate) return;
-      // Emit to matchmaker to create battle room
-      this.presence.publish('battle_request', {
-        requesterSessionId: client.sessionId,
-        roomId: this.roomId,
-        mapId: this.state.mapId,
-      });
+    // BattleRoom xong trận → gỡ chặn encounter cho session này.
+    this.presence.subscribe('battle_end', (msg: { sessionId?: string }) => {
+      if (msg?.sessionId) this.inBattleSessions.delete(String(msg.sessionId));
     });
 
     this.setSimulationInterval((dt) => {
@@ -201,6 +198,85 @@ export class WorldRoom extends Room<WorldState> {
     player.moving = 1;
     session.lastMoveAt = now;
     this.dirtyPlayerSessions.add(client.sessionId);
+
+    // 7. Wild encounter — ROLL Ở SERVER sau khi đã chấp nhận bước đi.
+    //    (Trước đây client roll ở onTileEntered → race với move throttled.)
+    void this.maybeTriggerEncounter(client, v.to.x, v.to.y);
+  }
+
+  /**
+   * Roll wild encounter sau mỗi bước vào ô GRASS (Plan 44 Phase 0).
+   *
+   * - Server là nơi duy nhất roll → client không thể ép encounter.
+   * - Xác suất = encounterRate% × 0.25 mỗi ô cỏ (≈5%/bước với rate 20,
+   *   nhịp Essentials: encounter step mỗi 4 ô).
+   * - Trúng → `initiateWildBattle` (chuẩn bị token + team) rồi gửi `battle_init`.
+   */
+  private async maybeTriggerEncounter(client: Client, col: number, row: number): Promise<void> {
+    if (this.inBattleSessions.has(client.sessionId)) return; // đang trong trận
+
+    const mapData = MAPS[this.state.mapId];
+    if (!mapData || mapData.encounterRate <= 0) return;
+    if (!isGrass(this.grid.map, col, row)) return;
+
+    const chance = (mapData.encounterRate / 100) * 0.25;
+    if (Math.random() >= chance) return;
+
+    await gameData.load();
+    const table = this.grid.map.encounters ?? [];
+    if (table.length === 0) return; // map không có bảng spawn → không encounter
+
+    // encounterRate đã roll ở trên → truyền 1 (luôn trúng) cho rollEncounter.
+    const rolled = rollEncounter(table, {}, 1);
+    if (!rolled) return;
+
+    await this.initiateWildBattle(client, rolled.species, rolled.level);
+  }
+
+  /**
+   * Chuẩn bị 1 trận wild: load party từ DB + sinh Pokémon hoang + tạo token.
+   * Client nhận `battle_init { token, foe, ally }` rồi mới `create('battle', {token})`.
+   */
+  private async initiateWildBattle(
+    client: Client,
+    speciesId: string,
+    level: number,
+  ): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || this.inBattleSessions.has(client.sessionId)) return;
+
+    const species = gameData.getSpecies(speciesId);
+    if (!species) return;
+
+    const allyTeam = await loadBattleParty(player.userId);
+    if (allyTeam.length === 0) {
+      console.warn(`[world] battle skipped — user ${player.userId} has no party`);
+      return;
+    }
+
+    // Pokémon hoang: server sinh (IV/nature/moveset/level đều từ server).
+    const wild = generatePokemon(species, level, gameData.getMovesForLevel.bind(gameData));
+    const foeTeam: BattleTeamMember[] = [ownedToMember(wild)];
+
+    const { token } = createPendingBattle({
+      userId: player.userId,
+      worldSessionId: client.sessionId,
+      mapId: this.state.mapId,
+      allyTeam: allyTeam as unknown as Record<string, unknown>[],
+      foeTeam: foeTeam as unknown as Record<string, unknown>[],
+    });
+
+    this.inBattleSessions.add(client.sessionId);
+    client.send('battle_init', {
+      type: 'battle_init',
+      token,
+      foe: foeTeam[0],
+      ally: allyTeam,
+      mapId: this.state.mapId,
+    });
+    console.log(
+      `[world] battle_init → ${player.displayName}: wild ${speciesId} Lv.${level} (token=${token.slice(0, 8)}…)`,
+    );
   }
 
   /** Dịch chuyển tức thời vị trí người chơi và lưu database. */
@@ -403,6 +479,7 @@ export class WorldRoom extends Room<WorldState> {
 
     const player = new PlayerState();
     player.id = client.sessionId;
+    player.userId = options.userId ?? '';
     player.username = options.userId;
     player.displayName = options.displayName ?? 'Player';
     player.x = posX;

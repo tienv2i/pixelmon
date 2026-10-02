@@ -768,6 +768,56 @@
       "encounterTableId": "lappet-town"
     }
   ],
-  "encounters": [],
+  "encounters": [
+    {
+      "species": "pidgey",
+      "minLevel": 2,
+      "maxLevel": 5,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "rattata",
+      "minLevel": 2,
+      "maxLevel": 5,
+      "weight": 25,
+      "rarity": "common"
+    },
+    {
+      "species": "caterpie",
+      "minLevel": 2,
+      "maxLevel": 4,
+      "weight": 20,
+      "rarity": "common"
+    },
+    {
+      "species": "weedle",
+      "minLevel": 2,
+      "maxLevel": 4,
+      "weight": 20,
+      "rarity": "common"
+    },
+    {
+      "species": "oddish",
+      "minLevel": 3,
+      "maxLevel": 5,
+      "weight": 15,
+      "rarity": "common"
+    },
+    {
+      "species": "zubat",
+      "minLevel": 3,
+      "maxLevel": 5,
+      "weight": 15,
+      "rarity": "uncommon"
+    },
+    {
+      "species": "pikachu",
+      "minLevel": 4,
+      "maxLevel": 6,
+      "weight": 5,
+      "rarity": "rare"
+    }
+  ],
   "requiredBadges": []
 }

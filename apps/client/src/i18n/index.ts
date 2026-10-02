@@ -395,6 +395,27 @@ const MESSAGES = {
   RENDER_RELOAD_ON: ['ℹ Đã bật Anti-aliasing — chữ sắc nét hơn. Áp dụng khi tải lại game (F5).', 'ℹ Anti-aliasing enabled — crisper text. Takes effect after reload (F5).'],
   RENDER_RELOAD_OFF: ['ℹ Đã tắt Anti-aliasing — giữ nét pixel gốc. Áp dụng khi tải lại game (F5).', 'ℹ Anti-aliasing disabled — original pixel edges. Takes effect after reload (F5).'],
 
+  // ── Battle (Plan 44 Phase 3) ─────────────────────────────────────────────
+  BATTLE_TITLE: ['⚔ TRẬN ĐẤU', '⚔ BATTLE'],
+  BATTLE_BACK: ['← Quay lại', '← Back'],
+  BATTLE_FIGHT: ['⚔ ĐÁNH', '⚔ FIGHT'],
+  BATTLE_POKÉMON: ['🎒 ĐỘI HÌNH', '🎒 POKÉMON'],
+  BATTLE_RUN: ['🏃 CHẠY', '🏃 RUN'],
+  BATTLE_BAG: ['🎒 TÚI ĐỒ', '🎒 BAG'],
+  BATTLE_CHOOSE_MOVE: ['Chọn chiêu thức:', 'Choose a move:'],
+  BATTLE_CHOOSE_POKÉMON: ['Chọn Pokémon tiếp theo:', 'Choose your next Pokémon:'],
+  BATTLE_NO_PP: ['Hết PP!', 'No PP left!'],
+  BATTLE_VICTORY: ['🏆 CHIẾN THẮNG!', '🏆 VICTORY!'],
+  BATTLE_DEFEAT: ['💀 THUA TRẬN...', '💀 DEFEAT...'],
+  BATTLE_CAUGHT: ['✨ ĐÃ BẮT ĐƯỢC!', '✨ CAUGHT!'],
+  BATTLE_FLED: ['🏃 Đã chạy thoát.', '🏃 Got away safely.'],
+  BATTLE_EXP_GAINED: ['Nhận được {exp} EXP!', 'Gained {exp} EXP!'],
+  BATTLE_OK: ['OK', 'OK'],
+  BATTLE_YOUR: ['Your', 'Your'],
+  BATTLE_WILD: ['Wild', 'Wild'],
+  BATTLE_USE_BALL: ['Ném {ball}!', 'Throw {ball}!'],
+  BATTLE_NO_ITEMS: ['Không có vật phẩm trong trận này!', 'No items in this battle!'],
+
 } as const satisfies Record<string, Entry>;
 
 export type I18nKey = keyof typeof MESSAGES;

@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { LoginScene } from './scenes/LoginScene';
 import { WorldScene } from './scenes/WorldScene';
-import { BattleScene } from './scenes/BattleScene';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@pixelmon/shared';
 import { C } from './ui/theme';
 import { initLang } from './i18n';
@@ -57,7 +56,7 @@ const config: Phaser.Types.Core.GameConfig = {
     default: 'arcade',
     arcade: { gravity: { x: 0, y: 0 }, debug: false },
   },
-  scene: [BootScene, LoginScene, WorldScene, BattleScene],
+  scene: [BootScene, LoginScene, WorldScene],
 };
 
 // Khởi tạo ngôn ngữ từ settings đã lưu — phải chạy TRƯỚC khi dựng UI.

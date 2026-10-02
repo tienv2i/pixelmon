@@ -32,6 +32,7 @@ import { ConfirmModal } from '../ui/ConfirmModal';
 import { HelpModal } from '../ui/HelpModal';
 import { PcBoxModal } from '../ui/PcBoxModal';
 import { PokemonSummaryModal, type PokemonData } from '../ui/PokemonSummaryModal';
+import { BattleModal } from '../ui/BattleModal';
 import { TopMenu } from '../ui/TopMenu';
 import { InfoPanel } from '../ui/InfoPanel';
 import { UiZoomManager } from '../ui/UiZoomManager';
@@ -115,6 +116,10 @@ export class WorldScene extends Phaser.Scene {
   private confirmModal!: ConfirmModal;
   private helpModal!: HelpModal;
   private pcBoxModal!: PcBoxModal;
+  /** Modal trận wild đang mở (Plan 44) — undefined khi không trong trận. */
+  private battleModal?: BattleModal;
+  /** Đang chờ mở modal (chống `battle_init` gọi 2 lần tạo 2 modal). */
+  private battleStarting = false;
   private pokemonSummaryModal!: PokemonSummaryModal;
   private debugModal!: DebugModal;
   private debugConsole!: DebugConsole;
@@ -374,6 +379,15 @@ export class WorldScene extends Phaser.Scene {
     remote.onMessage('player_moved_map', (data) => this.onServerChangeMap(data));
     // Server từ chối bước đi (chống gian lận) → kéo vị trí về đúng server.
     remote.onMessage('move_rejected', (data) => this.onMoveRejected(data));
+    // Server roll encounter xong → vào trận wild (Plan 44 Phase 0).
+    remote.onMessage('battle_init', (data) => this.onBattleInit(data));
+  }
+
+  /** Server đã roll encounter → dừng di chuyển, vào battle room bằng token. */
+  private onBattleInit(data: any): void {
+    const token = data?.token;
+    if (!token) return;
+    this.startBattle(token, data?.foe, data?.ally);
   }
 
   private mapWidth = 60 * 32;
@@ -521,6 +535,20 @@ export class WorldScene extends Phaser.Scene {
       this.updateCameraBounds();
       this.scheduleCameraRefresh();
     });
+
+    // BattleModal phát `battle_ended` khi trận kết thúc → mở lại input +
+    // nạp lại party (HP/EXP/level có thể đã thay đổi trong trận). Plan 44.
+    this.events.on('battle_ended', () => this.onBattleEnded());
+  }
+
+  /** Kết thúc trận wild → đóng modal, mở khoá di chuyển + đồng bộ party từ API. */
+  private onBattleEnded(): void {
+    this.battleModal = undefined;
+    this.battleStarting = false;
+    this.canMove = true;
+    this.cancelAutoMove();
+    void this.loadPlayerPokemon();
+    console.log('[battle] world resumed after battle');
   }
 
   /** Gọi refreshHudCameras() ở frame kế tiếp (sau khi panel kịp relayout). */
@@ -546,6 +574,7 @@ export class WorldScene extends Phaser.Scene {
       ...this.confirmModal.getGameObjects(),
       ...(this.helpModal ? this.helpModal.getGameObjects() : []),
       ...(this.pcBoxModal ? this.pcBoxModal.getGameObjects() : []),
+      ...(this.battleModal ? this.battleModal.getGameObjects() : []),
       ...(this.pokemonSummaryModal ? this.pokemonSummaryModal.getGameObjects() : []),
       ...(this.debugModal ? this.debugModal.getGameObjects() : []),
       ...(this.debugConsole ? this.debugConsole.getGameObjects() : []),
@@ -1720,24 +1749,41 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * Bắt đầu trận wild encounter.
+   * Bắt đầu trận wild encounter (Plan 44 Phase 0/3b).
    *
-   * Gửi `start_battle` kèm **toạ độ ô cỏ** (tile coords) để server verify:
-   * - Server check `isGrass(tile)` → nếu không phải ô cỏ thì bỏ qua.
-   * - Chống cheat: client không thể gọi encounter ở ô không phải grass.
-   * - Server cũng snapshot vị trí player từ state (nếu client báo lệch → bỏ qua).
-   *
-   * Nếu server không verify (offline mode / lỗi mạng) vẫn launch Battle scene
-   * local để không kẹt `canMove = false`.
+   * Server roll encounter ở `handleMove` rồi gửi `battle_init {token, foe, ally}`.
+   * Client mở **BattleModal popup** (không launch scene riêng):
+   *   1. Dừng di chuyển + khoá input.
+   *   2. Tạo BattleModal (lockUi) và join battle room bằng token.
+   *   3. Khi modal đóng → `battle_ended` → mở lại input + refresh party.
    */
-  private startBattle(col?: number, row?: number): void {
+  private startBattle(token: string, foe: unknown, ally: unknown): void {
+    // Guard: nhiều `battle_init` liên tiếp (hoặc async race) → chỉ mở 1 modal.
+    if (this.battleStarting || this.battleModal) return;
+    this.battleStarting = true;
     this.canMove = false;
+    this.cancelAutoMove();
     const network = ColyseusManager.getInstance();
-    // Gửi vị trí ô cỏ (tạo 1 promise không chờ — server có thể reject nếu không phải grass).
-    network.sendStartBattle(col, row);
-    this.scene.sleep();
-    network.joinBattle();
-    this.scene.launch('Battle');
+    void network.joinBattle(token).then(() => {
+      void BattleModal.loadTextures(this, { token, foe: foe as any, ally: (ally ?? []) as any }).then(
+        () => {
+          if (!this.scene.isActive()) {
+            this.battleStarting = false;
+            return;
+          }
+          this.battleModal = new BattleModal(
+            this,
+            { token, foe: foe as any, ally: (ally ?? []) as any },
+            () => this.onBattleEnded(),
+          );
+          this.battleModal.setUiZoomManager(this.uiZoom);
+          this.battleStarting = false;
+          // Modal tạo SAU setupUiCamera() → phải đăng ký world.ignore(),
+          // nếu không cả 2 camera render → hiện 2 khung chồng nhau.
+          this.registerHudObject(...this.battleModal.getGameObjects());
+        },
+      );
+    });
   }
 
   /**
@@ -1950,7 +1996,7 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
-  /** Sau mỗi bước: kiểm tra warp (cửa nhà) và cỏ cao (encounter). */
+  /** Sau mỗi bước: kiểm tra warp (cửa nhà). */
   private onTileEntered(col: number, row: number, _dir: Dir): void {
     // Warp → yêu cầu server chuyển map (Phase 3 xử lý broadcast).
     const warp = this.collision.getWarpAt(col, row);
@@ -1960,17 +2006,10 @@ export class WorldScene extends Phaser.Scene {
         this.lastWarpKey = zoneKey;
         ColyseusManager.getInstance().sendChangeMap(warp.toMap ?? '', warp.toX ?? 0, warp.toY ?? 0);
       }
-      return;
     }
-
-    // Grass encounter: chỉ trigger trên ô GRASS (cờ đã được build-server-map set).
-    if (this.collision.isGrass(col, row) && this.canMove && !this.scene.isSleeping()) {
-      const rate = MAPS[this.currentMapId]?.encounterRate ?? 0;
-      if (rate > 0 && Math.random() * 100 < Math.min(rate, 12) * 0.1) {
-        // Gửi toạ độ ô cỏ → server verify (tránh client báo sai/mở hack encounter).
-        this.startBattle(col, row);
-      }
-    }
+    // ⚠️ KHÔNG roll encounter ở client (Plan 44 Phase 0): server roll trong
+    // handleMove rồi push `battle_init` — tránh race với move throttled và
+    // tránh client tự mở trận ở ô không phải cỏ.
   }
 
   /** Xử lý yêu cầu đổi map từ server (`player_moved_map`). */

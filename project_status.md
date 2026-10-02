@@ -1,6 +1,6 @@
 # Project Status — Pixelmon (Pokémon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-02** (Plan 43 Phase 0+1+1.4+2 — Fix bug warp spawn lệch góc trái + chuẩn hoá spawn TILE coords + grass không còn bị chặn + `grass_zone` & encounter verify + route-1 3 ô ledge `LEDGE_SOUTH` + **2 warp nối lappet-town ↔ route-1** + fix client đen màn hình do Vite dep cache; typecheck 4/4 sạch)  
+> Cập nhật lần cuối: **2026-10-02** (Plan 44 — **Hoàn thiện Wild Encounter + Battle System**: server-authoritative encounter (token TTL 30s, `battle_init`), `BattleRoom` combat thật (calcDamage/STAB/type effectiveness/crit/PP, foe AI, switch/run/catch/forfeit, EXP + level-up recompute stats, ghi HP/EXP/level về DB), cửa sổ battle **`BattleModal` popup** (kế thừa UiModal, lockUi) thay vì scene riêng, fix `rebuildIndex()` làm mất 4 map, fix battle render 2 khung chồng nhau (registerHudObject); typecheck 4/4, client build OK)  
 > **2026-10-02 (trước đó):** Tính năng Đa ngôn ngữ (i18n) Toàn bộ Client — dictionary 285 key VI/EN trong `apps/client/src/i18n/index.ts`, toggle 1-nút trong Settings > Hệ thống, tự động refresh Text bound qua `mkText()`; đơn giản hoá nhãn Settings bỏ chú thích lặp; thêm setting Anti-aliasing (text hết mờ); fix DebugModal layout/relayout/double icon; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 5 — Admin Maps: route `POST /api/admin/maps/:id/regenerate` + `computeMapStats()` + nút "♻️ Regenerate JSON" + card "Thống kê Map"; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 3 — Tiled template `templates/pixelmon-map-template.tmj` + doc `docs/tiled-workflow.md`; fix bug `mapId is not defined` trong `deriveCollision`.  
@@ -981,17 +981,64 @@ Nguồn: `fix-plan-2.md`. Đã sửa đủ 3 vấn đề.
 - Verify: 2/2 chiều đi được (BFS spawn→warp 14 / 18 bước), ô đích walkable.
 - Clear Vite dep cache + restart; console sạch (chỉ còn 404 `favicon.ico` vô hại).
 
+### Plan 44 — Hoàn thiện Wild Encounter + Battle System (2026-10-02)
+
+> Chi tiết từng bước: `.plans/plan-44-battle.md` (gitignored, file local).
+
+**Chẩn đoán (đọc code, trước khi sửa):**
+- `WorldRoom` roll encounter rồi `presence.publish('battle_request')` — **không ai subscribe** → battle room chưa bao giờ được tạo với dữ liệu thật.
+- Client `joinBattle()` gửi `allyTeam: []` / `foeTeam: []` → `resolveTurn` auto-draw ngay.
+- `BattleScene` là placeholder: 4 move hardcode, HP 100/100 local, không nghe state server.
+- `applyAttack` dùng công thức nhái `(atk/def)*10`, không dùng `calcDamage` (đã có sẵn trong shared).
+- **Race:** client roll encounter ở `onTileEntered` (đã tới tâm ô) nhưng `sendMoveThrottled` chưa kịp gửi → server vẫn thấy ô cũ → `start_battle` bị drop hoàn toàn.
+- `encounters.json` có `route-1` nhưng **không có `lappet-town`** (dù `encounterRate=15` + 20 ô grass).
+
+**Phase 0 — Server-authoritative encounter (server roll, client chỉ hiển thị):**
+- Mới `apps/server/src/modules/battle/manager.ts`: `createPendingBattle()` / `consumeBattleToken()` — token `crypto.randomUUID()`, **single-use**, TTL 30s. Thay cho `battle_request` không ai nghe.
+- Mới `apps/server/src/modules/pokemon/battleParty.ts`: `loadBattleParty()` (đọc party từ DB, chuẩn hoá stats/moves/ivs/evs/nature), `ownedToMember()` (wild), `aliveCount()`.
+- `PlayerState.userId` mới — server set từ join options (client không gửi) → chống cheat level.
+- `WorldRoom.handleMove` bước 7: sau khi accept bước vào ô GRASS, roll `encounterRate/100 × 0.25` (≈5%/ô, nhịp Essentials), `rollEncounter(gameData.getEncounters(mapId))`, `generatePokemon()` → `initiateWildBattle()` → `client.send('battle_init', {token, foe, ally})`.
+- `inBattleSessions` chặn encounter trùng; `presence` pub/sub `battle_end` để gỡ chặn khi trận xong.
+- Xoá handler `start_battle` cũ (client đã không còn gọi).
+- Data: thêm entry `lappet-town` vào `encounters.json` (7 spawn level 2–6: pidgey/rattata/caterpie/weedle/oddish/zubat/pikachu) + rebuild `lappet-town.json`.
+
+**Phase 1 — Schema:**
+- `BattlePokemon`: `nickname`, `types`, `pp`, `maxPp`, `exp`, `expToNext`, `isWild`.
+- `BattleState`: `log: ArraySchema<BattleLogEntry>`, `phase` (select/anim/switch/ended), `result`, `expGained`, `caughtSpeciesId`.
+- `apps/server/src/index.ts`: `gameData.load()` + `setTypeChart(gameData.getTypeChart())` lúc boot (898 species, type chart thật thay FALLBACK).
+
+**Phase 2 — BattleRoom viết lại (208 → ~600 dòng):**
+- `onCreate({token})` → consume token → populate team từ payload server (client **không gửi team**).
+- Combat: `calcDamage` (power + STAB + `typeEffectiveness` + crit + `randomDamageFactor`), `accuracyCheck`, tiêu PP, thứ tự lượt theo speed, timer 60s/lượt → auto move đầu còn PP.
+- **Foe AI:** chọn move theo `power × effectiveness × STAB × accuracy` (không random).
+- Handlers: `battle_move`, `battle_switch` (tốn lượt), `battle_run` (`canEscape`), `battle_catch` (`attemptCatch` → insert DB party/box), `battle_item` (báo chưa hỗ trợ), `battle_forfeit`.
+- Faint: foe tự đổi; ally gục → `phase='switch'` + broadcast `battle_need_switch`; hết HP → thua. `onLeave` → forfeit.
+- Thắng: `calcExpGain` cho Pokémon đã tham chiến → level-up loop + **recompute stats** theo IV/EV/nature (`computeOwnedPokemonStats`) → `saveResults()` ghi `current_hp/level/exp/stats/status` về DB.
+
+**Phase 3 — Cửa sổ battle dạng modal popup (theo yêu cầu user):**
+- **Xoá `scenes/BattleScene.ts`** + gỡ khỏi `main.ts`; mới **`ui/BattleModal.ts`** kế thừa `UiModal` (`lockUi: true`, centered, depth 300, 660×440, `showClose=false`).
+- Sprite thật: `/assets/battlers/front/{species}.png` (foe) + `/assets/battlers/back/{species}.png` (ally) + `/assets/battlebacks/grass_base0.png`; fallback texture tròn nếu 404.
+- UI: foe/ally plate (tên/level/HP bar/EXP bar), message box, command menu (FIGHT/POKEMON/BAG-disabled/RUN), move menu (tên/type/PP, disable hết PP), switch menu (6 slot + Back).
+- Đồng bộ: `onStateChange` → log cuối + HP/EXP + phase; `winner ≠ ''` → overlay kết thúc (thắng/thua/bắt/chạy) → OK → `leaveBattle()` → `onFinished` → WorldScene refresh party + mở input.
+- Animation flash+shake khi HP giảm. 20 key i18n (`BATTLE_*`) song ngữ VI/EN.
+- **Fix render 2 khung chồng nhau:** modal tạo sau `setupUiCamera()` mà chưa `world.ignore()` → cả 2 camera render. Sửa bằng `registerHudObject(...battleModal.getGameObjects())` + `setUiZoomManager()` + cờ `battleStarting` chống tạo 2 modal.
+
+**Phase 4 — Verify:**
+- `pnpm run typecheck` **4/4 sạch**; `pnpm --filter client build` OK; `pm.sh restart` load đủ **5 maps + 898 species**.
+
+**Fix bug ngoài plan — `rebuildIndex()` mất 4 map:**
+- `scripts/build-server-map.ts` `rebuildIndex(ids)` chỉ ghi map **vừa build** → mỗi lần `build:map <1 map>` là xoá sạch index.json 4 map còn lại (`route-1`, `players-house`, `pokemon-lab`, `daisys-house`) → server chỉ load được 1 map. Đã sửa: quét toàn bộ thư mục `server/*.json` + bỏ file legacy tên số. Restart xác nhận load đủ 5 map.
+
+**Còn lại (Step 4.2):** test thủ công trong browser (cần user xác nhận mở trình duyệt): đi vào cỏ → modal popup hiện → đánh → thắng → kiểm tra EXP/HP lưu DB.
+
 ---
 
 ## 10. Kế hoạch Tiếp theo (Roadmap & Next Steps)
 
-> **Ưu tiên hiện tại: Plan 38** (xem mục 9) — hệ thống di chuyển tile-based, va chạm, warp & lưu toạ độ. Các mục bên dưới nằm trong Plan 38 hoặc sau Plan 38.
+> **Ưu tiên hiện tại: Plan 44** (xem `.plans/plan-44-battle.md`) — hệ thống wild encounter + battle system. Các mục bên dưới nằm trong Plan 44 hoặc sau Plan 44.
 
 1. **Hệ thống Cổng Dịch chuyển Tự động (Warp Interaction):** ✅ *Đã nằm trong Plan 38 (Phase 2d/3c)* — kiểm tra `getWarpAt` sau mỗi bước, gửi `change_map`, server validate warp rồi rejoin room mới.
 2. **Hệ thống NPC & Hội thoại (NPC Interaction & Dialogue):**
    - Đọc dữ liệu sự kiện từ bản đồ Essentials để spawn NPC trên Client.
    - Thêm khung hội thoại tương tác (Dialogue Box) phong cách RPG kinh điển khi tương tác bằng phím Space/Enter hoặc click chuột.
-3. **Hoàn thiện Sàn đấu Pokémon (BattleScene Integration):**
-   - Kết nối `BattleScene.ts` với `BattleRoom` của Colyseus server.
-   - Hiển thị sprite Pokémon mặt trước / mặt sau trích xuất từ dữ liệu chuẩn.
-   - Hiện thực hoá lượt đánh, thanh máu động, hiệu ứng kỹ năng và kinh nghiệm (EXP).
+3. **Hoàn thiện Sàn đấu Pokémon (BattleScene Integration):** ✅ *Plan 44* — `BattleModal` popup + `BattleRoom` combat thật. Còn lại: test thủ công trong browser (Step 4.2), PvP, item inventory/BAG trong trận, status effects, SoundManager BGM.

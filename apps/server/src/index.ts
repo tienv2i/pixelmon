@@ -6,7 +6,8 @@ import { createApp } from './app.js';
 import { config, initDatabase, closeDatabase } from './config/index.js';
 import { WorldRoom } from './modules/world/index.js';
 import { BattleRoom } from './modules/battle/index.js';
-import { mapLoader } from '@pixelmon/shared/data';
+import { mapLoader, gameData } from '@pixelmon/shared/data';
+import { setTypeChart } from '@pixelmon/shared';
 
 async function bootstrap(): Promise<void> {
   // 1. Database
@@ -18,6 +19,15 @@ async function bootstrap(): Promise<void> {
     console.log(`[server] loaded ${maps.length} maps: ${maps.map((m) => m.mapId).join(', ')}`);
   } catch (err) {
     console.warn('[server] map preload failed (world room sẽ tự load khi onCreate):', err);
+  }
+
+  // 2b. Nạp game data (species/moves/encounters) + type chart thật cho battle.
+  try {
+    await gameData.load();
+    setTypeChart(gameData.getTypeChart());
+    console.log(`[server] game data loaded: ${gameData.stats().speciesCount} species`);
+  } catch (err) {
+    console.warn('[server] game data preload failed (dùng FALLBACK_TYPE_CHART):', err);
   }
 
   // 3. Express app

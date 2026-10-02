@@ -586,11 +586,15 @@ async function buildOne(
 }
 
 /** Cập nhật index.json — sinh từ tất cả file `*.json` trong server/ (trừ index.json). */
-async function rebuildIndex(ids: string[]): Promise<void> {
+async function rebuildIndex(): Promise<void> {
   const entries = [];
-  for (const id of ids) {
-    const p = path.join(SERVER_DIR, `${id}.json`);
-    if (!existsSync(p)) continue;
+  const files = await readdir(SERVER_DIR);
+  for (const f of files) {
+    if (!f.endsWith('.json') || f === 'index.json') continue;
+    // Bỏ file map legacy đặt tên theo số RMXP (2.json, 8.json...) — không
+    // có `.tmj` tương ứng, chỉ là bản dự phòng cũ.
+    if (/^\d+$/.test(f.replace(/\.json$/, ''))) continue;
+    const p = path.join(SERVER_DIR, f);
     const s = JSON.parse(await readFile(p, 'utf-8')) as ServerMap;
     entries.push({ mapId: s.mapId, file: `${s.mapId}.json`, width: s.width, height: s.height });
   }
@@ -643,7 +647,7 @@ async function main() {
       results.push({ id, ok: r.ok });
     }
     if (!dryRun) {
-      await rebuildIndex(ids.filter((id) => results.find((r) => r.id === id)?.ok));
+      await rebuildIndex();
     }
     const failed = results.filter((r) => !r.ok);
     if (failed.length > 0) {

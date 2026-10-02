@@ -1,9 +1,17 @@
 import { Schema, MapSchema, ArraySchema, type } from '@colyseus/schema';
 
 // ===== Player Schemas =====
+/** Log 1 dòng trận đấu (server push → client render). */
+export class BattleLogEntry extends Schema {
+  @type('string') text: string = '';
+  /** kind: system | damage | heal | faint | levelup | result | fail */
+  @type('string') kind: string = 'system';
+}
+
 export class BattlePokemon extends Schema {
   @type('string') speciesId: string = '';
   @type('string') pokemonId: string = '';
+  @type('string') nickname: string = '';
   @type('uint8') level: number = 1;
   @type('uint16') maxHp: number = 0;
   @type('uint16') currentHp: number = 0;
@@ -13,11 +21,29 @@ export class BattlePokemon extends Schema {
   @type('uint16') spDefense: number = 0;
   @type('uint16') speed: number = 0;
   @type('string') status: string = ''; // "", "brn", "par", etc.
+  /** Move id theo thứ tự nút trong menu. */
   @type(['string']) moves: string[] = [];
+  /** PP hiện tại, song song với `moves`. */
+  @type(['uint8']) pp: number[] = [];
+  /** PP tối đa, song song với `moves`. */
+  @type(['uint8']) maxPp: number[] = [];
+  /** Hệ types (vd: "normal,flying") — tính STAB phía server. */
+  @type('string') types: string = '';
+  /** EXP đã kiếm trong level hiện tại (để vẽ thanh EXP). */
+  @type('uint32') exp: number = 0;
+  /** EXP cần để lên level tiếp theo. */
+  @type('uint32') expToNext: number = 0;
+  /** Đấu với Pokémon hoang (wild) hay huấn luyện viên. */
+  @type('boolean') isWild: boolean = false;
 }
 
 export class PlayerState extends Schema {
   @type('string') id: string = '';
+  /**
+   * userId (bảng `players`) do server set lúc onJoin — client không gửi.
+   * Dùng để load party & ghi kết quả battle từ DB (Plan 44).
+   */
+  @type('string') userId: string = '';
   @type('string') username: string = '';
   @type('string') displayName: string = '';
   @type('number') x: number = 0;
@@ -54,6 +80,16 @@ export class BattleState extends Schema {
   @type('boolean') isPvp: boolean = false;
   @type('string') winner: string = ''; // "", "ally", "foe", "draw"
   @type('float32') timer: number = 0;
+  /** Nhật ký trận đấu (server push từng dòng). */
+  @type([BattleLogEntry]) log = new ArraySchema<BattleLogEntry>();
+  /** Trạng thái chung: select | anim | switch | ended */
+  @type('string') phase: string = 'select';
+  /** Kết quả trận (chỉ có khi winner != ""). */
+  @type('string') result: string = '';
+  /** EXP nhận được (chỉ khi thắng). */
+  @type('uint32') expGained: number = 0;
+  /** speciesId nếu bắt được Pokémon hoang. */
+  @type('string') caughtSpeciesId: string = '';
 }
 
 // ===== World State =====

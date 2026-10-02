@@ -329,18 +329,17 @@ export class ColyseusManager {
     }
   }
 
-  async joinBattle(): Promise<void> {
+  /**
+   * Vào battle room đã server chuẩn bị (Plan 44 Phase 0).
+   *
+   * @param token Token 1-lần từ message `battle_init` (server tung sau khi
+   *   roll encounter). BattleRoom consume token → tự populate team từ payload
+   *   server đã lưu, client không gửi team.
+   */
+  async joinBattle(token: string): Promise<void> {
     if (!this.worldRoom) return;
     try {
-      this.battleRoom = await this.client.create<BattleState>('battle', {
-        allyPlayerId: this.userId,
-        allyDisplayName: this.displayName,
-        foePlayerId: 'wild',
-        foeDisplayName: 'Wild Pokemon',
-        isPvp: false,
-        allyTeam: [],
-        foeTeam: [],
-      });
+      this.battleRoom = await this.client.create<BattleState>('battle', { token });
       console.log('[network] joined battle room');
     } catch (err) {
       console.warn('[network] battle join failed:', err);
@@ -353,17 +352,6 @@ export class ColyseusManager {
 
   sendTeleport(x: number, y: number, direction?: string): void {
     this.worldRoom?.send('teleport', { x, y, direction });
-  }
-
-  /**
-   * Báo server bắt đầu wild encounter (start_battle) kèm **toạ độ ô cỏ** (tile coords).
-   * Server verify `isGrass(tile)` trước khi roll encounter → chống client gọi encounter
-   * ở ô không phải grass.
-   *
-   * `col`/`row` omit → server tự snapshot vị trí player từ Colyseus state.
-   */
-  sendStartBattle(col?: number, row?: number): void {
-    this.worldRoom?.send('start_battle', { x: col, y: row });
   }
 
   /**
@@ -395,6 +383,28 @@ export class ColyseusManager {
 
   sendBattleMove(moveIndex: number): void {
     this.battleRoom?.send('battle_move', { moveIndex });
+  }
+
+  sendBattleSwitch(pokemonIndex: number): void {
+    this.battleRoom?.send('battle_switch', { pokemonIndex });
+  }
+
+  sendBattleRun(): void {
+    this.battleRoom?.send('battle_run', {});
+  }
+
+  sendBattleCatch(ballId: string): void {
+    this.battleRoom?.send('battle_catch', { ballId });
+  }
+
+  sendBattleForfeit(): void {
+    this.battleRoom?.send('battle_forfeit', {});
+  }
+
+  /** Rời battle room (đã kết thúc hoặc bỏ cuộc). */
+  leaveBattle(): void {
+    this.battleRoom?.leave();
+    this.battleRoom = null;
   }
 
   disconnect(): void {

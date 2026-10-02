@@ -55,3 +55,6 @@ packages/shared/assets/tilesets/*.png
 *.mid
 *.wav
 *.mp3
+
+# Plan files (local)
+.plans/

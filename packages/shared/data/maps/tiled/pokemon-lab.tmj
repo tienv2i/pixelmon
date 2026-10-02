@@ -1176,13 +1176,13 @@
     {
       "columns": 8,
       "firstgid": 1,
-      "image": "assets/tilesets/Outdoor.png",
-      "imageheight": 22080,
+      "image": "assets/tilesets/Interior general.png",
+      "imageheight": 8032,
       "imagewidth": 256,
       "margin": 0,
-      "name": "outdoor",
+      "name": "interior_general",
       "spacing": 0,
-      "tilecount": 5520,
+      "tilecount": 2008,
       "tileheight": 32,
       "tilewidth": 32
     }

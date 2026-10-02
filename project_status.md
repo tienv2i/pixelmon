@@ -1,6 +1,7 @@
 # Project Status — Pixelmon (Pokémon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-02** (Hoàn thành Phase 3 Plan 38 — "Server: 1 room/map + validate move + warp": converter trích code 201 → 8 warp khép kín hoạt động; direction mapping RMXP chuẩn (0=retain,2=down,4=left,6=right,8=up); landing tiles walkable; typecheck 4/4 sạch)  
+> Cập nhật lần cuối: **2026-10-02** (Sửa lỗi di chuyển Lappet Town 6,11→6,10: chuyển terrain tag 10 từ LEDGE_SOUTH sang GRASS theo script Essentials `TerrainTag` (`:TallGrass, :id_number=>10`); tag 2 cũng đổi sang GRASS; 7 ô ledge → 0; typecheck 4/4 sạch)  
+> **2026-10-02 (bổ sung):** Sửa converter hardcode tileset `Outdoor.png` cho mọi map → đọc `@tileset_name` từ RMXP, emit đúng `Interior general.png` (256×8032, 2008 tiles) cho 3 map nội thất; re-convert 4 map; `lappet-town.tmj` sửa imageheight 22080→16096, tilecount 5520→4024. Xem `fix-plan.md` mục 1.1/1.2.  
 > File này đóng vai trò là **Single Source of Truth (SSOT)** cho toàn bộ dự án, được thiết kế để AI Agent và lập trình viên nắm bắt toàn bộ kiến trúc, trạng thái và chi tiết kỹ thuật ngay tức thì.
 
 ---
@@ -420,14 +421,32 @@ python3 scripts/tools/inspect_image.py packages/shared/assets/tilesets/Outdoor.p
 - **1a. Converter** (`scripts/tools/convert_essentials_map.py`): đọc `@terrain_tags` từ `.rxdata`, map sang `CollisionFlag` bitmask, ghi bitwise OR. Mapping suy ra empirical từ `@passages` bits trên 69 map (Essentials đã compile MKXP, không đọc được `PBTerrain`):
   | Tag | Flag | Ý nghĩa |
   |---|---|---|
-  | 1, 2, 10 | `WALKABLE \| LEDGE_SOUTH` | Ledge (passage `0x40`/`0x07`) |
+  | 1 | `WALKABLE \| LEDGE_SOUTH` | Ledge (jump down) — passage `0x07` |
+  | 2 | `GRASS` | Grass — passage `0x40` |
   | 3 | `WALKABLE` | Sand (passage `0x00`) |
   | 4 | `BLOCKED` | Rock (passage `0x0f` ~92%) |
   | 6 | `WATER` | StillWater — surf được (passage `0x0f`) |
   | 8 | `WATER \| BLOCKED` | Waterfall — không surf (passage `0x0f`) |
-  | 12, 13, 16 | `WALKABLE` | Ice / Neutral / Bridge (passage `0x00`) |
+  | 10 | `GRASS` | TallGrass (deep_bush, encounter) — passage `0x40` |
+  | 12, 13, 16 | `WALKABLE` | Ice / Neutral / Puddle (passage `0x00`) |
 
-  Kết quả 5 map: Lappet Town 395 walkable / 266 blocked / **11 water** / **7 ledge**; Route 1 **không có nước** (78 ô tag-3 là Sand); players-house 393/72; pokemon-lab 240/60; daisys-house 262/38. Lưu ý: converter bỏ qua autotile (`tid < 384`) — ảnh hưởng 14/672 ô ở Lappet Town.
+  > **⚠ Sửa lỗi 2026-10-02 — terrain tag mapping đã xác minh từ script gốc Essentials.**
+  > Bản đầu map tag `1, 2, 10` → `LEDGE_SOUTH` suy ra "empirically" từ passage bits, nhưng **sai**.
+  > Đã giải nén `TerrainTag` module trong `Data/Scripts.rxdata` (script id `TerrainTag`) và đọc
+  > bảng đăng ký chính thức — cả 3 tag đều **không phải ledge**:
+  > - `id 1` = `:Ledge` → đúng là ledge, nhưng **chỉ** tag này (passage `0x07` = chặn 3 hướng).
+  > - `id 2` = `:Grass` (`shows_grass_rustle`, `land_wild_encounters`) → **`GRASS`**, không phải ledge.
+  > - `id 10` = `:TallGrass` (`deep_bush`, `must_walk`) → **`GRASS`**, không phải ledge.
+  > Bằng chứng bổ sung: bit passage RMXP `0x40` **không phải** "ledge-jump bit" mà là
+  > "cỏ cao / flowerbed" — nên suy luận tag 2 & 10 là ledge là do đọc sai ý nghĩa bit.
+  > Hậu quả trước khi sửa: 7 ô Lappet Town bị gắn `LEDGE_SOUTH` (0x11) như thật ra chỉ là cỏ —
+  > đáng chú ý là ô **(6,11)** chặn người chơi đi lên **(6,10)** dù hai ô đều trống, vì
+  > `handleInputDirection` chặn mọi hướng ≠ hướng ledge khi đứng trên ô ledge, và server
+  > `validateStep` trả `on_ledge_must_hop`. Sau khi sửa: Lappet Town **0 ledge**, 7 ô cỏ.
+  > Mapping chính thức (dùng cho tag chưa xuất hiện trong data): `5` DeepWater, `7` Water,
+  > `9` WaterfallCrest, `11` UnderwaterGrass, `14` SootGrass, `15` Bridge — theo bảng `TerrainTag`.
+
+  Kết quả 5 map: Lappet Town 395 walkable / 266 blocked / **11 water** / **0 ledge** (7 ô tag-2/10 giờ là `GRASS`); Route 1 **không có nước** (78 ô tag-3 là Sand); players-house 393/72; pokemon-lab 240/60; daisys-house 262/38. Lưu ý: converter bỏ qua autotile (`tid < 384`) — ảnh hưởng 14/672 ô ở Lappet Town.
 - **1b. Shared helpers** (`packages/shared/src/formulas/mapruntime.ts`): thêm `getLedgeDirection`, `canJumpLedge`, mở rộng `isWalkable(map,x,y,{canSurf})`. Sửa lỗi thiết kế `CollisionFlag` — `LEDGE_WEST: 0x30` trùng `LEDGE_SOUTH|LEDGE_NORTH`; đổi sang encode hướng bằng **2-bit field** (bit 5–6), giải phóng `0x80` cho `WARP`. Giá trị `LEDGE_SOUTH` giữ `0x10` → dữ liệu 5 map không phải chuyển đổi.
 - **1c. Client registry** (`apps/client/src/world/CollisionGrid.ts` — mới):
   - `CollisionGrid`: wrapper gọi thẳng `formulas/mapruntime.ts` → client & server dùng chung một bộ logic va chạm. API `isWalkable/isWater/isGrass/isLedge/getLedgeDirection/canJumpLedge/getWarpAt/getFlag`.
@@ -536,6 +555,18 @@ python3 scripts/tools/inspect_image.py packages/shared/assets/tilesets/Outdoor.p
 - [x] 3f. Converter trích warp (code 201) + set bit WARP
 - [ ] 4. Đồng bộ register/MAPs/Admin/DB migration
 - [x] Cập nhật `project_status.md`
+
+### Fix — Tileset Nội thất & Terrain Tag (2026-10-02)
+
+> Chi tiết: [`fix-plan.md`](./fix-plan.md) — mục **1.1** và **1.2** (✅ xong), mục **2** (không cần), mục **3** (chưa làm).
+
+- **Vấn đề 1 — Terrain tag nhầm ledge (đã fix 2026-10-02):** converter map tag `2` (Grass) và `10` (TallGrass) → `LEDGE_SOUTH`, gây ra "mỏm đá ảo" chặn đi ở ô **(6,11)→(6,10)** Lappet Town. Đã sửa theo bảng `TerrainTag` chính thức của Essentials. Lappet Town giờ **0 ledge / 7 ô grass**, flag `(6,11)` = `9` (WALKABLE|GRASS).
+- **Vấn đề 2 — Tileset hardcode `Outdoor.png` (đã fix 2026-10-02):** `convert_essentials_map.py` đọc `@tileset_name` từ `Tilesets.rxdata` thay vì hardcode:
+  - Map nội thất (`players-house`, `pokemon-lab`, `daisys-house` — tileset gốc `Interior general`) → emit `assets/tilesets/Interior general.png`, `imageheight: 8032`, `tilecount: 2008`.
+  - Map ngoại thành (`lappet-town`, `route-1` — tileset gốc `Outside`) → giữ `Outdoor.png`, sửa `imageheight` 22080 → **16096**, `tilecount` 5520 → **4024** (đúng kích thước file thật, verify bằng `inspect_image.py`).
+  - Điều kiện chọn: `is_interior = (map_type == "interior") or ("interior" in ts_name.lower())`.
+- **Đã re-convert 4 map:** `lappet-town`, `players-house`, `pokemon-lab`, `daisys-house` — warp và events giữ nguyên (3/3/1/1 warps).
+- **Mục 2 của fix-plan (sửa `admin.js` + `TiledMapLoader.ts`) không cần áp dụng:** cả hai đã phân biệt tileset qua chuỗi `ts.image.includes('Interior')` — chỉ là converter trả sai đường dẫn nên chúng mới rơi về `Outdoor.png`.
 
 ---
 

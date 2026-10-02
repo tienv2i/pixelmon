@@ -2160,12 +2160,12 @@
       "columns": 8,
       "firstgid": 1,
       "image": "assets/tilesets/Outdoor.png",
-      "imageheight": 22080,
+      "imageheight": 16096,
       "imagewidth": 256,
       "margin": 0,
       "name": "outdoor",
       "spacing": 0,
-      "tilecount": 5520,
+      "tilecount": 4024,
       "tileheight": 32,
       "tilewidth": 32
     }

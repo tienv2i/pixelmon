@@ -61,21 +61,24 @@ ESSENTIALS_DIR_TO_DIRECTION = {
 # Đã suy ra EMPIRICALLY từ passage bits trong .rxdata gốc (không đoán).
 # Script Essentials đã compile (MKXP) nên không đọc được PBTerrain module;
 # suy ra bằng cách cross-reference terrain tag với @passages bits trên 69 map:
-#   tag 10 = passage 0x40 (RMXP ledge-jump bit)  -> LEDGE      (Lappet Town, 6 ô)
-#   tag 1  = passage 0x07 (chặn từ hướng trên)   -> LEDGE down (Route 2, 49 ô)
-#   tag 2  = passage 0x40 (ledge bit)             -> LEDGE      (Lappet Town, 1 ô)
-#   tag 6  = passage 0x0f (chặn 4 hướng)          -> WATER      (Lappet Town pond — surf)
+#   tag 10 = passage 0x40 (RMXP ledge-jump bit)  -> GRASS        (TallGrass - Lappet Town, 6 ô)
+#   tag 1  = passage 0x07 (chặn từ hướng trên)   -> LEDGE down   (Route 2, 49 ô)
+#   tag 2  = passage 0x40 (ledge bit)             -> GRASS        (Grass, Lappet Town)
+#   tag 6  = passage 0x0f (chặn 4 hướng)          -> WATER        (Lappet Town pond — surf)
 #   tag 8  = passage 0x0f (chặn 4 hướng)          -> WATER|BLOCKED (Route 8 — không surf)
-#   tag 4  = passage 0x0f ~92%                    -> BLOCKED    (Rock Cave/solid)
-#   tag 3  = passage 0x00                          -> WALKABLE   (Sand, Route 1, 1122 ô)
-#   tag 12,13,16 = passage 0x00                   -> WALKABLE   (Ice/Neutral/Bridge)
-# Lưu ý: tag 7 (Water) và 5 (DeepWater) không xuất hiện trong data hiện tại,
-# giữ để dự phòng cho các map sau.
-# LEDGE direction: tất cả ledge hiện tại đều LEDGE_SOUTH (0x10) — sẽ refine
-# hướng cụ thể ở Phase 2 dựa trên tile graphic (LEDGE_NORTH/WEST/EAST).
+#   tag 4  = passage 0x0f ~92%                    -> BLOCKED      (Rock Cave/solid)
+#   tag 3  = passage 0x00                          -> WALKABLE     (Sand, Route 1, 1122 ô)
+#   tag 12,13,16 = passage 0x00                   -> WALKABLE     (Ice/Neutral/Puddle)
+#   tag 5,7 = WATER (DeepWater/Water) — không có trong data
+#   tag 9 = WATER (WaterfallCrest) — không có trong data
+#   tag 11 = WATER (UnderwaterGrass) — không có trong data
+#   tag 14 = GRASS (SootGrass) — không có trong data
+#   tag 15 = WALKABLE (Bridge) — không có trong data
+# LEDGE direction: tag 1 = LEDGE_SOUTH (down, passage 0x07 — chặn hướng trên)
+#   Không có ledges khác trong data hiện tại.
 TERRAIN_TAG_TO_FLAG = {
     1:  WALKABLE | LEDGE_SOUTH,  # Ledge (jump down)   passage 0x07
-    2:  WALKABLE | LEDGE_SOUTH,  # Ledge               passage 0x40
+    2:  GRASS,                   # Grass (encounter)   passage 0x40
     3:  WALKABLE,                # Sand                passage 0x00
     4:  BLOCKED,                 # Rock (chặn ~92%)     passage 0x0f
     5:  WATER,                   # DeepWater (surfable, không có trong data)
@@ -83,13 +86,13 @@ TERRAIN_TAG_TO_FLAG = {
     7:  WATER,                   # Water (surfable, không có trong data)
     8:  WATER | BLOCKED,         # Waterfall (không surf) passage 0x0f
     9:  WATER,                   # WaterfallCrest (surfable, không có)
-    10: WALKABLE | LEDGE_SOUTH,  # Ledge               passage 0x40 (Lappet Town, 6 tiles)
+    10: GRASS,                   # TallGrass (deep_bush, encounter) passage 0x40
     11: WATER,                   # UnderwaterGrass (không có, dự phòng)
     12: WALKABLE,                # Ice                 passage 0x00 (1 tile Ice Cave)
     13: WALKABLE,                # Neutral             passage 0x00
     14: GRASS,                   # SootGrass (không có, dự phòng)
     15: WALKABLE,                # Bridge              passage 0x00
-    16: WALKABLE,                # Custom (walkable)   passage 0x00
+    16: WALKABLE,                # Puddle              passage 0x00
 }
 
 
@@ -127,7 +130,24 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
     passages = struct.unpack_from(f"<{p_size}h", passages_raw, 8)
 
     terrain_tags = _read_int16_array(ts_data.attributes["@terrain_tags"]._private_data)
-    
+
+    # Đọc tên tileset gốc từ RMXP để chọn đúng file ảnh (Outside / Interior general).
+    raw_ts_name = ts_data.attributes.get("@tileset_name", "")
+    ts_name = raw_ts_name.decode("utf-8", errors="ignore") if isinstance(raw_ts_name, bytes) else str(raw_ts_name)
+    is_interior = (map_type == "interior") or ("interior" in ts_name.lower())
+    if is_interior:
+        tileset_image = "assets/tilesets/Interior general.png"
+        tileset_name = "interior_general"
+        tileset_w = 256
+        tileset_h = 8032
+        tileset_count = 2008
+    else:
+        tileset_image = "assets/tilesets/Outdoor.png"
+        tileset_name = "outdoor"
+        tileset_w = 256
+        tileset_h = 16096
+        tileset_count = 4024
+
     layer_names = ["Ground", "Decoration", "Overhead"]
     tmj_layers = []
     
@@ -258,13 +278,13 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
             {
                 "columns": 8,
                 "firstgid": 1,
-                "image": "assets/tilesets/Outdoor.png",
-                "imageheight": 22080,
-                "imagewidth": 256,
+                "image": tileset_image,
+                "imageheight": tileset_h,
+                "imagewidth": tileset_w,
                 "margin": 0,
-                "name": "outdoor",
+                "name": tileset_name,
                 "spacing": 0,
-                "tilecount": 5520,
+                "tilecount": tileset_count,
                 "tileheight": 32,
                 "tilewidth": 32
             }

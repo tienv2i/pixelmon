@@ -1,6 +1,7 @@
 # Project Status — Pixelmon (Pokémon MMORPG)
 
-> Cập nhật lần cuối: **2026-10-02** (**Tính năng Đa ngôn ngữ (i18n) Toàn bộ Client** — dictionary 285 key VI/EN trong `apps/client/src/i18n/index.ts`, toggle 1-nút trong Settings > Hệ thống, tự động refresh Text bound qua `mkText()`; đơn giản hoá nhãn Settings bỏ chú thích lặp; thêm setting Anti-aliasing (text hết mờ); fix DebugModal layout/relayout/double icon; typecheck 4/4 sạch)  
+> Cập nhật lần cuối: **2026-10-02** (Phase 0+1 — Fix bug warp spawn lệch góc trái + chuẩn hoá spawn TILE coords + grass không còn bị chặn + `grass_zone` & encounter verify; typecheck 4/4 sạch)  
+> **2026-10-02 (trước đó):** Tính năng Đa ngôn ngữ (i18n) Toàn bộ Client — dictionary 285 key VI/EN trong `apps/client/src/i18n/index.ts`, toggle 1-nút trong Settings > Hệ thống, tự động refresh Text bound qua `mkText()`; đơn giản hoá nhãn Settings bỏ chú thích lặp; thêm setting Anti-aliasing (text hết mờ); fix DebugModal layout/relayout/double icon; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 5 — Admin Maps: route `POST /api/admin/maps/:id/regenerate` + `computeMapStats()` + nút "♻️ Regenerate JSON" + card "Thống kê Map"; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 3 — Tiled template `templates/pixelmon-map-template.tmj` + doc `docs/tiled-workflow.md`; fix bug `mapId is not defined` trong `deriveCollision`.  
 > **2026-10-02 (bổ sung):** Plan 41 Phase 2 — `pnpm run build:map <id>` sinh server JSON từ `.tmj`; ⚠️ heuristic thuần layer sai 27% vì RMXP `passages`/`terrain_tags` là per-tile mà TMJ không lưu → cần tile property ở Phase 4; server JSON cũ đã restore.  
@@ -927,6 +928,39 @@ Nguồn: `fix-plan-2.md`. Đã sửa đủ 3 vấn đề.
 - `createSimpleButton` + `pinTxt` + label tab chuyển sang `mkText` (tự đổi ngôn ngữ).
 
 **Xác minh:** `pnpm run typecheck` **4/4 sạch**; quét script 0 chuỗi VI hardcode còn sót trong code client.
+
+### Plan 43 — Fix Warp Spawn lệch góc trái + Grass bị chặn + Encounter verify (2026-10-02)
+
+**Yêu cầu:** vào house từ cổng bị đẩy lên góc trái và kẹt; grass bị coi là vùng không thể di chuyển; route-1 có bậc thềm chỉ đi xuống 1 hướng nhưng chưa có cơ chế; teleport tới map chưa có vị trí chuẩn.
+
+**1. Bug warp spawn (Phase 0):**
+- **Nguyên nhân:** `warp.toX/toY` trong server JSON là **TILE coords** nhưng `doChangeMap` lại gọi `pixelToTile(toX,toY)` → chia thêm 32 lần → rơi vào (0,0) góc trên-trái → `nearestWalkable` chọn ô kẹt cạnh tường. Client cũng gửi lại toạ độ chưa snap → server ghi đè vị trí sai.
+- **Sửa:**
+  - Thêm `resolveSpawnTile()` trong `mapruntime.ts` (SSOT server/client): warp override (cùng map) → `MAPS[id].spawn` (spawn chung) → tâm map.
+  - `doChangeMap`: bỏ `pixelToTile`, dùng `resolveSpawnTile` + `nearestWalkable`.
+  - `handleTeleport`: snap về ô walkable trước khi set vị trí.
+  - `switchMap`: `teleportPlayer` trả `{x,y}` đã snap, dùng cho `updateLocation` + `sendTeleport`.
+  - `nearestWalkable` (server+client): khi dest blocked ưu tiên ô thoáng nhất (đếm 4 hướng); khi dest walkable giữ nguyên (cửa kín 3 hướng).
+  - `MAPS[id].spawn`: chuẩn pixel → **TILE** (comment nói "spawn tile" nhưng giá trị là pixel → landmine); convert tile→pixel tại `getDefaultSpawn`/initial spawn/debug grid dot.
+
+**2. Grass bị chặn (Phase 1):**
+- **Nguyên nhân:** `build-server-map.ts` `deriveCollision`: ô grass trùng layer có `passage=0x0f` → flag `GRASS|BLOCKED` (0x0C) → `isWalkable` false.
+- **Sửa:** grass (tag 2/10/14) luôn giữ `WALKABLE`, clear `BLOCKED`.
+- **Thêm tầng D2 `grass_zone` post-pass:** set `GRASS|WALKABLE` cho mọi ô trong rect object `grass_zone`.
+- **Thêm `injectGrassZonesFromEncounterZones()`:** fallback từ `MAPS[id].encounterZones` khi TMJ chưa vẽ zone (route-1 `encounterRate=20` nhưng 0 ô grass).
+
+**3. Encounter verify:**
+- Server `start_battle`: check `isGrass(tile)` trước khi roll + khớp toạ độ client/server.
+- Client `startBattle(col,row)` + `ColyseusManager.sendStartBattle` gửi toạ độ ô cỏ.
+
+**4. Ledge 4 hướng (data, không sửa code):**
+- Code đã hỗ trợ đủ 4 hướng (`contracts.ts` encode 2-bit, `getLedgeDirection`/`canJumpLedge`/`jumpLedge`, server `isLedgeHop`). Thiếu property `ledge_dir` trong `.tmj`.
+- Cập nhật `docs/tiled-workflow.md`: mục 4.1 `grass_zone` + ghi chú `ledge_dir` 4 hướng.
+
+**Xác minh:**
+- 8/8 warp **EXACT** ô đích, 0 lệch.
+- `grassBLOCKED=0` cả 5 map; route-1 425 ô grass (trước 0); lappet-town 20 ô grass.
+- `pnpm run typecheck` **4/4 sạch**.
 
 ---
 

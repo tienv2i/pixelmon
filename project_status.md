@@ -2,6 +2,7 @@
 
 > Cập nhật lần cuối: **2026-10-02** (Sửa lỗi di chuyển Lappet Town 6,11→6,10: chuyển terrain tag 10 từ LEDGE_SOUTH sang GRASS theo script Essentials `TerrainTag` (`:TallGrass, :id_number=>10`); tag 2 cũng đổi sang GRASS; 7 ô ledge → 0; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Sửa converter hardcode tileset `Outdoor.png` cho mọi map → đọc `@tileset_name` từ RMXP, emit đúng `Interior general.png` (256×8032, 2008 tiles) cho 3 map nội thất; re-convert 4 map; `lappet-town.tmj` sửa imageheight 22080→16096, tilecount 5520→4024. Xem `fix-plan.md` mục 1.1/1.2.  
+> **2026-10-02 (bổ sung 2):** Chuyển di chuyển từ **snap 32px** sang **Delta Grid-Step** (nội suy trượt ô theo delta) + **Input Buffering** (`bufferedDir`) + **LERP remote player**. Xem `fix-plan.md` mục 3.1/3.2.  
 > File này đóng vai trò là **Single Source of Truth (SSOT)** cho toàn bộ dự án, được thiết kế để AI Agent và lập trình viên nắm bắt toàn bộ kiến trúc, trạng thái và chi tiết kỹ thuật ngay tức thì.
 
 ---
@@ -567,6 +568,15 @@ python3 scripts/tools/inspect_image.py packages/shared/assets/tilesets/Outdoor.p
   - Điều kiện chọn: `is_interior = (map_type == "interior") or ("interior" in ts_name.lower())`.
 - **Đã re-convert 4 map:** `lappet-town`, `players-house`, `pokemon-lab`, `daisys-house` — warp và events giữ nguyên (3/3/1/1 warps).
 - **Mục 2 của fix-plan (sửa `admin.js` + `TiledMapLoader.ts`) không cần áp dụng:** cả hai đã phân biệt tileset qua chuỗi `ts.image.includes('Interior')` — chỉ là converter trả sai đường dẫn nên chúng mới rơi về `Outdoor.png`.
+- **Mục 3 của fix-plan — Tối ưu chuyển động (✅ 2026-10-02):**
+  - **Delta Grid-Step:** `WorldScene` không còn `setPosition(center)` tức thì mỗi ô. `stepTo()` ghi lại `stepStartX/Y` + `stepTargetX/Y` + `stepDir`, bật `isWalking`; `advanceStep(delta)` nội suy về đích với tốc độ `WALK_SPEED_PX = (TILE_SIZE / MOVE_COOLDOWN_MS) * 1000` ≈ 213.3 px/s (đúng 1 ô / 1 nhịp 150ms), tới sai số < 1px thì snap & xử lý.
+  - `onTileEntered()` (warp + grass) **chuyển từ `stepTo` sang `advanceStep`** → chỉ chạy khi đã ở tâm ô.
+  - **Input Buffering:** bấm phím lúc đang trượt → lưu `bufferedDir`; tới tâm ô là nối bước ngay (không chờ nhịp cooldown). `handleInputDirection` có guard `isWalking`.
+  - **Reset state** ở `switchMap`, `teleportPlayer`, `onMoveRejected`, `jumpLedge` (`isWalking`, `bufferedDir`, `nextStepAt`) để không trôi về đích cũ khi bị teleport/reject.
+  - **`PlayerSprite.animateWalk(delta, moving, walkProgress)`** — chọn frame theo % quãng đường (0→1), fallback timer nếu không truyền progress. Khi đang trượt, `update` không gọi thêm `animateWalk` lần 2.
+  - **LERP remote player:** `syncRemotePlayers` chỉ set `targetX/targetY` (không snap), `interpolateRemotePlayers(delta)` nội suy với `t = min(delta/100, 1)`.
+  - Lưu ý kỹ thuật: `Phaser.Math.Approach` không có trong typings → dùng `Phaser.Math.Linear(x, target, min(step/total, 1))` (tương đương, có clamp).
+  - ✅ `pnpm run typecheck` 4/4 sạch; ✅ `vite build` thành công. ⬜ Test tay độ mượt (WASD zíc-zắc) chưa làm.
 
 ---
 

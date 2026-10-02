@@ -3,9 +3,9 @@
 Tài liệu này bao gồm chẩn đoán, nguyên nhân gốc rễ và **hướng dẫn sửa mã nguồn cụ thể từng file (Before / After)** cho 3 vấn đề:
 1. **Sửa lỗi Tileset cho Map Nội thất** (`Player's house`, `Daisy's house`, `Pokémon Lab`). — ✅ **Đã sửa (2026-10-02)**
 2. **Sửa lỗi "Mỏm đá ảo" tại ô `[6, 11]` Lappet Town** (TerrainTag 10 TallGrass bị map nhầm thành Ledge). — ✅ **Đã sửa (2026-10-02)**
-3. **Tối ưu hóa chuyển động nhân vật** (Triệt tiêu hiện tượng di chuyển khựng/giật camera bằng Delta Grid-Step & Input Buffering). — ⬜ Chưa làm
+3. **Tối ưu hóa chuyển động nhân vật** (Triệt tiêu hiện tượng di chuyển khựng/giật camera bằng Delta Grid-Step & Input Buffering). — ✅ **Đã sửa (2026-10-02)**
 
-> **Trạng thái cập nhật 2026-10-02:** Mục 1 (1.1 + 1.2) đã hoàn tất. Mục 2 (2.1, 2.2) **không cần áp dụng** vì cả `admin.js` và `TiledMapLoader.ts` đã tự phân biệt Interior/Outdoor qua chuỗi `ts.image` — sau khi converter emit đúng đường dẫn `Interior general.png`, cả hai tự động chọn tileset đúng. Mục 3 vẫn mở.
+> **Trạng thái cập nhật 2026-10-02:** Toàn bộ plan đã hoàn tất. Mục 1 (1.1 + 1.2) sửa tileset nội thất + terrain tag; mục 2 không cần áp dụng vì `admin.js` và `TiledMapLoader.ts` đã tự phân biệt Interior/Outdoor qua chuỗi `ts.image`; mục 3 chuyển sang Delta Grid-Step + Input Buffering + LERP remote player.
 
 ---
 
@@ -16,9 +16,9 @@ Tài liệu này bao gồm chẩn đoán, nguyên nhân gốc rễ và **hướn
 - [II. SỬA KHÂU RENDER TRONG ADMIN & CLIENT](#ii-sửa-khâu-render-trong-admin--client) — ⬜ không cần (đã tự động đúng)
   - [2.1 Sửa `apps/server/public/js/admin.js`](#21-sửa-appsserverpublicjsadminjs) — ⬜ không cần
   - [2.2 Sửa `apps/client/src/world/TiledMapLoader.ts`](#22-sửa-appsclientsrcworldtiledmaploaderts) — ⬜ không cần
-- [III. TỐI ƯU HÓA CHUYỂN ĐỘNG (DELTA GRID-STEP & INPUT BUFFER)](#iii-tối-ưu-hóa-chuyển-động-delta-grid-step--input-buffer) — ⬜ chưa làm
-  - [3.1 Sửa `apps/client/src/entities/PlayerSprite.ts`](#31-sửa-appsclientsrcentitiesplayerspritets) — ⬜ chưa làm
-  - [3.2 Sửa `apps/client/src/scenes/WorldScene.ts`](#32-sửa-appsclientsrcscenesworldscenets) — ⬜ chưa làm
+- [III. TỐI ƯU HÓA CHUYỂN ĐỘNG (DELTA GRID-STEP & INPUT BUFFER)](#iii-tối-ưu-hóa-chuyển-động-delta-grid-step--input-buffer) — ✅ xong
+  - [3.1 Sửa `apps/client/src/entities/PlayerSprite.ts`](#31-sửa-appsclientsrcentitiesplayerspritets) — ✅ xong
+  - [3.2 Sửa `apps/client/src/scenes/WorldScene.ts`](#32-sửa-appsclientsrcscenesworldscenets) — ✅ xong
 - [IV. CÁC BƯỚC TEST & XÁC NHẬN HOÀN TẤT](#iv-các-bước-test--xác-nhận-hoàn-tất)
 
 ---
@@ -202,6 +202,18 @@ const isInterior =
 
 # III. TỐI ƯU HÓA CHUYỂN ĐỘNG (DELTA GRID-STEP & INPUT BUFFER)
 
+> **✅ ĐÃ ÁP DỤNG (2026-10-02)** — typecheck 4/4 sạch, `vite build` thành công.
+> **Các điểm KHÁC so với bản kế hoạch ban đầu** (đã lưu ý khi code):
+> 1. Tên biến dùng `stepStartX/Y`, `stepTargetX/Y`, `stepDir` (đọc rõ hơn `startPixelX`/`currentStepDir`).
+> 2. `Phaser.Math.Approach` **không tồn tại** trong typings Phaser của dự án → dùng
+>    `Phaser.Math.Linear(x, target, min(step / total, 1))` (tương đương Approach, có clamp chống vượt).
+> 3. `onTileEntered` (warp / grass encounter) **chuyển từ `stepTo` sang `advanceStep`** — chỉ chạy khi
+>    đã tới tâm ô, nên toạ độ luôn chuẩn tâm ô.
+> 4. Thêm guard `if (this.isWalking) return false` trong `handleInputDirection` và reset
+>    `isWalking`/`bufferedDir`/`nextStepAt` ở `switchMap`, `teleportPlayer`, `onMoveRejected`, `jumpLedge`.
+> 5. Khi đang trượt, `update()` **không** gọi thêm `animateWalk` (tránh fallback timer ghi đè
+>    frame đã chọn theo progress).
+
 ### 3.1 Sửa `apps/client/src/entities/PlayerSprite.ts`
 
 Cải tiến hàm `animateWalk` để nhận biết tiến trình bước đi ($0.0 \to 1.0$), giúp bước chân ăn khớp 100% với khoảng cách di chuyển:
@@ -340,22 +352,27 @@ state.players.forEach((ps: any, sessionId: string) => {
 
 # IV. CÁC BƯỚC TEST & XÁC NHẬN HOÀN TẤT
 
-1. **Test kiểm tra Lappet Town (Ô [6, 11])**:
+> **Kết quả kiểm chứng tự động (2026-10-02):** `pnpm run typecheck` → 4/4 package sạch;
+> `vite build` → thành công. Các test cần thao tác tay trên trình duyệt (mục 1 phần cuối,
+> mục 2, mục 3) được đánh dấu ⬜ để kiểm tra khi chạy game.
+
+1. **Test kiểm tra Lappet Town (Ô [6, 11])**: ✅ **Đã verify bằng script**
    - Chạy lệnh kiểm tra cờ va chạm:
      ```bash
      python3 -c "import json; d=json.load(open('packages/shared/data/maps/server/lappet-town.json')); print('Flag at (6,11):', d['collision']['flags'][11*32+6])"
      ```
    - Kết quả mong muốn: `1` (`WALKABLE`) hoặc `9` (`WALKABLE | GRASS`), **không còn cờ `17` (`0x11`)**.
-   - Vào game điều khiển nhân vật đi qua lại tự do giữa `[6, 11]` và `[6, 10]`.
+   - ✅ **Kết quả thực tế: `9`** (WALKABLE|GRASS). Ledge count = 0, grass count = 7.
+   - ⬜ Vào game điều khiển nhân vật đi qua lại tự do giữa `[6, 11]` và `[6, 10]`.
 
-2. **Test kiểm tra Admin Map Viewer**:
+2. **Test kiểm tra Admin Map Viewer**: ⬜ Chưa test thủ công
    - Truy cập `http://localhost:2567/admin.html` $\to$ Quản lý Maps.
    - Chọn lần lượt: `Player's house`, `Daisy's house`, `Pokémon Lab`.
    - Xác nhận: Canvas hiển thị đúng sàn gỗ, thảm, giường, bàn ghế, cầu thang, PC; không còn cây cỏ nham nhở.
 
-3. **Test kiểm tra độ mượt chuyển động**:
+3. **Test kiểm tra độ mượt chuyển động**: ⬜ Chưa test thủ công
    - Chạy Client (`http://localhost:5173`), dùng WASD chạy liên tục và đổi hướng zíc-zắc.
    - Xác nhận: Chuyển động lướt đều 60 FPS, camera trôi êm như bơ, không còn giật khựng từng nấc 32px.
 
-4. **Typecheck toàn bộ monorepo**:
+4. **Typecheck toàn bộ monorepo**: ✅ **Đã chạy — 4/4 package sạch, 0 lỗi**
    - Chạy `pnpm run typecheck` đảm bảo 100% không phát sinh lỗi types ở cả client, server và shared package.

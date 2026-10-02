@@ -107,6 +107,20 @@ export class WorldScene extends Phaser.Scene {
   private lastNetMoveAt = 0;
   /** Hướng đang giữ phím để lặp bước. */
   private heldDir: Dir | null = null;
+  /** Hướng đệm khi đang trượt ô — bước tiếp ngay khi tới tâm ô. */
+  private bufferedDir: Dir | null = null;
+  /** Đang trượt tới tâm ô (grid-step) → chưa nhận bước mới. */
+  private isWalking = false;
+  /** Điểm pixel xuất phát của bước trượt hiện tại. */
+  private stepStartX = 0;
+  private stepStartY = 0;
+  /** Điểm pixel đích (tâm ô) của bước trượt hiện tại. */
+  private stepTargetX = 0;
+  private stepTargetY = 0;
+  /** Hướng của bước trượt hiện tại. */
+  private stepDir: Dir = 'down';
+  /** Tốc độ trượt (px/s) — khớp đúng MOVE_COOLDOWN_MS để 1 ô = 1 nhịp bước. */
+  private static readonly WALK_SPEED_PX = (TILE_SIZE / MOVE_COOLDOWN_MS) * 1000;
   /** Đang lướt nước (Surf). */
   private surfing = false;
   /** Khoá warp vừa kích hoạt — tránh bắn `change_map` liên tục cùng một ô. */
@@ -1083,6 +1097,8 @@ export class WorldScene extends Phaser.Scene {
         rp = new PlayerSprite(this, ps.x, ps.y, sheetKey, ps.username?.length ?? 1, frameCount);
         rp.setDisplayName(ps.displayName);
         this.remotePlayers.set(sessionId, rp);
+        (rp as any).targetX = ps.x;
+        (rp as any).targetY = ps.y;
         // Sprite tạo SAU setupUiCamera() → phải ignore thủ công ở UI camera,
         // nếu không nó bị render bởi cả 2 camera → nhân đôi + sai vị trí khi zoom.
         this.registerWorldObject(rp, ...rp.getChildObjects());
@@ -1100,7 +1116,10 @@ export class WorldScene extends Phaser.Scene {
           );
         }
       }
-      rp.setPosition(ps.x, ps.y);
+      // Không snap thẳng — chỉ đặt mục tiêu, `interpolateRemotePlayers` nội suy
+      // mượt tới đó (server chỉ gửi vị trí mỗi nhịp bước ~150ms).
+      (rp as any).targetX = ps.x;
+      (rp as any).targetY = ps.y;
       if (ps.direction) rp.setDirection(ps.direction);
     });
 
@@ -1160,6 +1179,9 @@ export class WorldScene extends Phaser.Scene {
       y: Math.floor(target.y / TILE_SIZE),
     };
 
+    // Đang trượt tới tâm ô → chờ xong mới nhận ô kế tiếp (giữ animation).
+    if (this.isWalking) return true;
+
     // Chưa tới nhịp bước kế tiếp → coi như vẫn đang đi (giữ animation).
     if (this.time.now < this.nextStepAt) return true;
 
@@ -1180,12 +1202,18 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * Một bước tile-based: snap về tâm ô, đổi hướng, gửi `move` (throttle),
-   * kiểm tra warp / ledge / surf.
+   * Một bước tile-based: bắt đầu trạng thái trượt tới tâm ô (không snap tức thì),
+   * đổi hướng, gửi `move` (throttle). Warp/surf được kiểm tra khi ĐÃ tới nơi
+   * (`finishStep`) để toạ độ luôn là tâm ô.
    */
   private stepTo(tileX: number, tileY: number, dir: Dir): void {
     const center = this.tileCenter(tileX, tileY);
-    this.player.setPosition(center.x, center.y);
+    this.stepStartX = this.player.x;
+    this.stepStartY = this.player.y;
+    this.stepTargetX = center.x;
+    this.stepTargetY = center.y;
+    this.stepDir = dir;
+    this.isWalking = true;
     this.player.setDirection(dir);
 
     // Cập nhật trạng thái surf khi bước vào/ra ô nước.
@@ -1196,7 +1224,53 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.sendMoveThrottled(center.x, center.y, dir);
-    this.onTileEntered(tileX, tileY, dir);
+  }
+
+  /**
+   * Nội suy trượt ô theo delta (Delta Grid-Step) — thay cho snap 32px từng nấc.
+   * Trả về `true` nếu vẫn đang trượt (để update giữ animation).
+   *
+   * Khi đã tới tâm ô (sai số < 1px) → khoá vị trí, gọi `onTileEntered`
+   * (warp / grass) rồi nối bước ngay nếu có phím giữ hoặc phím đệm.
+   */
+  private advanceStep(delta: number): boolean {
+    if (!this.isWalking) return false;
+
+    const step = (WorldScene.WALK_SPEED_PX * delta) / 1000;
+    const total = Phaser.Math.Distance.Between(
+      this.stepStartX, this.stepStartY, this.stepTargetX, this.stepTargetY,
+    );
+    // Approach: tiến tới đích đúng `step` px, không bao giờ vượt qua (clamp t ≤ 1).
+    const t = total > 0 ? Math.min(step / total, 1) : 1;
+    this.player.setPosition(
+      Phaser.Math.Linear(this.player.x, this.stepTargetX, t),
+      Phaser.Math.Linear(this.player.y, this.stepTargetY, t),
+    );
+
+    const remaining = Phaser.Math.Distance.Between(
+      this.player.x, this.player.y, this.stepTargetX, this.stepTargetY,
+    );
+    const progress = total > 0 ? 1 - remaining / total : 1;
+    this.player.animateWalk(delta, true, progress);
+
+    if (remaining > 1.0) return true;
+
+    // Đã tới tâm ô đích — snap chính xác rồi xử lý logic sau bước.
+    this.player.setPosition(this.stepTargetX, this.stepTargetY);
+    this.isWalking = false;
+
+    const col = Math.floor(this.stepTargetX / TILE_SIZE);
+    const row = Math.floor(this.stepTargetY / TILE_SIZE);
+    this.onTileEntered(col, row, this.stepDir);
+
+    // Nối bước ngay nếu có phím đệm (không cần chờ nhịp cooldown).
+    const next = this.bufferedDir;
+    this.bufferedDir = null;
+    if (next && !this.isJumping && this.handleInputDirection(next)) {
+      return true;
+    }
+    this.nextStepAt = 0; // cho phép bấm phím mới ngay lập tức
+    return false;
   }
 
   /** Tâm pixel của ô (col, row). */
@@ -1246,6 +1320,8 @@ export class WorldScene extends Phaser.Scene {
    */
   private handleInputDirection(dir: Dir): boolean {
     if (this.isJumping) return false;
+    // Đang trượt ô → chưa nhận bước mới (input đã được đệm ở update).
+    if (this.isWalking) return false;
 
     const col = Math.floor(this.player.x / TILE_SIZE);
     const row = Math.floor(this.player.y / TILE_SIZE);
@@ -1279,6 +1355,7 @@ export class WorldScene extends Phaser.Scene {
   private jumpLedge(landX: number, landY: number, dir: Dir): void {
     this.isJumping = true;
     this.cancelAutoMove();
+    this.bufferedDir = null;
     const center = this.tileCenter(landX, landY);
     this.player.jumpTo(center.x, center.y, dir, 220, () => {
       this.isJumping = false;
@@ -1322,11 +1399,38 @@ export class WorldScene extends Phaser.Scene {
   private onMoveRejected(data: any): void {
     if (typeof data?.x !== 'number' || typeof data?.y !== 'number') return;
     this.cancelAutoMove();
+    // Server từ chối → toạ độ authoritative, phải bỏ bước trượt đang dở.
+    this.isWalking = false;
+    this.bufferedDir = null;
+    this.nextStepAt = 0;
     this.player.setPosition(data.x, data.y);
     if (data.direction) this.player.setDirection(data.direction);
   }
 
   // ── 5. Update ───────────────────────────────────────────────────────────
+
+  /**
+   * Nội suy vị trí remote player (LERP) — server chỉ gửi vị trí mỗi nhịp bước
+   * (~150ms), nên cần nội suy để chuyển động mượt thay vì nhảy từng ô 32px.
+   * Hệ số nội suy theo delta để mượt đều ở mọi FPS.
+   */
+  private interpolateRemotePlayers(delta: number): void {
+    if (this.remotePlayers.size === 0) return;
+    const t = Math.min(delta / 100, 1); // ~100ms để bắt kịp mục tiêu
+    this.remotePlayers.forEach((rp) => {
+      const targetX = (rp as any).targetX as number | undefined;
+      const targetY = (rp as any).targetY as number | undefined;
+      if (targetX === undefined || targetY === undefined) return;
+      if (Math.abs(rp.x - targetX) < 0.5 && Math.abs(rp.y - targetY) < 0.5) {
+        if (rp.x !== targetX || rp.y !== targetY) rp.setPosition(targetX, targetY);
+        return;
+      }
+      rp.setPosition(
+        Phaser.Math.Linear(rp.x, targetX, t),
+        Phaser.Math.Linear(rp.y, targetY, t),
+      );
+    });
+  }
 
   update(time: number, delta: number): void {
     if (!this.cursors || !this.canMove) return;
@@ -1346,7 +1450,10 @@ export class WorldScene extends Phaser.Scene {
     // Bỏ giữ phím → reset trạng thái.
     if (!keyDirection) this.heldDir = null;
 
-    if (keyDirection && !this.isJumping) {
+    // Ưu tiên nội suy trượt ô — mọi input khác chờ tới tâm ô rồi xử lý.
+    const walking = this.advanceStep(delta);
+
+    if (keyDirection && !this.isJumping && !walking) {
       if (this.movePath.length > 0) this.cancelAutoMove();
       // Chỉ animate walk khi thật sự bước được ô (tránh đứng đánh võng trước tường).
       let stepped = false;
@@ -1360,8 +1467,19 @@ export class WorldScene extends Phaser.Scene {
         stepped = true; // vẫn trong nhịp bước vừa thực hiện → giữ anim
       }
       this.heldDir = keyDirection;
+      this.bufferedDir = null;
       this.moving = stepped;
+    } else if (keyDirection && this.isJumping) {
+      this.moving = true;
+    } else if (keyDirection && walking) {
+      // Đang trượt ô — đệm hướng lại để nối bước ngay khi tới tâm ô.
+      this.bufferedDir = keyDirection;
+      this.heldDir = keyDirection;
+      this.moving = true;
     } else if (this.isJumping) {
+      this.moving = true;
+    } else if (walking) {
+      // Không còn phím giữ nhưng vẫn trượt → giữ anim tới nơi.
       this.moving = true;
     } else if (this.movePath.length > 0) {
       this.moving = this.advanceAlongPath(delta);
@@ -1374,7 +1492,12 @@ export class WorldScene extends Phaser.Scene {
       this.moving = false;
     }
 
-    this.player.animateWalk(delta, this.moving);
+    // Khi đang trượt ô, advanceStep đã gọi animateWalk với progress —
+    // không gọi thêm ở đây để tránh fallback timer ghi đè frame.
+    if (!walking) {
+      this.player.animateWalk(delta, this.moving);
+    }
+    this.interpolateRemotePlayers(delta);
     this.minimap?.update(this.player.x, this.player.y, this.cameras.main);
 
     // Cập nhật thông số thời gian thực vào DebugModal nếu đang mở
@@ -1442,6 +1565,10 @@ export class WorldScene extends Phaser.Scene {
     const clampedY = Phaser.Math.Clamp(y, 0, maxY);
 
     this.cancelAutoMove();
+    // Teleport = snap tức thì → huỷ bước trượt đang dở để không trôi về đích cũ.
+    this.isWalking = false;
+    this.bufferedDir = null;
+    this.nextStepAt = 0;
     // Snap về tâm ô gần nhất để giữ mô hình tile-based.
     const col = Math.floor(clampedX / TILE_SIZE);
     const row = Math.floor(clampedY / TILE_SIZE);
@@ -1484,6 +1611,9 @@ export class WorldScene extends Phaser.Scene {
       this.lastWarpKey = '';
       this.isJumping = false;
       this.heldDir = null;
+      this.bufferedDir = null;
+      this.isWalking = false;
+      this.nextStepAt = 0;
 
       // 3. Đặt lại toạ độ người chơi
       const meta = MAPS[mapId];

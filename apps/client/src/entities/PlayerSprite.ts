@@ -186,14 +186,33 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
     });
   }
 
-  /** Bước chân animation (gọi mỗi frame trong update). */
-  animateWalk(deltaMs: number, moving: boolean): void {
+  /**
+   * Bước chân animation (gọi mỗi frame trong update).
+   *
+   * `walkProgress` = tiến trình bước chân trên ô hiện tại (0.0 → 1.0). Khi có
+   * progress, frame được chọn theo % quãng đường → bước chân luôn khớp với
+   * khoảng cách thực tế đã đi (WorldScene nội suy grid-step), không bị trôi
+   * frame khi tốc độ lệch. Bỏ trống → fallback sang timer `WALK_FRAME_MS`.
+   */
+  animateWalk(deltaMs: number, moving: boolean, walkProgress = 0): void {
     const maxFrame = FRAMES_PER_DIR[this.sheet];
     if (!moving) {
       this.walkTimer = 0;
+      this.walkFrame = 0;
       this.setFrame(frameName(this.dir, 0));
       return;
     }
+
+    // Khớp frame theo tiến trình ô (0.0 -> 1.0).
+    if (walkProgress > 0) {
+      const frameIndex = Math.min(Math.floor(walkProgress * maxFrame), maxFrame - 1);
+      this.walkFrame = frameIndex;
+      this.walkTimer = 0;
+      this.setFrame(frameName(this.dir, frameIndex));
+      return;
+    }
+
+    // Fallback timer nếu không truyền progress.
     this.walkTimer += deltaMs;
     if (this.walkTimer >= WALK_FRAME_MS) {
       this.walkTimer = 0;

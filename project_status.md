@@ -4,6 +4,7 @@
 > **2026-10-02 (bổ sung):** Sửa converter hardcode tileset `Outdoor.png` cho mọi map → đọc `@tileset_name` từ RMXP, emit đúng `Interior general.png` (256×8032, 2008 tiles) cho 3 map nội thất; re-convert 4 map; `lappet-town.tmj` sửa imageheight 22080→16096, tilecount 5520→4024. Xem `fix-plan.md` mục 1.1/1.2.  
 > **2026-10-02 (bổ sung 2):** Chuyển di chuyển từ **snap 32px** sang **Delta Grid-Step** (nội suy trượt ô theo delta) + **Input Buffering** (`bufferedDir`) + **LERP remote player**. Xem `fix-plan.md` mục 3.1/3.2.  
 > **2026-10-02 (bổ sung 3):** Di chuyển bảng debug (`DebugModal.ts`) vào **tab `🛠 Debug` của Settings Panel** — tab chỉ hiện cho tài khoản `moderator` trở lên; thêm công cụ **Grid Overlay** & **Coordinate Tracking**; icon Debug Toolbar trên TopMenu có thể ẩn/hiện. Xem mục 4.2.  
+> **2026-10-02 (bổ sung 4):** Sửa 3 lỗi di chuyển & vị trí đứng theo `fix-plan-2.md` (double-step, độ trễ, chân lơ lửng) + sửa frame đi bộ nhảy quá nhanh (26fps → ~6.7fps). Xem mục 9.  
 > File này đóng vai trò là **Single Source of Truth (SSOT)** cho toàn bộ dự án, được thiết kế để AI Agent và lập trình viên nắm bắt toàn bộ kiến trúc, trạng thái và chi tiết kỹ thuật ngay tức thì.
 
 ---
@@ -643,6 +644,16 @@ Nguồn: `fix-plan-2.md`. Đã sửa đủ 3 vấn đề.
 
 - ✅ `pnpm run typecheck` 4/4 sạch; ✅ `vite build` thành công.
 - ⬜ Checklist nghiệm thu trình duyệt mục III của `fix-plan-2.md` (tap 1 ô / giữ phím / độ trễ / bàn chân đúng đáy ô / nhảy ledge) — chưa chạy.
+
+**4. (Bổ sung sau khi chơi tay) Frame đi bộ nhảy quá nhanh** — `PlayerSprite.ts` (commit `194a58c9`)
+- Nguyên nhân: sau khi sửa lỗi #2, 1 ô = **150ms**; `animateWalk` quét thẳng `floor(progress * maxFrame)` → **4 frame/150ms = 26fps**, lướt nhanh mắt thường không thấy.
+- Sửa: tích luỹ **chu kỳ đi bộ** thay vì quét theo progress mỗi ô — tính `delta` của `progress` (xử lý cả lúc ô mới bắt đầu `walkProgress` reset về 0: `1 - lastWalkProgress + walkProgress`) rồi cộng vào `walkCycle`:
+  - `walkCycle = (walkCycle + delta / maxFrame) % 1` → **1 chu kỳ = `maxFrame` ô** = mỗi ô advance đúng **1 frame** ≈ `WALK_FRAME_MS` (150ms, ~6.7fps).
+  - Frame chỉ `setFrame` khi `frameIndex` đổi (tránh set lại frame trùng mỗi tick).
+  - Reset `walkCycle`/`lastWalkProgress` ở **3 chỗ**: `!moving`, `setDirection` (đổi hướng — nếu không, quay lưng sẽ giữ nguyên frame cũ), `jumpTo` (nhảy ledge).
+  - Tham số `walkProgress` mặc định đổi `0` → **`-1`**: `0` là progress hợp lệ (đầu ô), `0` trùng điều kiện `> 0` cũ → nhánh fallback timer không bao giờ chạy.
+- Tính từ **quãng đường** chứ không thời gian → đổi Speed Multiplier ở tab Debug vẫn khớp nhịp chân.
+- ✅ typecheck 4/4 + `vite build` OK.
 
 ---
 

@@ -99,6 +99,14 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
     return this.sheet === 'hero' ? 68 : TILE_SIZE + 4;
   }
 
+  /**
+   * Khoảng cách từ tâm nhân vật lên đáy bảng tên — để WorldScene đặt
+   * nhãn debug tracking (Settings > Debug) phía trên bảng tên, không đè lên nó.
+   */
+  get nameOffsetY(): number {
+    return this.getNameOffsetY();
+  }
+
   setDisplayName(name: string): void {
     this.nameText?.setText(name);
   }

@@ -3,6 +3,7 @@
 > Cập nhật lần cuối: **2026-10-02** (Sửa lỗi di chuyển Lappet Town 6,11→6,10: chuyển terrain tag 10 từ LEDGE_SOUTH sang GRASS theo script Essentials `TerrainTag` (`:TallGrass, :id_number=>10`); tag 2 cũng đổi sang GRASS; 7 ô ledge → 0; typecheck 4/4 sạch)  
 > **2026-10-02 (bổ sung):** Sửa converter hardcode tileset `Outdoor.png` cho mọi map → đọc `@tileset_name` từ RMXP, emit đúng `Interior general.png` (256×8032, 2008 tiles) cho 3 map nội thất; re-convert 4 map; `lappet-town.tmj` sửa imageheight 22080→16096, tilecount 5520→4024. Xem `fix-plan.md` mục 1.1/1.2.  
 > **2026-10-02 (bổ sung 2):** Chuyển di chuyển từ **snap 32px** sang **Delta Grid-Step** (nội suy trượt ô theo delta) + **Input Buffering** (`bufferedDir`) + **LERP remote player**. Xem `fix-plan.md` mục 3.1/3.2.  
+> **2026-10-02 (bổ sung 3):** Di chuyển bảng debug (`DebugModal.ts`) vào **tab `🛠 Debug` của Settings Panel** — tab chỉ hiện cho tài khoản `moderator` trở lên; thêm công cụ **Grid Overlay** & **Coordinate Tracking**; icon Debug Toolbar trên TopMenu có thể ẩn/hiện. Xem mục 4.2.  
 > File này đóng vai trò là **Single Source of Truth (SSOT)** cho toàn bộ dự án, được thiết kế để AI Agent và lập trình viên nắm bắt toàn bộ kiến trúc, trạng thái và chi tiết kỹ thuật ngay tức thì.
 
 ---
@@ -181,18 +182,32 @@ pixelmon/
 - **`ChatLog` (Góc dưới phải):** Khung trò chuyện đa kênh, hỗ trợ kéo thả tự do hoặc neo vị trí.
 - **Hệ thống Responsive Breakpoint:** Tự động chuyển đổi sang Mini Mode khi kích thước viewport `< 800×600` px.
 
-### 4.2 Modal Debug Toàn diện (`DebugModal.ts` — Phím tắt `F3` hoặc `F2`)
-Kế thừa từ `UiModal`, cho phép di chuyển, thu nhỏ, không khóa tương tác điều khiển nhân vật bên dưới:
-1. **Thông số Bản đồ (Map Info):** Mã slug, tên hiển thị, kích thước (Tiles & Pixels), số lượng layer, số điểm warp, tên file tileset.
-2. **Toạ độ & Chuyển động (Live Player Status):** Toạ độ Pixel `(X, Y)`, Toạ độ Tile `[TileX, TileY]`, Hướng quay mặt (Down/Up/Left/Right), Trạng thái (Đang di chuyển / Đứng yên), Chỉ số FPS thực tế, Toạ độ Camera và Hệ số Zoom.
-3. **Phím Dịch chuyển Nhanh (Teleport Presets):** Nút bấm 1 chạm dịch chuyển tức thì đến 5 bản đồ Essentials: *Lappet Town, Player's House, Pokémon Lab, Route 1, Daisy's House*.
-4. **Điều chỉnh Tốc độ (Speed Multiplier):** Các mức `1x`, `2x`, `3x`, `5x` phục vụ kiểm tra di chuyển.
-5. **Khung Lệnh Điều khiển Console (CLI Debug Runner):**
-   - `/tp <x> <y>` — Dịch chuyển nhân vật đến toạ độ pixel chỉ định.
-   - `/tp <mapId>` — Chuyển tức thì sang bản đồ khác (VD: `/tp pokemon-lab`).
-   - `/speed <hệ_số>` — Thay đổi tốc độ di chuyển (VD: `/speed 3`).
-   - `/pos` — Xem toạ độ chi tiết hiện tại.
-   - `/help`, `/clear` — Xem trợ giúp hoặc xóa lịch sử lệnh.
+### 4.2 Tab Debug trong Settings Panel (`SettingsPanel.ts` — Phím tắt `F3` / `F2`)
+Đã **dời toàn bộ nội dung `DebugModal.ts` cũ vào tab `🛠 Debug` của Settings Panel** và xoá `DebugModal.ts`.
+**Phân quyền:** tab chỉ xuất hiện khi tài khoản có quyền `moderator` trở lên (role đọc từ `POST /api/auth/me`,
+lưu ở `pixelmon.role`, so sánh qua thang `player=0 < moderator=1 < admin=2`). Tài khoản `banned` không bao giờ đủ quyền.
+
+Nội dung tab gồm 3 nhóm:
+1. **Công cụ kiểm thử Map & Di chuyển (tuỳ chọn mới):**
+   - *Hiện thanh công cụ Debug trên Menu (Debug Toolbar)* — ẩn/hiện icon 🐞 trên TopMenu, persists `pixelmon.debugToolbar`. Tắt => ẩn hẳn phím tắt F3/F2 & icon.
+   - *Lưới toạ độ ô (Grid Overlay)* — lưới 32px phủ toàn map (màu `#00cec9`, lưới chính mỗi 8 ô màu `#fdcb6e`, chấm đỏ = điểm spawn), depth `31` (cao hơn tầng `Overhead`=30 nên không bị nhà/cây che). Dùng chung với checkbox ở tab **Lối chơi**, persist `pixelmon.debugGrid`.
+   - *Theo dõi toạ độ nhân vật (Coordinate Tracking)* — nhãn `[cột, hàng]  x,y  IDLE|WALK|SLIDING` bám theo nhân vật, depth `33`, đặt phía trên bảng tên (`player.nameOffsetY + 18`), stroke đen để đọc trên nền cỏ sáng. Persist `pixelmon.debugTracking`.
+2. **Thông số realtime** (cập nhật mỗi frame khi tab đang mở):
+   - *Map Info*: mã slug, tên, kích thước (Tiles & Pixels), tên tileset, số layer, số warp.
+   - *Coordinates*: toạ độ Pixel `(X, Y)`, toạ độ Tile `[TileX, TileY]`, Hướng, Trạng thái, Speed, FPS, toạ độ Camera, Zoom.
+3. **Công cụ điều khiển:** 5 nút *Quick Teleport* (*Lappet Town, Nhà Player, Pokémon Lab, Route 1, Nhà Daisy*), 4 mức *Speed Multiplier* (`1x`–`5x`), và *Console CLI* với ô gõ lệnh HTML đặt ngay dưới khung log:
+
+   | Lệnh | Chức năng |
+   | --- | --- |
+   | `/tp <x> <y>` | Dịch chuyển nhân vật đến toạ độ pixel |
+   | `/tp <mapId>` | Chuyển map (VD: `/tp pokemon-lab`) |
+   | `/speed <hệ_số>` | Đổi tốc độ di chuyển (VD: `/speed 3`) |
+   | `/pos` | Xem toạ độ chi tiết hiện tại |
+   | `/help`, `/clear` | Trợ giúp / xoá lịch sử lệnh |
+
+**Kết nối:** `SettingsPanel` nhận `canAccessDebug`, `onToggleDebugToolbar`, `onToggleGrid`, `onToggleCoordTracking`,
+`onDebugTeleport/SwitchMap/SetSpeed/RunCommand` từ `WorldScene`. `openDebugTab()` mở Settings thẳng vào tab Debug
+(Icon toolbar trên TopMenu cũng gọi thẳng vào đây).
 
 ---
 
@@ -577,6 +592,30 @@ python3 scripts/tools/inspect_image.py packages/shared/assets/tilesets/Outdoor.p
   - **LERP remote player:** `syncRemotePlayers` chỉ set `targetX/targetY` (không snap), `interpolateRemotePlayers(delta)` nội suy với `t = min(delta/100, 1)`.
   - Lưu ý kỹ thuật: `Phaser.Math.Approach` không có trong typings → dùng `Phaser.Math.Linear(x, target, min(step/total, 1))` (tương đương, có clamp).
   - ✅ `pnpm run typecheck` 4/4 sạch; ✅ `vite build` thành công. ⬜ Test tay độ mượt (WASD zíc-zắc) chưa làm.
+
+### Plan 39 — Chuyển bảng Debug vào tab Settings & thêm công cụ debug Map/Di chuyển (2026-10-02)
+
+**Yêu cầu:** dời bảng debug vào module Settings thành 1 tab riêng, chỉ hiện khi user có quyền moderator trở lên; trong đó có tuỳ chọn hiện thanh công cụ debug; thêm tuỳ chọn hiển thị công cụ debug map & di chuyển (grid, tracking toạ độ).
+
+- **Phân quyền role trên client (mới):** `ColyseusManager` đọc `role` từ response login + `/api/auth/me`, lưu `pixelmon.role` (kèm `saveSession/restoreSession/clearSession`), expose `role` + `hasDebugAccess()`. Thang quyền: `player(0) < moderator(1) < admin(2)`; `banned` không nằm trong thang → luôn `false`. `setProfileFromMe()` gộp cả role + sprite.
+- **Tab Debug mới** trong `SettingsPanel`: `visibleTabKeys()` trả về 5 tab nếu `canAccessDebug` (chia đều `tabW = (MODAL_W-32)/5`), ngược lại 4 tab như cũ. `buildDebugTab()` dựng toàn bộ nội dung; `layoutDebugTab()` xếp dọc bằng con trỏ `curY`.
+- **Port 100% nội dung `DebugModal.ts`** vào tab (Map Info, Coordinates, Quick Teleport ×5, Speed ×4, CLI `/tp` `/speed` `/pos` `/help` `/clear`, nút copy toạ độ, xoá log). **Xoá file `DebugModal.ts`.**
+- **Công cụ mới:**
+  - *Debug Toolbar toggle* → `TopMenu.setIconVisible(key, visible)` + `hiddenIcons: Set<string>`; `visibleIcons()`/`visibleIndexOf()` dùng cho cả 2 nhánh layout (normal & mini popup); `IconButton` thêm getter `key`/`visible` và cờ `currentVisible`. Fix luôn `setActive()` (trước đó index theo `ICONS[i]` → sai khi ẩn icon).
+  - *Grid Overlay* → `gridOverlay: Graphics`, `drawGrid()` vẽ lưới 32px (`#00cec9` 0.35) + lưới chính mỗi 8 ô (`#fdcb6e` 0.8) + chấm đỏ ở spawn. Vẽ lại trong `switchMap`. Chia sẻ với checkbox "Grid Overlay" ở tab Lối chơi qua `setGridShared()` (2 checkbox luôn đồng bộ, 1 nguồn persist `pixelmon.debugGrid`).
+  - *Coordinate Tracking* → `coordTracker: Text` bám nhân vật, hiển thị `[col, row]  x,y  IDLE|WALK|SLIDING`, có stroke đen.
+- **Sửa lỗi phát hiện khi test:**
+  1. Grid/tracker depth `15`/`35` bị tầng `Overhead` (depth **30**) của tilemap che → nâng lên `DEBUG_GRID_DEPTH=31` / `DEBUG_TRACKER_DEPTH=33` (hằng số có chú thích).
+  2. Nhãn tracking đè lên bảng tên → thêm getter `PlayerSprite.nameOffsetY`, đặt ở `y - nameOffsetY - 18`.
+  3. `syncDebugTools()` gọi quá sớm (trước khi `topMenu`/`gridOverlay` được tạo) → chuyển xuống ngay sau `setupDebugTools()`.
+  4. `layoutDebugTab` xếp nút theo `tpW`/`cliW` cố định → lệch chồng nhau; đổi sang xếp theo **chiều rộng thật** từng nút (`_dbgSize.w` qua `debugButtonWidth()`).
+  5. Ô gõ lệnh CLI (HTML input) nhảy lên sát đỉnh màn hình → lưu `logBoxLayout` lúc layout và đặt input bằng `modalContainer.getWorldTransformMatrix()` (bắt buộc, vì modal scale theo UI Zoom ~143%; tính tay bằng `contentContainer.x/y` là sai).
+  6. `MODAL_H` 430 → **580** (đủ chứa tab Debug). Lưu ý: **không tăng tiếp**, vượt 580 là tràn đáy màn hình ở UI Zoom mặc định.
+  7. Xung đột `onToggleGrid` (đã có sẵn ở tab Lối chơi) → bỏ bản khai báo trùng, dùng chung 1 callback.
+- **API công khai mới của `SettingsPanel`:** `updateDebugInfo()`, `log()`, `openDebugTab()`, `getDebugState()`, `getActiveTab()`, `setDebugCheckbox()`.
+- **Phím tắt:** `F3`/`F2` và icon Debug trên TopMenu đều gọi `WorldScene.openDebugTab()` (từ chối + báo chat nếu thiếu quyền).
+- ✅ `pnpm run typecheck` 4/4 sạch; ✅ `vite build` thành công.
+- ✅ Đã test trên trình duyệt: role `player` → **không thấy** tab Debug; role `admin` → thấy tab; grid + tracking hiển thị đúng & persist qua reload; toggle toolbar ẩn/hiện icon Debug trên TopMenu (relayout không lệch); F3 mở đúng tab Debug; realtime map/coords cập nhật mỗi frame.
 
 ---
 

@@ -3,7 +3,35 @@ import { C, FONT, ts } from './theme';
 import { UiModal } from './UiModal';
 import type { UiZoomManager } from './UiZoomManager';
 
-export type SettingsTab = 'interface' | 'gameplay' | 'audio' | 'system';
+export type SettingsTab = 'interface' | 'gameplay' | 'audio' | 'system' | 'debug';
+
+/** Thông số bản đồ hiển thị trong tab Debug (lấy từ WorldScene). */
+export interface DebugMapInfo {
+  id: string;
+  name: string;
+  widthTiles: number;
+  heightTiles: number;
+  widthPx: number;
+  heightPx: number;
+  layersCount: number;
+  warpsCount: number;
+  tilesetName: string;
+}
+
+/** Thông số nhân vật hiển thị trong tab Debug (lấy từ WorldScene). */
+export interface DebugPlayerInfo {
+  x: number;
+  y: number;
+  tileX: number;
+  tileY: number;
+  direction: string;
+  isMoving: boolean;
+  speed: number;
+  fps: number;
+  camX: number;
+  camY: number;
+  zoom: number;
+}
 
 export interface SettingsPanelOptions {
   // Bật/tắt từng thành phần UI riêng lẻ
@@ -39,10 +67,30 @@ export interface SettingsPanelOptions {
   onChangeLanguage?: (lang: 'vi' | 'en') => void;
   onLogout?: () => void;
   onClose?: () => void;
+
+  // ── Tab Debug (chỉ hiện khi role >= moderator) ──
+  /** true nếu user đủ quyền xem tab Debug. */
+  canAccessDebug?: boolean;
+  /** Bật/tắt thanh công cụ Debug trên TopMenu. */
+  onToggleDebugToolbar?: (visible: boolean) => void;
+  /**
+   * Bật/tắt lưới toạ độ — DÙNG CHUNG với `onToggleGrid` ở tab Gameplay,
+   * vì cả hai chỉ là 2 lối vào của cùng một overlay. WorldScene sẽ đồng bộ
+   * ngược lại checkbox của cả 2 tab qua `setCheckbox` / `setDebugCheckbox`.
+   */
+  onToggleCoordTracking?: (enabled: boolean) => void;
+  /** Callback debug còn lại (teleport, đổi map, tốc độ, lệnh CLI). */
+  onDebugTeleport?: (x: number, y: number) => void;
+  onDebugSwitchMap?: (mapId: string, x?: number, y?: number) => void;
+  onDebugSetSpeed?: (multiplier: number) => void;
+  onDebugRunCommand?: (cmd: string) => string;
 }
 
 const MODAL_W = 540;
-const MODAL_H = 430;
+// 580 = đủ chứa tab Debug (nội dung dài nhất) + lề dưới cho ô gõ lệnh CLI.
+// KHÔNG tăng thêm — modal đang scale theo UI Zoom (~143%), vượt 580 là tràn
+// khỏi đáy màn hình.
+const MODAL_H = 580;
 
 /**
  * SettingsPanel — Modal Cài đặt đa tab lớn, phân vùng rõ ràng:
@@ -85,6 +133,30 @@ export class SettingsPanel extends UiModal {
   private systemState = {
     lang: 'vi' as 'vi' | 'en',
   };
+
+  // Trạng thái tab Debug (chỉ dùng khi có quyền)
+  private debugState = {
+    toolbar: true,
+    grid: false,
+    tracking: false,
+  };
+
+  /** true nếu tab Debug được phép hiển thị (role >= moderator). */
+  private canAccessDebug = false;
+
+  // Text fields hiển thị thông số động trong tab Debug
+  private txtMapName?: Phaser.GameObjects.Text;
+  private txtMapSize?: Phaser.GameObjects.Text;
+  private txtMapDetails?: Phaser.GameObjects.Text;
+  private txtPlayerPixel?: Phaser.GameObjects.Text;
+  private txtPlayerTile?: Phaser.GameObjects.Text;
+  private txtPlayerState?: Phaser.GameObjects.Text;
+  private txtPerfState?: Phaser.GameObjects.Text;
+  private txtLogOutput?: Phaser.GameObjects.Text;
+  private currentSpeedMult = 1;
+  private commandInputEl: HTMLInputElement | null = null;
+  /** Vị trí khung log trong `contentContainer` — dùng để đặt ô gõ lệnh CLI. */
+  private logBoxLayout?: { x: number; y: number; w: number; h: number };
 
   // Tabs
   private tabButtons: Map<
@@ -135,8 +207,9 @@ export class SettingsPanel extends UiModal {
     });
 
     this.panelOpts = opts;
+    this.canAccessDebug = opts.canAccessDebug === true;
 
-    // Load ngôn ngữ, cơ chế di chuyển và scroll to zoom đã lưu
+    // Load ngôn ngữ, cơ chế di chuyển, scroll to zoom và tuỳ chọn debug đã lưu
     try {
       const savedLang = localStorage.getItem('pixelmon.lang');
       if (savedLang === 'vi' || savedLang === 'en') {
@@ -150,6 +223,12 @@ export class SettingsPanel extends UiModal {
       if (savedScroll === 'true') {
         this.gameplayState.scrollToZoom = true;
       }
+      this.debugState.toolbar = localStorage.getItem('pixelmon.debugToolbar') !== 'false';
+      this.debugState.grid = localStorage.getItem('pixelmon.debugGrid') === 'true';
+      this.debugState.tracking = localStorage.getItem('pixelmon.debugTracking') === 'true';
+      // Grid overlay là MỘT tính năng dùng chung cho Gameplay & Debug →
+      // 2 tab phải khởi tạo từ cùng 1 nguồn để không lệch trạng thái.
+      this.gameplayState.showGrid = this.debugState.grid;
     } catch {
       // ignore
     }
@@ -158,6 +237,9 @@ export class SettingsPanel extends UiModal {
     this.tabObjects.set('gameplay', []);
     this.tabObjects.set('audio', []);
     this.tabObjects.set('system', []);
+    if (this.canAccessDebug) {
+      this.tabObjects.set('debug', []);
+    }
 
     // Ban đầu ẩn modal
     this.modalContainer.setVisible(false);
@@ -173,6 +255,9 @@ export class SettingsPanel extends UiModal {
     this.buildGameplayTab();
     this.buildAudioTab();
     this.buildSystemTab();
+    if (this.canAccessDebug) {
+      this.buildDebugTab();
+    }
 
     // Đưa tất cả nội dung tab vào contentContainer
     this.tabObjects.forEach((objs) => {
@@ -187,6 +272,10 @@ export class SettingsPanel extends UiModal {
       { id: 'audio', label: '🔊 Âm thanh' },
       { id: 'system', label: '⚙ Hệ thống' },
     ];
+    // Tab Debug chỉ xuất hiện khi tài khoản có quyền moderator trở lên.
+    if (this.canAccessDebug) {
+      tabs.push({ id: 'debug', label: '🛠 Debug' });
+    }
 
     for (const t of tabs) {
       const bg = this.scene.add.graphics().setVisible(false);
@@ -345,8 +434,7 @@ export class SettingsPanel extends UiModal {
     list.push(...chkTarget);
 
     const chkGrid = this.createCheckbox('Hiện lưới toạ độ thế giới (Grid Overlay)', this.gameplayState.showGrid, (v) => {
-      this.gameplayState.showGrid = v;
-      this.panelOpts.onToggleGrid?.(v);
+      this.setGridShared(v);
     }, 'showGrid');
     list.push(...chkGrid);
 
@@ -507,6 +595,475 @@ export class SettingsPanel extends UiModal {
     list.push(...btnClose);
   }
 
+  // ── Tab 5: Debug (chỉ hiển thị khi role >= moderator) ─────────────────────
+  /**
+   * Port toàn bộ nội dung của DebugModal cũ (Map Info, Toạ độ, Teleport,
+   * Tốc độ, Console CLI) vào đây, cộng thêm 3 tuỳ chọn công cụ debug
+   * — thanh công cụ, lưới toạ độ và bộ theo dõi toạ độ.
+   */
+  private buildDebugTab(): void {
+    const list = this.tabObjects.get('debug')!;
+    if (!list) return;
+
+    // ── A. Tuỳ chọn công cụ debug ──
+    const lblTools = this.scene.add
+      .text(0, 0, 'CÔNG CỤ HIỂN THỊ CHO KIỂM THỬ HỆ THỐNG MAP & DI CHUYỂN:', ts(11, '#6c5ce7', FONT.ui))
+      .setDepth(203).setScrollFactor(0).setVisible(false);
+    list.push(lblTools);
+
+    const chkToolbar = this.createCheckbox(
+      'Hiện thanh công cụ Debug trên Menu (Debug Toolbar)',
+      this.debugState.toolbar,
+      (v) => {
+        this.debugState.toolbar = v;
+        this.saveDebugPref('pixelmon.debugToolbar', v);
+        this.panelOpts.onToggleDebugToolbar?.(v);
+      },
+      'debugToolbar',
+    );
+    list.push(...chkToolbar);
+
+    const chkGrid = this.createCheckbox(
+      'Lưới toạ độ ô (Grid Overlay)',
+      this.debugState.grid,
+      (v) => this.setGridShared(v),
+      'debugGrid',
+    );
+    list.push(...chkGrid);
+
+    const chkTrack = this.createCheckbox(
+      'Theo dõi toạ độ nhân vật (Coordinate Tracking)',
+      this.debugState.tracking,
+      (v) => {
+        this.debugState.tracking = v;
+        this.saveDebugPref('pixelmon.debugTracking', v);
+        this.panelOpts.onToggleCoordTracking?.(v);
+      },
+      'debugTracking',
+    );
+    list.push(...chkTrack);
+
+    // ── B. Khối Thông Tin Bản Đồ ──
+    const gfxMapBox = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
+    gfxMapBox.fillStyle(0x13152c, 0.9);
+    gfxMapBox.lineStyle(1, 0x2e3358, 0.8);
+    list.push(gfxMapBox);
+
+    const lblMapHeader = this.scene.add
+      .text(0, 0, '🗺 THÔNG TIN BẢN ĐỒ (MAP INFO):', ts(11, '#00cec9', FONT.ui))
+      .setDepth(203).setScrollFactor(0).setVisible(false);
+    list.push(lblMapHeader);
+
+    this.txtMapName = this.scene.add.text(0, 0, 'Map: --', ts(11, '#ffffff', FONT.mono)).setOrigin(0, 0)
+      .setDepth(204).setScrollFactor(0).setVisible(false);
+    this.txtMapSize = this.scene.add.text(0, 0, 'Kích thước: --', ts(11, '#9aa0c3', FONT.mono)).setOrigin(0, 0)
+      .setDepth(204).setScrollFactor(0).setVisible(false);
+    this.txtMapDetails = this.scene.add.text(0, 0, 'Chi tiết: --', ts(11, '#9aa0c3', FONT.mono)).setOrigin(0, 0)
+      .setDepth(204).setScrollFactor(0).setVisible(false);
+    list.push(this.txtMapName, this.txtMapSize, this.txtMapDetails);
+
+    // ── C. Khối Toạ Độ & Trạng Thái Nhân Vật ──
+    const gfxPlayerBox = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
+    gfxPlayerBox.fillStyle(0x13152c, 0.9);
+    gfxPlayerBox.lineStyle(1, 0x2e3358, 0.8);
+    list.push(gfxPlayerBox);
+
+    const lblPlayerHeader = this.scene.add
+      .text(0, 0, '📍 TOẠ ĐỘ & NHÂN VẬT (COORDINATES):', ts(11, '#fdcb6e', FONT.ui))
+      .setDepth(203).setScrollFactor(0).setVisible(false);
+    list.push(lblPlayerHeader);
+
+    this.txtPlayerPixel = this.scene.add.text(0, 0, 'Toạ độ Pixel: X=--, Y=--', ts(11, '#00cec9', FONT.mono))
+      .setOrigin(0, 0).setDepth(204).setScrollFactor(0).setVisible(false);
+    this.txtPlayerTile = this.scene.add.text(0, 0, 'Toạ độ Ô Tile: [X=--, Y=--]', ts(11, '#ffffff', FONT.mono))
+      .setOrigin(0, 0).setDepth(204).setScrollFactor(0).setVisible(false);
+    this.txtPlayerState = this.scene.add.text(0, 0, 'Hướng: -- | Trạng thái: --', ts(11, '#9aa0c3', FONT.mono))
+      .setOrigin(0, 0).setDepth(204).setScrollFactor(0).setVisible(false);
+    this.txtPerfState = this.scene.add
+      .text(0, 0, 'FPS: -- | Camera: (0, 0) | Zoom: 1.0x', ts(10, '#636e72', FONT.mono))
+      .setOrigin(0, 0).setDepth(204).setScrollFactor(0).setVisible(false);
+    list.push(this.txtPlayerPixel, this.txtPlayerTile, this.txtPlayerState, this.txtPerfState);
+
+    // ── D. Chuyển Nhanh Map (Teleport Presets) ──
+    const lblTp = this.scene.add
+      .text(0, 0, '🚀 CHUYỂN BẢN ĐỒ NHANH (QUICK TELEPORT):', ts(11, '#6c5ce7', FONT.ui))
+      .setOrigin(0, 0).setDepth(203).setScrollFactor(0).setVisible(false);
+    list.push(lblTp);
+
+    const maps = [
+      { id: 'lappet-town', label: 'Lappet Town', x: 256, y: 256 },
+      { id: 'players-house', label: 'Nhà Player', x: 96, y: 256 },
+      { id: 'pokemon-lab', label: 'Pokémon Lab', x: 192, y: 384 },
+      { id: 'route-1', label: 'Route 1', x: 416, y: 704 },
+      { id: 'daisys-house', label: 'Nhà Daisy', x: 160, y: 224 },
+    ];
+    maps.forEach((m) => {
+      list.push(
+        ...this.createDebugButton(m.label, 0x2e3358, () => {
+          this.logDebug(`Teleport tới ${m.label} (${m.x}, ${m.y})...`);
+          this.panelOpts.onDebugSwitchMap?.(m.id, m.x, m.y);
+        }),
+      );
+    });
+
+    // ── E. Tốc độ di chuyển ──
+    const lblSpeed = this.scene.add
+      .text(0, 0, '⚡ TỐC ĐỘ DI CHUYỂN:', ts(11, '#00b894', FONT.ui))
+      .setOrigin(0, 0).setDepth(203).setScrollFactor(0).setVisible(false);
+    list.push(lblSpeed);
+
+    [1, 2, 3, 5].forEach((mult) => {
+      list.push(
+        ...this.createDebugButton(
+          `${mult}x`,
+          mult === 1 ? 0x00cec9 : 0x2e3358,
+          () => {
+            this.currentSpeedMult = mult;
+            this.panelOpts.onDebugSetSpeed?.(mult);
+            this.logDebug(`Tốc độ di chuyển nhân vật: ${mult}x`);
+          },
+        ),
+      );
+    });
+
+    // ── F. Console CLI ──
+    const lblCli = this.scene.add
+      .text(0, 0, '💻 LỆNH DEBUG CONSOLE (/tp, /speed, /pos, /help):', ts(11, '#e8eaf6', FONT.ui))
+      .setOrigin(0, 0).setDepth(203).setScrollFactor(0).setVisible(false);
+    list.push(lblCli);
+
+    list.push(
+      ...this.createDebugButton('⌨ Nhập lệnh CLI...', 0x00cec9, () => this.openCommandInput(), 0x0f1020),
+      ...this.createDebugButton('📋 Sao chép toạ độ', 0x2e3358, () => {
+        const text = `${this.txtPlayerPixel?.text ?? ''} | ${this.txtPlayerTile?.text ?? ''}`;
+        navigator.clipboard?.writeText(text).then(() => this.logDebug('Đã sao chép toạ độ vào Clipboard!'));
+      }),
+      ...this.createDebugButton('🗑 Xoá log', 0x2e3358, () => {
+        this.txtLogOutput?.setText('[Sẵn sàng nhận lệnh debug]');
+      }),
+    );
+
+    // Khung log output
+    const gfxLogBox = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
+    gfxLogBox.fillStyle(0x0a0c16, 0.95);
+    gfxLogBox.lineStyle(1, 0x1f233f, 1);
+    list.push(gfxLogBox);
+
+    this.txtLogOutput = this.scene.add
+      .text(0, 0, '[Sẵn sàng nhận lệnh debug (/tp, /speed, /help)]', {
+        fontSize: '11px',
+        fontFamily: FONT.mono,
+        color: '#a29bfe',
+        wordWrap: { width: MODAL_W - 56 },
+      })
+      .setOrigin(0, 0)
+      .setDepth(204).setScrollFactor(0).setVisible(false);
+    list.push(this.txtLogOutput);
+  }
+
+  /**
+   * Bật/tắt lưới toạ độ — dùng chung cho tab Gameplay và tab Debug
+   * (cả 2 chỉ là 2 lối vào của cùng một overlay trên WorldScene).
+   */
+  private setGridShared(v: boolean): void {
+    this.gameplayState.showGrid = v;
+    this.debugState.grid = v;
+    this.saveDebugPref('pixelmon.debugGrid', v);
+    this.panelOpts.onToggleGrid?.(v);
+    // Đồng bộ checkbox của cả 2 tab.
+    this.checkboxSetters.get('showGrid')?.(v);
+    this.checkboxSetters.get('debugGrid')?.(v);
+  }
+
+  private saveDebugPref(key: string, val: boolean): void {
+    try {
+      localStorage.setItem(key, val ? 'true' : 'false');
+    } catch {
+      // ignore
+    }
+  }
+
+  private logDebug(msg: string): void {
+    const time = new Date().toLocaleTimeString('vi-VN');
+    this.txtLogOutput?.setText(`[${time}] ${msg}`);
+  }
+
+  /** Nút bấm trong tab Debug — dùng chung style với nút của DebugModal cũ. */
+  private createDebugButton(
+    label: string,
+    bgColor: number,
+    onClick: () => void,
+    textColor = 0xffffff,
+  ): Array<Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible> {
+    const w = Math.max(60, Math.ceil(label.length * 7) + 16);
+    const h = 24;
+
+    const bg = this.scene.add.graphics().setDepth(203).setScrollFactor(0).setVisible(false);
+    const txt = this.scene.add
+      .text(0, 0, label, {
+        fontSize: '11px',
+        fontFamily: FONT.ui,
+        color: textColor === 0xffffff ? '#ffffff' : '#0f1020',
+      })
+      .setOrigin(0.5)
+      .setDepth(204).setScrollFactor(0).setVisible(false);
+    const zone = this.scene.add
+      .zone(0, 0, 10, 10)
+      .setOrigin(0.5)
+      .setDepth(205).setScrollFactor(0).setVisible(false)
+      .setInteractive({ useHandCursor: true });
+
+    let hover = false;
+    let bx = 0;
+    let by = 0;
+    const draw = () => {
+      bg.clear();
+      bg.fillStyle(hover ? 0x6c5ce7 : bgColor, 0.95);
+      bg.fillRoundedRect(bx, by, w, h, 4);
+      bg.lineStyle(1, hover ? 0xa29bfe : 0x3d447a, 1);
+      bg.strokeRoundedRect(bx, by, w, h, 4);
+    };
+
+    zone.on('pointerover', () => {
+      hover = true;
+      draw();
+    });
+    zone.on('pointerout', () => {
+      hover = false;
+      draw();
+    });
+    zone.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      p.event?.stopPropagation();
+      onClick();
+    });
+
+    // Layout callback — đặt lại toạ độ và vẽ lại (color/hover giữ nguyên).
+    (zone as any)._dbgLayout = (nx: number, ny: number) => {
+      bx = nx;
+      by = ny;
+      draw();
+      txt.setPosition(nx + w / 2, ny + h / 2);
+      zone.setPosition(nx + w / 2, ny + h / 2).setSize(w, h);
+    };
+    (zone as any)._dbgSize = { w, h };
+    return [bg, txt, zone];
+  }
+
+  /** Đặt toạ độ 1 nút của tab Debug (do `createDebugButton` tạo). */
+  private positionDebugButton(
+    bgObj: unknown,
+    txtObj: unknown,
+    zoneObj: unknown,
+    x: number,
+    y: number,
+  ): void {
+    const zone = zoneObj as { _dbgLayout?: (x: number, y: number) => void };
+    if (zone?._dbgLayout) {
+      zone._dbgLayout(x, y);
+      return;
+    }
+    // Fallback (không có layout fn) — chỉ đặt toạ độ.
+    (bgObj as any)?.position?.(x, y);
+    (txtObj as any)?.setPosition?.(x, y);
+    (zoneObj as any)?.setPosition?.(x, y);
+  }
+
+  /** Chiều rộng của nút debug do `createDebugButton` tạo. */
+  private debugButtonWidth(zoneObj: unknown): number {
+    return (zoneObj as any)?._dbgSize?.w ?? 76;
+  }
+
+  /** Cập nhật thông số Debug thời gian thực (gọi từ WorldScene.update). */
+  public updateDebugInfo(mapInfo: DebugMapInfo, playerInfo: DebugPlayerInfo): void {
+    this.txtMapName?.setText(`Map: ${mapInfo.name} (${mapInfo.id})`);
+    this.txtMapSize?.setText(
+      `Kích thước: ${mapInfo.widthTiles}×${mapInfo.heightTiles} ô (${mapInfo.widthPx}×${mapInfo.heightPx} px)`,
+    );
+    this.txtMapDetails?.setText(
+      `Tileset: ${mapInfo.tilesetName} | Layers: ${mapInfo.layersCount} | Warps: ${mapInfo.warpsCount}`,
+    );
+
+    this.txtPlayerPixel?.setText(
+      `Toạ độ Pixel: X=${playerInfo.x.toFixed(1)} px, Y=${playerInfo.y.toFixed(1)} px`,
+    );
+    this.txtPlayerTile?.setText(`Toạ độ Ô Tile: [X: ${playerInfo.tileX}, Y: ${playerInfo.tileY}]`);
+    this.txtPlayerState?.setText(
+      `Hướng: ${playerInfo.direction.toUpperCase()} | Trạng thái: ${
+        playerInfo.isMoving ? 'ĐANG DI CHUYỂN' : 'ĐỨNG YÊN'
+      } | Speed: ${this.currentSpeedMult}x`,
+    );
+    this.txtPerfState?.setText(
+      `FPS: ${playerInfo.fps} | Camera: (${playerInfo.camX}, ${playerInfo.camY}) | Zoom: ${playerInfo.zoom.toFixed(2)}x`,
+    );
+  }
+
+  /** Ghi một dòng vào khung log của tab Debug. */
+  public log(msg: string): void {
+    this.logDebug(msg);
+  }
+
+  /** Mở Settings và nhảy thẳng sang tab Debug (dùng cho phím tắt F3/F2). */
+  public openDebugTab(): void {
+    if (!this.canAccessDebug) return;
+    this.activeTab = 'debug';
+    this.show();
+  }
+
+  /** Trạng thái các công cụ debug hiện tại — WorldScene đọc để đồng bộ UI. */
+  public getDebugState(): { toolbar: boolean; grid: boolean; tracking: boolean } {
+    return { ...this.debugState };
+  }
+
+  /** Tab đang hiển thị (dùng để biết có nên đẩy thông số realtime hay không). */
+  public getActiveTab(): SettingsTab {
+    return this.activeTab;
+  }
+
+  /** Đồng bộ checkbox debug từ bên ngoài. */
+  public setDebugCheckbox(key: 'toolbar' | 'grid' | 'tracking', checked: boolean): void {
+    this.debugState[key] = checked;
+    const idKey = key === 'toolbar' ? 'debugToolbar' : key === 'grid' ? 'debugGrid' : 'debugTracking';
+    this.checkboxSetters.get(idKey)?.(checked);
+  }
+
+  /** Mở ô gõ lệnh CLI (HTML input nổi phía dưới tab Debug). */
+  private openCommandInput(): void {
+    if (this.commandInputEl) {
+      this.removeCommandInput();
+      return;
+    }
+    if (!this.open) return;
+
+    const { actualW, actualH } = this.getScaleAndBounds();
+    const X = this.currentX;
+    const Y = this.currentY;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Gõ lệnh debug: /tp 256 256 | /speed 2 | /pos | /help';
+    input.style.cssText = `
+      position:absolute; padding:6px 10px; font-size:12px; font-family:monospace;
+      border:1px solid #00cec9; background:#0f1020; color:#55efc4;
+      border-radius:4px; outline:none; z-index:1005; box-shadow: 0 4px 16px rgba(0,0,0,0.8);
+    `;
+
+    const rect = this.scene.scale.canvas.getBoundingClientRect();
+    const scaleX = rect.width / this.scene.scale.width;
+    const scaleY = rect.height / this.scene.scale.height;
+    const inputH = 30;
+
+    // Toạ độ tuyệt đối của khung log qua world-transform của modal container.
+    // CHỈ dùng `contentContainer.x/y + lb.y` là sai vì modal đang được scale
+    // theo UI Zoom (vd. 150%) → input nhảy ra giữa panel.
+    let inputX = X;
+    let inputW = actualW;
+    let inputY = Y + actualH + 4;
+
+    const lb = this.logBoxLayout;
+    if (lb) {
+      const m = this.modalContainer.getWorldTransformMatrix();
+      const p = m.transformPoint(
+        this.contentContainer.x + lb.x,
+        this.contentContainer.y + lb.y + lb.h + 6,
+      );
+      inputX = p.x;
+      inputY = p.y;
+      inputW = lb.w * m.a;
+    } else {
+      // Không có khung log (chưa vào tab Debug) → đặt sát đáy panel.
+      inputY = Y + actualH + 4;
+    }
+
+    // Tràn quá dưới đáy canvas → đưa lên TRÊN khung log (vẫn nằm trong modal)
+    if (lb && inputY + inputH > this.scene.scale.height - 4) {
+      const m = this.modalContainer.getWorldTransformMatrix();
+      const p = m.transformPoint(
+        this.contentContainer.x + lb.x,
+        this.contentContainer.y + lb.y - 6,
+      );
+      inputY = p.y - inputH;
+    } else if (inputY + inputH > this.scene.scale.height - 4) {
+      inputY = Math.max(4, Y - inputH - 4);
+    }
+    if (inputY < 4) inputY = 4;
+    if (inputX + inputW > this.scene.scale.width - 4) inputW = this.scene.scale.width - 4 - inputX;
+
+    input.style.left = `${rect.left + inputX * scaleX}px`;
+    input.style.top = `${rect.top + inputY * scaleY}px`;
+    input.style.width = `${inputW * scaleX}px`;
+    input.style.height = `${inputH * scaleY}px`;
+
+    document.body.appendChild(input);
+    input.focus();
+    this.commandInputEl = input;
+
+    const submit = () => {
+      const cmd = input.value.trim();
+      if (cmd) this.executeDebugCommand(cmd);
+      this.removeCommandInput();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+      if (e.key === 'Escape') this.removeCommandInput();
+      e.stopPropagation();
+    });
+  }
+
+  private executeDebugCommand(cmd: string): void {
+    const parts = cmd.trim().split(/\s+/);
+    const command = parts[0]?.toLowerCase();
+
+    if (command === '/tp') {
+      if (parts.length === 2) {
+        this.logDebug(`Đang chuyển tới map: ${parts[1]}`);
+        this.panelOpts.onDebugSwitchMap?.(parts[1]);
+      } else if (parts.length >= 3) {
+        const x = parseFloat(parts[1]);
+        const y = parseFloat(parts[2]);
+        if (!isNaN(x) && !isNaN(y)) {
+          this.logDebug(`Teleport tới: (${x}, ${y})`);
+          this.panelOpts.onDebugTeleport?.(x, y);
+        } else {
+          this.logDebug(`Lỗi: Toạ độ không hợp lệ: ${parts[1]}, ${parts[2]}`);
+        }
+      } else {
+        this.logDebug('Cú pháp: /tp <x> <y> hoặc /tp <mapId>');
+      }
+    } else if (command === '/speed') {
+      const mult = parseFloat(parts[1]);
+      if (!isNaN(mult) && mult > 0) {
+        this.currentSpeedMult = mult;
+        this.panelOpts.onDebugSetSpeed?.(mult);
+        this.logDebug(`Đã đổi tốc độ sang: ${mult}x`);
+      } else {
+        this.logDebug('Cú pháp: /speed <hệ số> (ví dụ: /speed 2)');
+      }
+    } else if (command === '/pos') {
+      this.logDebug(`${this.txtPlayerPixel?.text ?? ''} | ${this.txtPlayerTile?.text ?? ''}`);
+    } else if (command === '/help') {
+      this.logDebug('Lệnh có sẵn: /tp <x> <y>, /tp <mapId>, /speed <hệ_số>, /pos, /clear');
+    } else if (command === '/clear') {
+      this.txtLogOutput?.setText('[Sẵn sàng nhận lệnh debug]');
+    } else if (this.panelOpts.onDebugRunCommand) {
+      this.logDebug(this.panelOpts.onDebugRunCommand(cmd));
+    } else {
+      this.logDebug(`Lệnh không nhận diện: "${cmd}". Gõ /help để xem hướng dẫn.`);
+    }
+  }
+
+  private removeCommandInput(): void {
+    if (this.commandInputEl) {
+      this.commandInputEl.remove();
+      this.commandInputEl = null;
+    }
+  }
+
+  override destroy(): void {
+    this.removeCommandInput();
+    super.destroy();
+  }
+
   public setScrollToZoom(enabled: boolean): void {
     this.gameplayState.scrollToZoom = enabled;
     try {
@@ -588,6 +1145,23 @@ export class SettingsPanel extends UiModal {
     this.audioState.sfx = true;
     this.checkboxSetters.get('sfx')?.(true);
     this.panelOpts.onToggleSfx?.(true);
+
+    // 8. Reset công cụ Debug (chỉ khi tab Debug đang có quyền truy cập)
+    if (this.canAccessDebug) {
+      const dbgDefaults = { toolbar: true, grid: false, tracking: false };
+      (['toolbar', 'grid', 'tracking'] as const).forEach((k) => {
+        const v = dbgDefaults[k];
+        this.debugState[k] = v;
+        this.setDebugCheckbox(k, v);
+        this.saveDebugPref(
+          k === 'toolbar' ? 'pixelmon.debugToolbar' : k === 'grid' ? 'pixelmon.debugGrid' : 'pixelmon.debugTracking',
+          v,
+        );
+      });
+      this.panelOpts.onToggleDebugToolbar?.(true);
+      this.panelOpts.onToggleGrid?.(false);
+      this.panelOpts.onToggleCoordTracking?.(false);
+    }
 
     this.updateZoomLabels();
     this.relayout();
@@ -751,11 +1325,11 @@ export class SettingsPanel extends UiModal {
 
     // Tab buttons layout trong contentContainer
     const tabY = 10;
-    const tabW = Math.floor((MODAL_W - 32) / 4);
+    const tabW = Math.floor((MODAL_W - 32) / this.visibleTabKeys().length);
     const tabH = 30;
     let curTabX = 16;
 
-    const tabKeys: SettingsTab[] = ['interface', 'gameplay', 'audio', 'system'];
+    const tabKeys = this.visibleTabKeys();
     for (const key of tabKeys) {
       const btn = this.tabButtons.get(key);
       if (!btn) continue;
@@ -807,7 +1381,113 @@ export class SettingsPanel extends UiModal {
       case 'system':
         this.layoutSystemTab(contentX, contentY, contentW);
         break;
+      case 'debug':
+        this.layoutDebugTab(contentX, contentY, contentW);
+        break;
     }
+  }
+
+  /** Danh sách tab được hiển thị — tab Debug chỉ có khi user đủ quyền. */
+  private visibleTabKeys(): SettingsTab[] {
+    const base: SettingsTab[] = ['interface', 'gameplay', 'audio', 'system'];
+    return this.canAccessDebug ? [...base, 'debug'] : base;
+  }
+
+  private layoutDebugTab(x: number, y: number, w: number): void {
+    const list = this.tabObjects.get('debug')!;
+    let curY = y;
+
+    // ── A. 3 checkbox công cụ debug ──
+    const lblTools = list[0] as Phaser.GameObjects.Text;
+    lblTools.setPosition(x, curY);
+    curY += 22;
+
+    // Mỗi checkbox = 4 object (boxGfx, checkText, labelText, hitZone)
+    this.positionCheckbox(list, 1, x, curY, w);
+    curY += 24;
+    this.positionCheckbox(list, 5, x, curY, w);
+    curY += 24;
+    this.positionCheckbox(list, 9, x, curY, w);
+    curY += 26;
+
+    // ── B. Map Info box ──
+    const mapBox = list[13] as Phaser.GameObjects.Graphics;
+    mapBox.clear();
+    mapBox.fillStyle(0x13152c, 0.9);
+    mapBox.fillRoundedRect(x, curY, w, 76, 6);
+    mapBox.lineStyle(1, 0x2e3358, 0.8);
+    mapBox.strokeRoundedRect(x, curY, w, 76, 6);
+
+    (list[14] as Phaser.GameObjects.Text).setPosition(x + 8, curY + 6);
+    (list[15] as Phaser.GameObjects.Text).setPosition(x + 12, curY + 24);
+    (list[16] as Phaser.GameObjects.Text).setPosition(x + 12, curY + 40);
+    (list[17] as Phaser.GameObjects.Text).setPosition(x + 12, curY + 56);
+    curY += 86;
+
+    // ── C. Player / Coordinates box ──
+    const playerBox = list[18] as Phaser.GameObjects.Graphics;
+    playerBox.clear();
+    playerBox.fillStyle(0x13152c, 0.9);
+    playerBox.fillRoundedRect(x, curY, w, 88, 6);
+    playerBox.lineStyle(1, 0x2e3358, 0.8);
+    playerBox.strokeRoundedRect(x, curY, w, 88, 6);
+
+    (list[19] as Phaser.GameObjects.Text).setPosition(x + 8, curY + 6);
+    (list[20] as Phaser.GameObjects.Text).setPosition(x + 12, curY + 24);
+    (list[21] as Phaser.GameObjects.Text).setPosition(x + 12, curY + 40);
+    (list[22] as Phaser.GameObjects.Text).setPosition(x + 12, curY + 56);
+    (list[23] as Phaser.GameObjects.Text).setPosition(x + 12, curY + 72);
+    curY += 98;
+
+    // ── D. Teleport presets (1 hàng, xếp theo CHIỀU RỘT THẬT từng nút) ──
+    (list[24] as Phaser.GameObjects.Text).setPosition(x, curY);
+    curY += 18;
+
+    let cx = x;
+    for (let i = 0; i < 5; i++) {
+      const idx = 25 + i * 3;
+      this.positionDebugButton(list[idx], list[idx + 1], list[idx + 2], cx, curY);
+      cx += this.debugButtonWidth(list[idx + 2]) + 6;
+    }
+    curY += 32;
+
+    // ── E. Speed buttons (1 hàng, bắt đầu sau label "TỐC ĐỘ DI CHUYỂN:") ──
+    (list[40] as Phaser.GameObjects.Text).setPosition(x, curY);
+    curY += 18;
+
+    let sx = x + 140;
+    for (let i = 0; i < 4; i++) {
+      const idx = 41 + i * 3;
+      this.positionDebugButton(list[idx], list[idx + 1], list[idx + 2], sx, curY - 2);
+      sx += this.debugButtonWidth(list[idx + 2]) + 5;
+    }
+    curY += 28;
+
+    // ── F. CLI buttons (1 hàng, xếp theo chiều rộng thật) ──
+    (list[53] as Phaser.GameObjects.Text).setPosition(x, curY);
+    curY += 18;
+
+    let kx = x;
+    for (let i = 0; i < 3; i++) {
+      const idx = 54 + i * 3;
+      this.positionDebugButton(list[idx], list[idx + 1], list[idx + 2], kx, curY);
+      kx += this.debugButtonWidth(list[idx + 2]) + 6;
+    }
+    curY += 34;
+
+    // ── G. Log output box ──
+    const logBox = list[63] as Phaser.GameObjects.Graphics;
+    logBox.clear();
+    logBox.fillStyle(0x0a0c16, 0.95);
+    logBox.fillRoundedRect(x, curY, w, 48, 4);
+    logBox.lineStyle(1, 0x1f233f, 1);
+    logBox.strokeRoundedRect(x, curY, w, 48, 4);
+
+    (list[64] as Phaser.GameObjects.Text).setPosition(x + 8, curY + 6);
+
+    // Ghi lại vị trí khung log (toạ độ trong `contentContainer`) để
+    // `openCommandInput` đặt ô gõ lệnh ngay dưới nó như prompt console.
+    this.logBoxLayout = { x, y: curY, w, h: 48 };
   }
 
   private layoutInterfaceTab(x: number, y: number, w: number): void {

@@ -11,12 +11,11 @@ import { PlayerHud } from '../ui/PlayerHud';
 import { PartyStrip, type PartyMember } from '../ui/PartyStrip';
 import { Minimap } from '../ui/Minimap';
 import { ChatLog } from '../ui/ChatLog';
-import { SettingsPanel } from '../ui/SettingsPanel';
+import { SettingsPanel, type DebugMapInfo, type DebugPlayerInfo } from '../ui/SettingsPanel';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { HelpModal } from '../ui/HelpModal';
 import { PcBoxModal } from '../ui/PcBoxModal';
 import { PokemonSummaryModal, type PokemonData } from '../ui/PokemonSummaryModal';
-import { DebugModal, type DebugMapInfo, type DebugPlayerInfo } from '../ui/DebugModal';
 import { TopMenu } from '../ui/TopMenu';
 import { InfoPanel } from '../ui/InfoPanel';
 import { UiZoomManager } from '../ui/UiZoomManager';
@@ -25,6 +24,13 @@ import { TEX } from './BootScene';
 
 /** Bật để thấy FPS + toạ độ. */
 const DEBUG = false;
+
+/**
+ * Depth cho các công cụ debug của Settings > tab Debug.
+ * Phải > 30 (tầng `overhead` của tilemap) để không bị map che, và < 100 (HUD).
+ */
+const DEBUG_GRID_DEPTH = 31;
+const DEBUG_TRACKER_DEPTH = 33;
 
 /** Bật để dùng Tiled map thật (thay vì PlaceholderMap). */
 let USE_TILED_MAP = true;
@@ -75,7 +81,10 @@ export class WorldScene extends Phaser.Scene {
   private helpModal!: HelpModal;
   private pcBoxModal!: PcBoxModal;
   private pokemonSummaryModal!: PokemonSummaryModal;
-  private debugModal!: DebugModal;
+  /** Lưới toạ độ 32px vẽ trong world space (công cụ debug map). */
+  private gridOverlay?: Phaser.GameObjects.Graphics;
+  /** Nhãn toạ độ bám theo nhân vật (công cụ tracking toạ độ). */
+  private coordTracker?: Phaser.GameObjects.Text;
   private currentMapId: string = DEFAULT_MAP_ID;
   private speedMultiplier = 1;
   private playerPokemonParty: PokemonData[] = [];
@@ -409,7 +418,6 @@ export class WorldScene extends Phaser.Scene {
       ...(this.helpModal ? this.helpModal.getGameObjects() : []),
       ...(this.pcBoxModal ? this.pcBoxModal.getGameObjects() : []),
       ...(this.pokemonSummaryModal ? this.pokemonSummaryModal.getGameObjects() : []),
-      ...(this.debugModal ? this.debugModal.getGameObjects() : []),
     ];
     if (this.debugText) objs.push(this.debugText);
     return objs;
@@ -423,6 +431,9 @@ export class WorldScene extends Phaser.Scene {
       // sẽ không bị ignore ở uiCam → render bởi cả 2 camera → bảng tên nhân đôi.
       ...this.player.getChildObjects(),
     ];
+    // Công cụ debug (grid overlay, nhãn tracking toạ độ) thuộc thế giới game.
+    if (this.gridOverlay) objs.push(this.gridOverlay);
+    if (this.coordTracker) objs.push(this.coordTracker);
 
     // Map Tiled có nhiều tilelayer (Ground/Decoration/Overhead) → push tất cả.
     if (this.tiledLayers.length > 0) {
@@ -809,6 +820,26 @@ export class WorldScene extends Phaser.Scene {
       getGameZoom: () => this.getGameZoom(),
       onLogout: () => this.confirmLogout(),
       onClose: () => undefined,
+      // ── Tab Debug (chỉ hiện khi role >= moderator) ──
+      canAccessDebug: ColyseusManager.getInstance().hasDebugAccess(),
+      onToggleDebugToolbar: (v) => {
+        this.topMenu?.setIconVisible('debug', v);
+        this.settingsPanel?.setDebugCheckbox('toolbar', v);
+      },
+      onToggleGrid: (v) => {
+        this.setGridOverlay(v);
+        this.settingsPanel?.setDebugCheckbox('grid', v);
+      },
+      onToggleCoordTracking: (v) => {
+        this.setCoordTracking(v);
+        this.settingsPanel?.setDebugCheckbox('tracking', v);
+      },
+      onDebugTeleport: (x, y) => this.teleportPlayer(x, y),
+      onDebugSwitchMap: (mapId, x, y) => this.switchMap(mapId, x, y),
+      onDebugSetSpeed: (mult) => {
+        this.speedMultiplier = mult;
+      },
+      onDebugRunCommand: (cmd) => this.handleDebugCommand(cmd),
     });
     this.settingsPanel.setUiZoomManager(this.uiZoom);
 
@@ -844,26 +875,19 @@ export class WorldScene extends Phaser.Scene {
     );
     this.pcBoxModal.setUiZoomManager(this.uiZoom);
 
-    // DebugModal — panel debug hiển thị toạ độ, map và chạy lệnh
-    this.debugModal = new DebugModal(this, {
-      onTeleport: (x, y) => this.teleportPlayer(x, y),
-      onSwitchMap: (mapId, x, y) => this.switchMap(mapId, x, y),
-      onSetSpeed: (mult) => {
-        this.speedMultiplier = mult;
-      },
-      onRunCommand: (cmd) => this.handleDebugCommand(cmd),
-      onClose: () => this.topMenu?.setActive(''),
-    });
-    this.debugModal.setUiZoomManager(this.uiZoom);
+    // ── Công cụ Debug (chỉ bật cho tài khoản moderator trở lên) ──
+    this.setupDebugTools();
+    // Đồng bộ trạng thái đã lưu: thanh công cụ + grid + tracking.
+    this.syncDebugTools();
 
-    // Phím tắt F3 / F2 bật/tắt Debug Panel
+    // Phím tắt F3 / F2 mở Settings ở tab Debug
     this.input.keyboard?.on('keydown-F3', (e: KeyboardEvent) => {
       e.preventDefault();
-      this.toggleDebugModal();
+      this.openDebugTab();
     });
     this.input.keyboard?.on('keydown-F2', (e: KeyboardEvent) => {
       e.preventDefault();
-      this.toggleDebugModal();
+      this.openDebugTab();
     });
 
     // Áp dụng responsive mode ban đầu và lắng nghe sự kiện
@@ -884,7 +908,6 @@ export class WorldScene extends Phaser.Scene {
     this.helpModal?.relayout();
     this.pcBoxModal?.relayout();
     this.pokemonSummaryModal?.relayout();
-    this.debugModal?.relayout();
     if (this.minimap && this.player) {
       this.minimap.update(this.player.x, this.player.y, this.cameras.main);
     }
@@ -993,7 +1016,7 @@ export class WorldScene extends Phaser.Scene {
         break;
       }
       case 'debug':
-        this.toggleDebugModal();
+        this.openDebugTab();
         break;
       case 'settings':
         this.settingsPanel.toggle();
@@ -1498,10 +1521,11 @@ export class WorldScene extends Phaser.Scene {
       this.player.animateWalk(delta, this.moving);
     }
     this.interpolateRemotePlayers(delta);
+    this.updateCoordTracker();
     this.minimap?.update(this.player.x, this.player.y, this.cameras.main);
 
-    // Cập nhật thông số thời gian thực vào DebugModal nếu đang mở
-    if (this.debugModal?.isOpen() && !this.debugModal.isMinimizedState()) {
+    // Cập nhật thông số thời gian thực vào tab Debug (nếu đang mở)
+    if (this.settingsPanel?.isOpen() && this.settingsPanel.getActiveTab() === 'debug') {
       const mapMeta = MAPS[this.currentMapId];
       const tmj = TILED_MAPS[this.currentMapId];
       const objGroup = tmj?.layers?.find((l: any) => l.type === 'objectgroup');
@@ -1537,7 +1561,7 @@ export class WorldScene extends Phaser.Scene {
         zoom: cam.zoom,
       };
 
-      this.debugModal.updateDebugInfo(mapInfo, playerInfo);
+      this.settingsPanel.updateDebugInfo(mapInfo, playerInfo);
     }
 
     if (DEBUG && this.debugText) {
@@ -1553,9 +1577,117 @@ export class WorldScene extends Phaser.Scene {
 
   // ── 6. Debug Helpers ────────────────────────────────────────────────────
 
-  public toggleDebugModal(): void {
-    this.debugModal.toggle();
-    this.topMenu?.setActive(this.debugModal.isOpen() ? 'debug' : '');
+  /** Mở Settings ở tab Debug (chỉ hoạt động khi user đủ quyền). */
+  public openDebugTab(): void {
+    if (!ColyseusManager.getInstance().hasDebugAccess()) {
+      this.chatLog?.addLine('[debug] Cần quyền moderator trở lên để dùng công cụ Debug.');
+      return;
+    }
+    this.settingsPanel?.openDebugTab();
+    this.topMenu?.setActive('settings');
+  }
+
+  /**
+   * Khởi tạo & đồng bộ trạng thái 3 công cụ debug từ Settings:
+   * thanh công cụ Debug, lưới toạ độ, bộ theo dõi toạ độ.
+   */
+  private setupDebugTools(): void {
+    // Depth phải CAO hơn mọi tầng tilemap (ground 10, deco 12, overhead 30)
+    // để lưới vẽ đè lên nhà/cây — công cụ kiểm tra ô mà bị tàng che thì vô nghĩa.
+    // 31: cao hơn overhead (30) nhưng vẫn dưới HUD (100+).
+    this.gridOverlay = this.add
+      .graphics()
+      .setDepth(DEBUG_GRID_DEPTH)
+      .setVisible(false)
+      .setScrollFactor(1);
+    this.registerWorldObject(this.gridOverlay);
+
+    // Nhãn toạ độ nằm trên tầng overhead + trên đầu nhân vật.
+    // `stroke` đen để đọc được trên nền cỏ/sàn sáng.
+    this.coordTracker = this.add
+      .text(0, 0, '', {
+        fontSize: '11px',
+        fontFamily: FONT.mono,
+        color: '#00cec9',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(DEBUG_TRACKER_DEPTH)
+      .setScrollFactor(1)
+      .setVisible(false);
+    this.registerWorldObject(this.coordTracker);
+  }
+
+  /** Áp dụng trạng thái đã lưu (từ Settings) vào UI — gọi sau khi tạo panel. */
+  private syncDebugTools(): void {
+    // Không đủ quyền → ẩn hẳn icon Debug trên TopMenu, không mở debug tab.
+    if (!ColyseusManager.getInstance().hasDebugAccess()) {
+      this.topMenu?.setIconVisible('debug', false);
+      return;
+    }
+    const st = this.settingsPanel?.getDebugState();
+    if (!st) return;
+    this.topMenu?.setIconVisible('debug', st.toolbar);
+    this.setGridOverlay(st.grid);
+    this.setCoordTracking(st.tracking);
+  }
+
+  private setGridOverlay(on: boolean): void {
+    if (!this.gridOverlay) return;
+    this.gridOverlay.setVisible(on);
+    if (on) this.drawGrid();
+  }
+
+  private setCoordTracking(on: boolean): void {
+    this.coordTracker?.setVisible(on);
+    if (!on) this.coordTracker?.setText('');
+  }
+
+  /** Vẽ lưới 32px phủ toàn map để kiểm tra toạ độ ô & vùng va chạm. */
+  private drawGrid(): void {
+    const g = this.gridOverlay;
+    if (!g) return;
+    g.clear();
+
+    const cols = Math.round(this.mapWidth / TILE_SIZE);
+    const rows = Math.round(this.mapHeight / TILE_SIZE);
+
+    // Lưới phụ (viền từng ô)
+    g.lineStyle(1, 0x00cec9, 0.35);
+    for (let c = 0; c <= cols; c++) {
+      g.lineBetween(c * TILE_SIZE, 0, c * TILE_SIZE, rows * TILE_SIZE);
+    }
+    for (let r = 0; r <= rows; r++) {
+      g.lineBetween(0, r * TILE_SIZE, cols * TILE_SIZE, r * TILE_SIZE);
+    }
+
+    // Lưới chính (mỗi 8 ô) — dùng để đếm nhanh toạ độ khi debug map
+    g.lineStyle(1, 0xfdcb6e, 0.8);
+    for (let c = 0; c <= cols; c += 8) g.lineBetween(c * TILE_SIZE, 0, c * TILE_SIZE, rows * TILE_SIZE);
+    for (let r = 0; r <= rows; r += 8) g.lineBetween(0, r * TILE_SIZE, cols * TILE_SIZE, r * TILE_SIZE);
+
+    // Đánh dấu tâm ô spawn
+    const meta = MAPS[this.currentMapId];
+    if (meta?.spawn) {
+      g.fillStyle(0xff7675, 0.9);
+      g.fillCircle(meta.spawn.x, meta.spawn.y, 4);
+    }
+  }
+
+  /** Cập nhật nhãn tracking toạ độ — bám theo nhân vật, đổi màu khi đang trượt ô. */
+  private updateCoordTracker(): void {
+    const t = this.coordTracker;
+    if (!t || !t.visible || !this.player) return;
+
+    const col = Math.floor(this.player.x / TILE_SIZE);
+    const row = Math.floor(this.player.y / TILE_SIZE);
+    const state = this.isWalking ? 'SLIDING' : this.moving ? 'WALK' : 'IDLE';
+    t.setText(`[${col}, ${row}]  ${Math.round(this.player.x)},${Math.round(this.player.y)}  ${state}`);
+    // Đặt phía TRÊN bảng tên (nameOffsetY) — nếu đặt tại y - TILE_SIZE - 8
+    // sẽ trùng vị trí bảng tên → 2 dòng chồng lên nhau không đọc được.
+    // +18 = chiều cao 1 dòng text (≈11px) + 7px lề an toàn.
+    t.setPosition(this.player.x, this.player.y - this.player.nameOffsetY - 18);
   }
 
   public teleportPlayer(x: number, y: number): void {
@@ -1585,7 +1717,7 @@ export class WorldScene extends Phaser.Scene {
   public async switchMap(mapId: string, targetX?: number, targetY?: number): Promise<void> {
     if (!TILED_MAPS[mapId]) {
       console.warn(`[debug] map "${mapId}" not found in TILED_MAPS`);
-      this.debugModal?.log(`Không tìm thấy map: "${mapId}"`);
+      this.settingsPanel?.log(`Không tìm thấy map: "${mapId}"`);
       return;
     }
 
@@ -1614,6 +1746,8 @@ export class WorldScene extends Phaser.Scene {
       this.bufferedDir = null;
       this.isWalking = false;
       this.nextStepAt = 0;
+      // Đổi map → vẽ lại lưới toạ độ cho map mới
+      if (this.gridOverlay?.visible) this.drawGrid();
 
       // 3. Đặt lại toạ độ người chơi
       const meta = MAPS[mapId];
@@ -1628,10 +1762,10 @@ export class WorldScene extends Phaser.Scene {
       // 5. Cập nhật ignore list camera UI
       this.registerWorldObject(...loaded.layers);
 
-      this.debugModal?.log(`Đã chuyển thành công sang map "${meta?.name ?? mapId}"!`);
+      this.settingsPanel?.log(`Đã chuyển thành công sang map "${meta?.name ?? mapId}"!`);
     } catch (err: any) {
       console.error(`[debug] switchMap error:`, err);
-      this.debugModal?.log(`Lỗi tải map: ${err.message}`);
+      this.settingsPanel?.log(`Lỗi tải map: ${err.message}`);
     }
   }
 

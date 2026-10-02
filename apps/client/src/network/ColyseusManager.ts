@@ -7,6 +7,17 @@ const HTTP_URL: string = SERVER_URL.replace(/^ws/, 'http');
 const LS_TOKEN = 'pixelmon.token';
 const LS_USER_ID = 'pixelmon.userId';
 const LS_NAME = 'pixelmon.displayName';
+const LS_ROLE = 'pixelmon.role';
+
+/** Thứ tự quyền — số càng lớn càng cao. `banned` nằm ngoài thang này. */
+const ROLE_RANK: Record<string, number> = {
+  player: 0,
+  moderator: 1,
+  admin: 2,
+};
+
+/** Quyền tối thiểu được phép mở tab Debug trong Settings. */
+const DEBUG_MIN_ROLE = 'moderator';
 
 /** Sprite user được gán trong admin (từ `GET /api/auth/me`). */
 export interface UserSprite {
@@ -27,6 +38,8 @@ export class ColyseusManager {
   private authToken: string = '';
   private userId: string = '';
   private displayName: string = '';
+  /** Vai trò tài khoản (`player` | `moderator` | `admin`) — quyết định quyền mở tab Debug. */
+  private userRole: string = 'player';
   /** Sprite nhân vật user được gán (null = dùng sheet mặc định). */
   private sprite: UserSprite | null = null;
 
@@ -62,13 +75,40 @@ export class ColyseusManager {
     return this.sprite;
   }
 
+  /** Vai trò hiện tại (mặc định `player` nếu chưa xác thực). */
+  get role(): string {
+    return this.userRole;
+  }
+
+  /**
+   * true nếu tài khoản đủ quyền dùng công cụ Debug (moderator trở lên).
+   * Tài khoản `banned` không bao giờ được phép.
+   */
+  hasDebugAccess(): boolean {
+    const rank = ROLE_RANK[this.userRole];
+    const min = ROLE_RANK[DEBUG_MIN_ROLE];
+    if (rank === undefined || min === undefined) return false;
+    return rank >= min;
+  }
+
+  /** Đọc role + sprite từ response `/api/auth/me`. */
+  setProfileFromMe(user: Record<string, unknown> | null | undefined): void {
+    const role = user?.role;
+    if (typeof role === 'string' && role in ROLE_RANK) {
+      this.userRole = role;
+      this.saveSession();
+    }
+    const s = user?.sprite as UserSprite | undefined;
+    this.sprite = s && typeof s.sheetUrl === 'string' && s.sheetUrl ? s : null;
+  }
+
   /** Cập nhật sprite user (gọi từ `/api/auth/me`). */
   setSpriteFromMe(user: Record<string, unknown> | null | undefined): void {
     const s = user?.sprite as UserSprite | undefined;
     this.sprite = s && typeof s.sheetUrl === 'string' && s.sheetUrl ? s : null;
   }
 
-  /** Fetch `/api/auth/me` và lưu sprite (best-effort, không ném lỗi). */
+  /** Fetch `/api/auth/me` và lưu role + sprite (best-effort, không ném lỗi). */
   private async loadSprite(): Promise<void> {
     try {
       const res = await fetch(`${HTTP_URL}/api/auth/me`, {
@@ -76,7 +116,7 @@ export class ColyseusManager {
       });
       if (!res.ok) return;
       const me = await res.json();
-      this.setSpriteFromMe(me?.user);
+      this.setProfileFromMe(me?.user);
     } catch {
       this.sprite = null;
     }
@@ -98,6 +138,10 @@ export class ColyseusManager {
         this.authToken = data.token;
         this.userId = data.userId;
         if (data.displayName) this.displayName = data.displayName;
+        // Login response đã kèm `role` → set ngay để không chờ round-trip /me.
+        if (typeof data.role === 'string' && data.role in ROLE_RANK) {
+          this.userRole = data.role;
+        }
         this.saveSession();
         // Lấy sprite user được gán (best-effort — lỗi thì dùng sheet mặc định).
         // Await để WorldScene đọc được ngay sau khi connect() resolve.
@@ -147,10 +191,10 @@ export class ColyseusManager {
         this.clearSession();
         return false;
       }
-      // Đọc sprite user ngay từ response này (không fetch thêm)
+      // Đọc role + sprite ngay từ response này (không fetch thêm)
       try {
         const me = await res.json();
-        this.setSpriteFromMe(me?.user);
+        this.setProfileFromMe(me?.user);
       } catch {
         /* ignore */
       }
@@ -172,6 +216,7 @@ export class ColyseusManager {
       localStorage.setItem(LS_TOKEN, this.authToken);
       localStorage.setItem(LS_USER_ID, this.userId);
       localStorage.setItem(LS_NAME, this.displayName);
+      localStorage.setItem(LS_ROLE, this.userRole);
     } catch {
       // localStorage bị chặn (private mode) — phiên không tồn tại sau refresh
     }
@@ -182,10 +227,12 @@ export class ColyseusManager {
       this.authToken = localStorage.getItem(LS_TOKEN) ?? '';
       this.userId = localStorage.getItem(LS_USER_ID) ?? '';
       this.displayName = localStorage.getItem(LS_NAME) ?? '';
+      this.userRole = localStorage.getItem(LS_ROLE) ?? 'player';
     } catch {
       this.authToken = '';
       this.userId = '';
       this.displayName = '';
+      this.userRole = 'player';
     }
   }
 
@@ -193,10 +240,12 @@ export class ColyseusManager {
     this.authToken = '';
     this.userId = '';
     this.displayName = '';
+    this.userRole = 'player';
     try {
       localStorage.removeItem(LS_TOKEN);
       localStorage.removeItem(LS_USER_ID);
       localStorage.removeItem(LS_NAME);
+      localStorage.removeItem(LS_ROLE);
     } catch {
       // ignore
     }

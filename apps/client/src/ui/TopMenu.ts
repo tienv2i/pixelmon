@@ -187,6 +187,15 @@ class IconButton {
   private currentX = 0;
   private currentY = 0;
   private currentSize = 28;
+  private currentVisible = true;
+
+  get key(): string {
+    return this.def.key;
+  }
+
+  get visible(): boolean {
+    return this.currentVisible;
+  }
 
   constructor(
     scene: Phaser.Scene,
@@ -239,6 +248,7 @@ class IconButton {
   }
 
   setVisible(v: boolean): void {
+    this.currentVisible = v;
     this.gfx.setVisible(v);
     this.zone.setVisible(v);
   }
@@ -301,10 +311,29 @@ export class TopMenu {
   private isMini = false;
   private isPopupOpen = false;
   private _uiZoomManager?: UiZoomManager;
+  /** Các icon bị ẩn (vd: debug toolbar tắt trong Settings). */
+  private hiddenIcons = new Set<string>();
 
   setUiZoomManager(m: UiZoomManager): void {
     this._uiZoomManager = m;
     this.scene.scale.on('ui-zoom-change', () => this.relayout());
+  }
+
+  /** Bật/tắt hiển thị một icon trên thanh công cụ. */
+  setIconVisible(key: string, visible: boolean): void {
+    if (visible) this.hiddenIcons.delete(key);
+    else this.hiddenIcons.add(key);
+    this.relayout();
+  }
+
+  /** Danh sách icon đang hiển thị (đã trừ icon bị ẩn). */
+  private visibleIcons(): MenuIconDef[] {
+    return ICONS.filter((d) => !this.hiddenIcons.has(d.key));
+  }
+
+  /** Vị trí thứ tự của icon trong dãy icon đang hiển thị (-1 nếu bị ẩn). */
+  private visibleIndexOf(key: string): number {
+    return this.visibleIcons().findIndex((d) => d.key === key);
   }
 
   constructor(
@@ -381,9 +410,7 @@ export class TopMenu {
 
   setActive(key: string): void {
     this.activeKey = key;
-    this.buttons.forEach((b, i) => {
-      b.setActive(ICONS[i].key === key);
-    });
+    this.buttons.forEach((b) => b.setActive(b.key === key));
   }
 
   setHudMode(mode: HudMode): void {
@@ -453,8 +480,9 @@ export class TopMenu {
 
       if (this.isPopupOpen) {
         // Bung ra Toolbar Mini Panel
+        const icons = this.visibleIcons();
         const iconSize = Math.max(26, baseBtnSize);
-        const totalW = ICONS.length * iconSize + (ICONS.length - 1) * gap;
+        const totalW = icons.length * iconSize + (icons.length - 1) * gap;
         const panelW = totalW + pad * 2;
         const panelH = iconSize + pad * 2;
         const px = Math.max(8, Math.min(W - panelW - 8, Math.floor((W - panelW) / 2)));
@@ -472,9 +500,14 @@ export class TopMenu {
         this.miniPanelGfx.lineStyle(1.5, C.accent, 0.95);
         this.miniPanelGfx.strokeRoundedRect(px, py, panelW, panelH, 6);
 
-        this.buttons.forEach((b, i) => {
+        this.buttons.forEach((b) => {
+          if (this.hiddenIcons.has(b.key)) {
+            b.setVisible(false);
+            return;
+          }
+          const idx = this.visibleIndexOf(b.key);
           b.setVisible(true);
-          b.setPosition(px + pad + i * (iconSize + gap), py + pad, iconSize);
+          b.setPosition(px + pad + idx * (iconSize + gap), py + pad, iconSize);
         });
 
         if (this.hint && this.hint.visible) {
@@ -489,8 +522,9 @@ export class TopMenu {
       this.toggleButton.setVisible(false);
       this.miniPanelGfx.setVisible(false);
 
+      const icons = this.visibleIcons();
       const iconSize = baseBtnSize;
-      const totalW = ICONS.length * iconSize + (ICONS.length - 1) * gap;
+      const totalW = icons.length * iconSize + (icons.length - 1) * gap;
 
       const leftLimit = this.leftBoundFn ? this.leftBoundFn() + 8 : 180 * z;
       const rightLimit = this.rightBoundFn ? this.rightBoundFn() - 8 : W - 90 * z;
@@ -502,9 +536,14 @@ export class TopMenu {
           : Math.max(12, Math.floor((W - totalW) / 2));
       const y0 = Math.round(6 * z);
 
-      this.buttons.forEach((b, i) => {
+      this.buttons.forEach((b) => {
+        if (this.hiddenIcons.has(b.key)) {
+          b.setVisible(false);
+          return;
+        }
+        const idx = this.visibleIndexOf(b.key);
         b.setVisible(true);
-        b.setPosition(x0 + i * (iconSize + gap), y0, iconSize);
+        b.setPosition(x0 + idx * (iconSize + gap), y0, iconSize);
       });
 
       if (this.hint && this.hint.visible) {

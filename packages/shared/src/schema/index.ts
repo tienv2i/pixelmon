@@ -35,6 +35,10 @@ export class BattlePokemon extends Schema {
   @type('uint32') expToNext: number = 0;
   /** Đấu với Pokémon hoang (wild) hay huấn luyện viên. */
   @type('boolean') isWild: boolean = false;
+  /** Giới tính: `male` | `female` | `genderless` — hiển thị ♂/♀ trên info plate. */
+  @type('string') gender: string = '';
+  /** Ô item đã cầm (hiển thị icon góc phải plate; trống = chưa cầm). */
+  @type('string') heldItem: string = '';
 }
 
 export class PlayerState extends Schema {

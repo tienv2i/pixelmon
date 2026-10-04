@@ -164,6 +164,11 @@ export async function loadTiledMap(
 
     // Đặt depth chuẩn hoá:
     // Ground (10) -> Decoration (12) -> Player (20) -> Overhead (30 - trên đầu người chơi)
+    //
+    // `Overhead` là lớp tile vẽ ĐÈ LÊN nhân vật (tán cây, mái nhà, rào trên cao...)
+    // nên depth phải > 20. Về va chạm, lớp này **KHÔNG chặn** — người chơi đi được
+    // bên dưới (xem heuristic tầng A trong `scripts/build-server-map.ts`); muốn
+    // chặn thì gán `passage=0x0f` cho tile trong Tiled.
     const lowerName = layer.name.toLowerCase();
     let layerDepth = depthBase;
     if (lowerName.includes('ground')) {

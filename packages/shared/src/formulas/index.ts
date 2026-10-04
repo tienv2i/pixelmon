@@ -88,6 +88,9 @@ export {
   isLedge,
   getLedgeDirection,
   canJumpLedge,
+  isDirBlocked,
+  canStep,
+  isPassageAll,
   getCollisionFlag,
   getObjectsOfType,
   getWarpAt,
@@ -103,4 +106,5 @@ export {
   resolveSpawnTile,
   type MapObjectType,
   type WalkableOptions,
+  type MoveDir,
 } from './mapruntime.js';

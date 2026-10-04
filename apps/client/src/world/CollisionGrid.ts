@@ -9,6 +9,8 @@ import {
   canJumpLedge,
   getWarpAt,
   getCollisionFlag,
+  isDirBlocked,
+  canStep,
   type WalkableOptions,
 } from '@pixelmon/shared';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -58,6 +60,23 @@ export class CollisionGrid {
   isWalkable(x: number, y: number, opts: WalkableOptions = {}): boolean {
     if (!this.map) return true; // fallback: không chặn (giữ hành vi hiện tại)
     return isWalkable(this.map, x, y, opts);
+  }
+
+  /** Hướng `dir` bị chặn tại ô này theo `passage` (RMXP)? */
+  isDirBlocked(x: number, y: number, dir: 'down' | 'up' | 'left' | 'right'): boolean {
+    if (!this.map) return false;
+    return isDirBlocked(this.map, x, y, dir);
+  }
+
+  /** Đi được hướng `dir` vào ô này không? (walkable + passage theo hướng) */
+  canStep(
+    x: number,
+    y: number,
+    dir: 'down' | 'up' | 'left' | 'right',
+    opts: WalkableOptions = {},
+  ): boolean {
+    if (!this.map) return true;
+    return canStep(this.map, x, y, dir, opts);
   }
 
   /** Ô nước (cần Surf)? */

@@ -5,8 +5,16 @@ interface Pt {
   row: number;
 }
 
-/** Hàm kiểm tra 1 ô có đi được không (thường là `CollisionGrid.isWalkable`). */
-export type TileCollider = (col: number, row: number) => boolean;
+/**
+ * Hàm kiểm tra 1 ô có đi được không (thướng là `CollisionGrid.isWalkable`).
+ * `fromCol/fromRow` (tuỳ chọn) = ô cha — dùng để tính hướng kiểm `passage`.
+ */
+export type TileCollider = (
+  col: number,
+  row: number,
+  fromCol?: number,
+  fromRow?: number,
+) => boolean;
 
 /**
  * A* pathfinding trên grid walkable của map hiện tại.
@@ -90,7 +98,7 @@ export function findPath(
     for (const [dc, dr] of NEIGHBORS) {
       const nc = current.col + dc;
       const nr = current.row + dr;
-      if (!isWalkable(nc, nr)) continue;
+      if (!isWalkable(nc, nr, current.col, current.row)) continue;
       const nk = key(nc, nr);
       if (closed.has(nk)) continue;
 

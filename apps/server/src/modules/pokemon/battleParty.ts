@@ -25,6 +25,10 @@ export interface BattleTeamMember {
   maxHp: number;
   currentHp: number;
   status: string;
+  /** Giới tính: `male` | `female` | `genderless` — hiển thị ♂/♀ trên info plate. */
+  gender: string;
+  /** Item đang cầm (Plan 45) — trống = chưa cầm. */
+  heldItem?: string;
   shiny: boolean;
   moves: BattleMoveSlot[];
   /** IV/EV/nature — dùng để recompute stats khi level-up (Plan 44 Phase 2). */
@@ -57,6 +61,7 @@ interface PokemonDbRow {
   current_hp: number | null;
   moves: unknown;
   status: string | null;
+  gender: string | null;
   shiny: boolean | null;
   ivs: Record<string, number> | null;
   evs: Record<string, number> | null;
@@ -142,6 +147,7 @@ function rowToMember(row: PokemonDbRow): BattleTeamMember {
     maxHp: stats.hp,
     currentHp: Math.max(0, Math.min(stats.hp, Number(row.current_hp ?? stats.hp))),
     status: row.status ?? '',
+    gender: row.gender ?? 'genderless',
     shiny: Boolean(row.shiny),
     moves: normalizeMoves(row.moves),
     ivs: normalizeSpread(row.ivs),
@@ -158,7 +164,7 @@ function rowToMember(row: PokemonDbRow): BattleTeamMember {
 export async function loadBattleParty(userId: string): Promise<BattleTeamMember[]> {
   if (!userId) return [];
   const { rows } = await pool.query(
-    `SELECT id, species_id, nickname, level, exp, stats, current_hp, moves, status, shiny
+    `SELECT id, species_id, nickname, level, exp, stats, current_hp, moves, status, gender, shiny
        FROM pokemon
       WHERE owner_id = $1 AND party_slot IS NOT NULL
       ORDER BY party_slot ASC`,
@@ -196,6 +202,7 @@ export function ownedToMember(pkm: OwnedPokemon): BattleTeamMember {
     maxHp: pkm.maxHp,
     currentHp: pkm.currentHp,
     status: pkm.status === 'none' ? '' : pkm.status,
+    gender: pkm.gender,
     shiny: pkm.shiny,
     moves: normalizeMoves(pkm.moves),
     ivs: pkm.ivs,

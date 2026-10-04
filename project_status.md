@@ -1,12 +1,12 @@
 # Project Status — Pixelmon (Pokémon MMORPG)
 
-> **Cập nhật lần cuối: 2026-10-02**
+> **Cập nhật lần cuối: 2026-10-03**
 >
 > **File này là Single Source of Truth (SSOT)** cho toàn bộ dự án — AI Agent và lập trình viên
 > đọc đây để nắm kiến trúc + trạng thái ngay tức thì. Lịch sử chi tiết từng plan đã nén vào **Mục 9**;
 > kế hoạch tiếp theo ở **Mục 10**.
 >
-> **Trạng thái hiện tại:** ✅ Typecheck 4/4 sạch · ✅ `vite build` OK · ✅ 5 map + 898 species load bình thường.
+> **Trạng thái hiện tại:** ✅ Typecheck 4/4 sạch · ✅ `build:map` 5/5 · ✅ Server+Client chạy (port 2567/5173).
 > **Tiếp theo:** **Plan 45** — Hệ thống Items, Evolution, Tiền tệ, Trade (chi tiết: `.plans/plan-45-items-evolution.md`).
 
 ---
@@ -27,10 +27,10 @@
 | **Admin Dashboard** | Users, Sprites, Game Data, Maps (interactive canvas preview) | ✅ |
 | **Đa ngôn ngữ (i18n)** | Song ngữ VI/EN, 285+ key, toggle 1-nút trong Settings | ✅ |
 | **Di chuyển** | Tile-based + delta grid-step + input buffering + A* | ✅ |
-| **Warp & collision** | Server-authoritative, 8 warp khép kín, ledge 4 hướng, grass/surf | ✅ |
-| **Debug tools** | Tab `🛠 Debug` (Settings), overlay grid/collision/warp, CLI, 4 widget | ✅ |
+| **Warp & collision** | Server-authoritative, 8 warp khép kín, ledge 4 hướng, grass/surf, **passage 4 hướng (Plan 46)**, **Overhead walkable + render che trên player** | ✅ |
+| **Debug tools** | Tab `🛠 Debug` (Settings), overlay grid/collision/warp/passage, CLI, 4 widget | ✅ |
 | **Wild encounter + Battle** | `battle_init` token → `BattleModal` popup + `BattleRoom` combat thật | ✅ |
-| **Chat lệnh debug** | Ô nhập cố định trong ChatLog, route `/` → `handleDebugCommand` | ✅ |
+| **Chat lệnh debug** | Ô nhập cố định trong ChatLog, route `/` → `handleDebugCommand`, `/tile` `/clear` `/debug …` | ✅ |
 | **Items / Evolution / Store** | Chưa có — **Plan 45** (xem Mục 10) | ⬜ |
 | **Xác thực** | JWT (Header + LocalStorage), role `player < moderator < admin` | ✅ |
 | **Lưu trạng thái** | PostgreSQL persistence (x, y, map_id, direction) realtime | ✅ |
@@ -156,9 +156,30 @@ pnpm run build:map <mapId>        # hoặc --all
 # 3. Restart:
 ./scripts/pm.sh restart
 ```
-- Collision derive 6 tầng: layer heuristic → tile property (`passage`/`terrain_tag`/`ledge_dir`/`water`) → object override → warp post-pass → landing → **cross-map landing**.
-- **Quy tắc:** `passage=0x0f` → BLOCKED (bất kỳ layer nào); grass (`terrain_tag` 2/10/14) **luôn walkable**; `ledge_dir` 4 hướng chỉ đọc từ layer đầu tiên có property → đặt ledge/cỏ/water ở **Ground**.
+- Collision derive 6 tầng: layer heuristic → tile property (`passage`/`terrain_tag`/`ledge_dir`/`water`/`spawn_zone`) → object override → warp post-pass → landing → **cross-map landing**.
+- **Quy tắc:** `passage=0x0f` → BLOCKED (bất kỳ layer nào); grass (`terrain_tag` 2/10/14 hoặc `spawn_zone=1`) **luôn walkable**; `ledge_dir` 4 hướng chỉ đọc từ layer đầu tiên có property → đặt ledge/cỏ/water ở **Ground**.
+- **`Overhead` mặc định WALKABLE** (2026-10-03): lớp tile vẽ đè lên nhân vật (tán cây, mái nhà, rào trên cao) **không chặn di chuyển** — heuristic tầng A chỉ BLOCKED khi `Decoration != 0`; `Overhead != 0` → WALKABLE. Muốn chặn ô có Overhead → gán `passage=0x0f` cho tile trong Tiled (đi qua tầng B). Render: Overhead depth **30** > Player **20** → che nhân vật khi đứng dưới.
+- **Nguồn vùng spawn (đã đồng bộ):** GRASS chỉ đến từ `terrain_tag` (Ground) **hoặc** property `spawn_zone=1` trong tileset (**chỉ đọc từ Ground**, Plan 46).
+  Đã **xoá** `grass_zone` (object + `injectGrassZonesFromEncounterZones`) vì rect inject rộng hơn ô cỏ thật → Pokémon spawn ở ô không phải cỏ.
+  `MAPS[id].spawnZones` (tên cũ `encounterZones`) chỉ còn là **mốc kiểm tra**, không inject nữa.
+  Hiện: route-1 = 80 ô GRASS (`terrain_tag`), lappet-town = 0 ô (có bảng encounter 7 loài) → **cần vẽ `spawn_zone=1` trong Tiled**.
+- **`passage` theo hướng (Plan 46 — ✅ đã implement):** `passage` là **bitmask 4 hướng RMXP**, bit = 1 nghĩa là **không cho đi**:
+  bit 0=Down `0x01` · bit 1=Left `0x02` · bit 2=Right `0x04` · bit 3=Up `0x08` · `0x0f` = chặn cả 4 → BLOCKED.
+  Encode vào **bits 8–11** của `collision.flags` (**uint16**, schema `max(65535)`): `PASS_DOWN 0x0100` · `PASS_LEFT 0x0200` · `PASS_RIGHT 0x0400` · `PASS_UP 0x0800` · `PASS_DIR_MASK = PASS_ALL = 0x0F00`.
+  Bits 0–7 giữ nguyên: `WALKABLE 0x01` `WATER 0x02` `BLOCKED 0x04` `GRASS 0x08` `LEDGE 0x10` `LEDGE_DIR_MASK 0x60` `WARP 0x80`.
+  Logic chung SSOT (`formulas/mapruntime.ts`): `isDirBlocked()` · `canStep()` · `isPassageAll()` + type `MoveDir`.
+  Áp dụng: server `CollideGrid.steppable()/dirBlocked()` + `validateStep()` (reason mới `passage_direction_blocked`) ·
+  client `CollisionGrid.isDirBlocked/canStep` + `WorldScene.canEnterTile(col,row,dir)` + `Pathfinder.TileCollider(col,row,fromCol,fromRow)` (A* kiểm hướng từ ô cha).
+  **Decoration mặc định BLOCKED** (heuristic), trừ tile có `passage=0` hoặc là ledge (`ledge_dir` / `terrain_tag=1`).
+  Chi tiết: [`docs/tiled-workflow.md` mục 5.2b](./docs/tiled-workflow.md) · [`docs/plans/2026-10-03-plan46-decor-passage.md`](./docs/plans/2026-10-03-plan46-decor-passage.md).
 - ⚠️ `rebuildIndex()` quét toàn bộ `server/*.json` (không chỉ map vừa build) — **không sửa lại về bản cũ** (bug đã từng mất 4 map).
+- ⚠️ **Sau khi thêm export mới vào `@pixelmon/shared` phải chạy:**
+  ```bash
+  pnpm --filter @pixelmon/shared build     # main: ./dist/index.js — client/server đều dùng dist
+  rm -rf apps/client/node_modules/.vite     # ⚠ cache Vite nằm ở đây, KHÔNG phải node_modules/.vite ở root
+  ./scripts/pm.sh restart
+  ```
+  Thiếu 2 bước này → `SyntaxError: does not provide an export named '…'` → **màn hình đen**, mà `pnpm run typecheck` **không** phát hiện (typecheck source, không check dist).
 
 ---
 
@@ -169,7 +190,7 @@ pnpm run build:map <mapId>        # hoặc --all
 - **`PlayerHud`** (góc trên trái) — Avatar, tên, Pokédollars 🪙, Coin 💎; mini mode 48×48.
 - **`PartyStrip`** (dọc trái) — 6 slot, icon 28×28, `Lv.x` + HP bar; mini mode 48px.
 - **`InfoPanel`** (góc trên phải) — Poke Time (×6), Real Time, weather icon; mini mode.
-- **`ChatLog`** (góc dưới phải) — draggable + dock; **ô nhập chữ cố định** ở đáy (xem 4.4).
+- **`ChatLog`** (góc dưới phải) — draggable + dock; **ô nhập chữ cố định** ở đáy (xem 4.4); nút ⤢ góc trên-trái + grip góc dưới-phải **kéo resize tự do mọi lúc** (không cần bật/tắt).
 - Responsive: viewport `< 800×600` → mini mode.
 
 ### 4.2 Settings panel (F3 / F2) — tab `🛠 Debug` (chỉ moderator+)
@@ -188,6 +209,10 @@ Tab Debug gồm:
 | `/noclip [on\|off]` | Đi xuyên tường |
 | `/overlay <grid\|collision\|warp> [on\|off]` | Bật/tắt overlay |
 | `/layer <ground\|decoration\|overhead> [on\|off]` | Ẩn/hiện lớp tilemap |
+| `/debug terrain <num\|all\|none>` | Tô ô theo `terrain_tag` (vd `2` = cỏ thật) |
+| `/debug is_terrain <x> <y>` | Kiểm tra ô có phải terrain không |
+| `/debug passage <up\|down\|left\|right\|all\|none>` | Tô ô có `passage` chặn hướng |
+| `/debug off` | Tắt toàn bộ overlay debug + marker |
 | `/spawn [dexNum]` | **Gọi trận wild** (bỏ trống = random) |
 | `/map` `/pos` `/server` `/help` `/clear` | Thông tin / lệnh |
 
@@ -207,6 +232,12 @@ Tab Debug gồm:
 - **Output dài** (VD `/help` 13 dòng) → `addSystemBlock()` tạm mở khung lên 14 dòng, giữ 30s rồi co lại.
 - **`/spawn [dexNum]`** → client `sendDebugSpawn` → server `WorldRoom.debug_spawn` (validate role từ DB)
   → `initiateWildBattle` → trả `debug_msg` hiện vào chat.
+- **`/tile [x] [y]`** — soi ô (gid, terrain, flag) và **đánh dấu ô đó lên bản đồ** (viền trắng + cyan,
+  nhãn tọa độ, depth 35); `/tile off` để xoá đánh dấu, marker tự xoá khi đổi map.
+  Output gồm dòng `passage chặn: …` (Plan 46) và flag hex 4 chữ số.
+- **`/clear`** — xoá cả chat lẫn console (`ChatLog.clear()`).
+- **Encounter report:** khi Pokémon xuất hiện, chat hiện `Character: (x, y) [pixel …]` + `Pokemon: (x, y)`
+  (server thêm `tile` vào payload `battle_init`, client `reportEncounter()` trước `startBattle()`).
 - **i18n mới:** `CHAT_PLACEHOLDER_DEBUG`, `CHAT_CMD_DENIED`, `WS_HELP_SPAWN`, `WS_HELP_NO_ARGS`…
 
 ### 4.5 Hệ thống Battle (`BattleModal` — popup lockUi, depth 300)
@@ -215,6 +246,9 @@ Tab Debug gồm:
   → client `joinBattle(token)` → `create('battle')` → BattleRoom consume token (single-use, TTL 30s).
 - **Layout:** foe plate góc trên trái · ally plate góc dưới phải (trên menu) · sprite foe phải/ally trái ·
   menu panel nền neo phải · message box đáy (2 dòng log) · turn indicator · pop message (super effective/critical/missed).
+- **Layout 4 lớp rõ ràng, không chồng nhau:** `Title` (header 0–34) → `Opponent` plate (trên trái, y 46–124) → `Player` plate (dưới phải, y 183–278) → **bottom row 1 dòng** (y 288–406): **khung text** (trái, x 14–374) + **khung hành động** (phải, x 388–646, 2×2 FIGHT/POKÉMON/BALL/RUN; mode move = lưới chiêu 2 cột + Back; mode switch = danh sách team + Back). Hằng layout `FIELD_TOP/FIELD_BOTTOM/BOTTOM_Y/BOTTOM_H/MSG_*/ACT_*`.
+- **Background battleback chỉ phủ vùng 2 Pokémon** (FIELD 40–284) — không phủ khung text/hành động ở bottom row.
+- **Info plate mẫu chuẩn:** dòng 1 = `Name ♂ Lv.5` (tên + giới tính + level, 1 dòng) + ô item góc phải (reserved Plan 45); dòng 2 = `[status] HP ████████░░ 12/20`; dòng 3 = chừa chỗ (reserved). Dòng **EXP** nằm ngoài plate, chỉ Pokémon của user. Schema `BattlePokemon` thêm `gender` + `heldItem`; `BattleTeamMember` thêm `gender` + `heldItem`; query `loadBattleParty` thêm cột `gender`.
 - **UI:** HP bar **có track + số HP** (tween mượt) · EXP bar · **battleback dùng `TileSprite`** (giữ tỉ lệ pixel, chỉ phủ vùng đất) ·
   platform ellipses (bóng) · sprite `fitSprite()` ≤140px · **move button tô màu theo hệ Pokémon** (19 màu).
 - **Menu:** FIGHT (4 chiêu, type-colored, PP) / POKÉMON (6 slot panel bên trái) / **BALL** (`battle_catch`) / RUN.
@@ -320,6 +354,9 @@ inventory(owner_id UUID → users, item_id TEXT, quantity INT, PRIMARY KEY(owner
 > 5. **Không quét** `.playwright-mcp/`, `temp/`, `.venv/`, `.turbo/`, `.pm/logs/`,
 >    `packages/shared/assets/`, `packages/shared/data/pbs/`.
 > 6. **Cập nhật `project_status.md`** sau mỗi plan/phase hoàn thành.
+> 7. **Thêm export mới vào `@pixelmon/shared`** → `pnpm --filter @pixelmon/shared build` +
+>    `rm -rf apps/client/node_modules/.vite` + `./scripts/pm.sh restart` (xem Mục 3.4).
+>    Thiếu → màn hình đen do Vite bundle `dist` cũ, `typecheck` không bắt được.
 
 **Tài khoản mặc định:**
 - Admin: `admin` / `admin123` · Player: `tienv2i`, `user01`..`user10` / `123`
@@ -354,8 +391,11 @@ inventory(owner_id UUID → users, item_id TEXT, quantity INT, PRIMARY KEY(owner
 | **44** | **Wild encounter + Battle** — server-authoritative token, `BattleRoom` combat thật, `BattleModal` popup | ✅ |
 | **44b** | **Cải thiện giao diện `BattleModal`** — plates có nền, HP track+số, battleback `TileSprite`, type-colored moves, menu panel, particles, pop message, BALL, keyboard; fix overlap + listener leak | ✅ |
 | **44c** | **Ô chat cố định + lệnh debug** — input luôn hiện, lịch sử, route `/` (moderator+), **`/spawn [dexNum]`**, `/help` mở rộng, auto-expand khung chat | ✅ |
+| **46** | **Decoration mặc định BLOCKED + `passage` 4 hướng** — xoá `grass_zone` inject, `spawn_zone` chỉ đọc Ground; `flags` lên uint16 (bits 8–11 = `PASS_DOWN/LEFT/RIGHT/UP`); `isDirBlocked`/`canStep`/`isPassageAll` SSOT; server `validateStep` + client `canEnterTile(dir)` + `findPath` kiểm hướng; debug `/debug passage`, overlay dải tím; fix Vite cache `apps/client/node_modules/.vite` | ✅ |
+| **46b** | **Overhead mặc định WALKABLE + render che nhân vật** — heuristic tầng A: `Overhead != 0` không còn BLOCKED (chỉ `Decoration != 0` chặn); muốn chặn thì `passage=0x0f` trong Tiled. Render: `PlayerSprite` depth chuẩn hoá (sprite 20 / bóng 19 / tên 21) qua hằng `PLAYER_DEPTH`, Overhead vẫn depth 30 → che player; remote player cũng depth 20. Rebuild 5 map + restart | ✅ |
+| **44d** | **BattleModal layout 4 lớp rõ ràng, không chồng nhau** — Title / Opponent plate / Player plate / bottom row (khung text trái + khung hành động phải cùng 1 dòng); mọi mode menu (command/move/switch) render trong khung hành động; hằng layout `FIELD_*`/`BOTTOM_*`/`MSG_*`/`ACT_*`; `showEnd` căn theo field | ✅ |
 
-**Bug đã fix đáng chú ý (Plan 38–44):** terrain tag 2/10 bị gán nhầm ledge → grass · `resolveSpawnTile` (warp bị chia 32 → rơi góc trái) · Vite dep cache thiếu export → đen màn hình · `rebuildIndex` mất 4 map · battle render 2 khung · listener leak `onStateChange`.
+**Bug đã fix đáng chú ý (Plan 38–46):** terrain tag 2/10 bị gán nhầm ledge → grass · `resolveSpawnTile` (warp bị chia 32 → rơi góc trái) · Vite dep cache thiếu export → đen màn hình · `rebuildIndex` mất 4 map · battle render 2 khung · listener leak `onStateChange` · marker `/tile` hiện 2 ô (thiếu `uiCam.ignore`) · `is_terrain` trả sai do `grass_zone` inject · `passage=13` bị bỏ qua (walkable toàn phần).
 
 ---
 
@@ -363,6 +403,8 @@ inventory(owner_id UUID → users, item_id TEXT, quantity INT, PRIMARY KEY(owner
 
 ### 🎯 Ưu tiên hiện tại: **Plan 45 — Items, Evolution, Tiền tệ, Trade**
 > **Chi tiết đầy đủ:** [`.plans/plan-45-items-evolution.md`](./.plans/plan-45-items-evolution.md) (gitignored, local)
+>
+> ✅ **Plan 46 (collision/spawn) đã hoàn thành 2026-10-03** — xem Mục 9.
 
 **Chẩn đoán đã verify:** `inventory` table tồn tại nhưng **không module nào dùng** · `Item.effect = None`
 (693 item) · đá tiến hoá là `category:'misc'` (**0 item `evolution`**) · `pocket` bị `ItemSchema` strip ·
@@ -389,3 +431,4 @@ trade flag do server quyết định · force/reverse chỉ moderator và có au
 1. **NPC & Hội thoại** — spawn NPC từ data sự kiện map, Dialogue Box phong cách RPG (Space/Enter/click).
 2. **Battle còn lại** — PvP, status effects (brn/par/poison đầy đủ), SoundManager BGM.
 3. **Event feed UI** — tab hiển thị `pokemon_events` gần nhất trong Summary.
+4. **Hoàn thiện dữ liệu Tiled** — vẽ `spawn_zone=1` cho vùng cỏ ở `lappet-town` (đang có bảng encounter 7 loài nhưng **0 ô GRASS**); thêm `passage` / `ledge_dir` cho các ô cần chặn hướng (hiện mới có 2 ô ở route-1).

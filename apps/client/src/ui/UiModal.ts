@@ -131,6 +131,11 @@ export class UiModal {
   protected titleText?: Phaser.GameObjects.Text;
   protected headerZone?: Phaser.GameObjects.Zone;
 
+  // Vùng chặn click xuyên qua THÂN modal (nền, nội dung, footer).
+  // Không có zone này → click vào phần thân (không phải nút) rơi xuống map,
+  // vì Phaser chỉ hit-test object `setInteractive()` và `topOnly` chỉ giữ 1.
+  protected bodyZone?: Phaser.GameObjects.Zone;
+
   // Drag padding bar (khi không có title bar)
   protected dragPaddingGfx?: Phaser.GameObjects.Graphics;
   protected dragPaddingZone?: Phaser.GameObjects.Zone;
@@ -218,6 +223,21 @@ export class UiModal {
     // 3. Khung nền panel
     this.panelBg = scene.add.graphics();
     this.modalContainer.add(this.panelBg);
+
+    // 3b. Vùng chặn click xuyên qua thân modal.
+    // Zone này phủ toàn bộ diện tích modal và nằm SÂU panelBg/content/footer,
+    // nên nó chặn click "hụt" (vùng trống, nền, text không phải nút) mà
+    // không cạnh tranh input với headerZone và các nút bấm phía trên nó.
+    this.bodyZone = scene.add
+      .zone(0, 0, this.opts.width, this.opts.height)
+      .setOrigin(0, 0)
+      .setInteractive({ cursor: 'default' });
+    this.bodyZone.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // Nuốt event để không chạm tới WorldScene (click-to-move / pan).
+      p.event?.stopPropagation();
+    });
+    this.modalContainer.add(this.bodyZone);
+    this.allObjects.push(this.bodyZone);
 
     // 4. Header Bar (chỉ vẽ nếu showTitleBar = true)
     if (this.opts.showTitleBar) {
@@ -478,6 +498,8 @@ export class UiModal {
       this.currentX = this.customX;
       this.currentY = this.customY;
       this.modalContainer.setPosition(this.customX, this.customY);
+      // Báo cho lớp con cập nhật element ngoài canvas (VD ô input HTML của ChatLog).
+      this.onDragMove();
     });
 
     const endDrag = () => {
@@ -488,11 +510,18 @@ export class UiModal {
         });
         if (this.dragPaddingGfx) this.drawDragPaddingGrip(false);
         this.opts.onDragEnd?.(this.currentX, this.currentY);
+        this.onDragEnd();
       }
     };
     this.scene.input.on('pointerup', endDrag);
     this.scene.input.on('pointerupoutside', endDrag);
   }
+
+  /** Hook gọi mỗi frame khi đang kéo thả — lớp con override để bám element ngoài canvas. */
+  protected onDragMove(): void {}
+
+  /** Hook gọi khi kết thúc kéo thả. */
+  protected onDragEnd(): void {}
 
   /**
    * Đặt lại modal về vị trí mặc định (Alignment + Offset) hoặc vị trí Stack.
@@ -803,6 +832,12 @@ export class UiModal {
       this.overlay.fillStyle(0x000000, 0.65);
       this.overlay.fillRect(0, 0, screenW, screenH);
       this.overlayBlocker.setPosition(0, 0).setSize(screenW, screenH);
+    }
+
+    // 1b. Vùng chặn click thân modal → theo kích thước hiện tại của panel.
+    //     Khi minimize, bodyZone chỉ còn che phần header (đủ chặn click xuyên).
+    if (this.bodyZone) {
+      this.bodyZone.setPosition(0, 0).setSize(W, curH);
     }
 
     // 2. Tính scale và toạ độ kẹp an toàn

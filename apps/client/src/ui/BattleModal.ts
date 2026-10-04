@@ -7,12 +7,11 @@ import { t, mkText, onLangChange } from '../i18n';
 /**
  * BattleModal — **Cửa sổ battle dạng popup** (Plan 44 Phase 3b, hoàn thiện layout).
  *
- * Layout chuẩn Pokémon:
- * - Foe plate: góc trên trái (tên/level/HP)
- * - Ally plate: góc dưới phải trên menu (tên/level/HP/EXP)
- * - Sprite foe: bên phải, ally: bên trái
- * - Menu: góc dưới phải (FIGHT/POKEMON/BALL/RUN)
- * - Message box: đáy modal (2 dòng log)
+ * Layout 4 lớp rõ ràng, không chồng nhau:
+ * - **Title**: thanh header (0–34)
+ * - **Opponent**: foe plate góc trên trái (tên/level/HP)
+ * - **Player**: ally plate góc dưới phải (tên/level/HP/EXP)
+ * - **Bottom row**: khung text (trái) + khung chọn FIGHT/POKÉMON/BAG/RUN (phải) — cùng 1 dòng
  */
 
 export interface BattleInitData {
@@ -43,6 +42,32 @@ type MenuMode = 'command' | 'move' | 'switch' | 'none';
 
 const M_W = 660;
 const M_H = 440;
+
+// ── Layout bands (4 lớp rõ ràng, không chồng nhau) ──
+const FIELD_TOP = 40; // dưới title bar
+const FIELD_BOTTOM = 284; // trên bottom row
+const BOTTOM_Y = 288; // bottom row top
+const BOTTOM_H = M_H - 34 - BOTTOM_Y; // 118
+const MSG_X = 14;
+const MSG_W = 360;
+const ACT_X = 388;
+const ACT_W = M_W - ACT_X - 14; // 258
+
+// ── Pokémon info plate (mẫu) ──
+// ┌──────────────────────────────────┐
+// │ Name ♂ Lv.5            [item]   │
+// │ [status]  HP ████████░░ 12/20   │
+// │                                 │  ← chừa chỗ (reserved)
+// └──────────────────────────────────┘
+const PLATE_H = 78;
+const PLATE_NAME_Y = 10; // dòng 1: name + gender + Lv
+const PLATE_STATUS_Y = 34; // dòng 2: status + HP bar + số
+const PLATE_RESERVED_Y = 56; // dòng 3: chừa chỗ status/effect
+const PLATE_ITEM_W = 40; // ô item góc phải
+const PLATE_ITEM_H = 24;
+const PLATE_ITEM_GAP = 8;
+/** Bề rộng thanh EXP (nằm ngoài plate, chỉ Pokémon của user). */
+const EXP_BAR_W = 190;
 
 const COL = {
   sky: 0x24314a,
@@ -106,10 +131,13 @@ export class BattleModal extends UiModal {
   private allyHpTrack?: Phaser.GameObjects.Rectangle;
   private foeName?: Phaser.GameObjects.Text;
   private allyName?: Phaser.GameObjects.Text;
-  private foeLvl?: Phaser.GameObjects.Text;
-  private allyLvl?: Phaser.GameObjects.Text;
   private foeHpText?: Phaser.GameObjects.Text;
   private allyHpText?: Phaser.GameObjects.Text;
+  private foeStatus?: Phaser.GameObjects.Text;
+  private allyStatus?: Phaser.GameObjects.Text;
+  private foeItem?: Phaser.GameObjects.Rectangle;
+  private allyItem?: Phaser.GameObjects.Rectangle;
+  private allyExpLabel?: Phaser.GameObjects.Text;
   private msgText?: Phaser.GameObjects.Text;
   private msgText2?: Phaser.GameObjects.Text;
   private turnText?: Phaser.GameObjects.Text;
@@ -167,6 +195,7 @@ export class BattleModal extends UiModal {
     scene: Phaser.Scene,
     data: BattleInitData,
     private onFinished: (result: string) => void,
+    private onRun?: () => void,
   ) {    const opts: UiModalOptions = {
       title: t('BATTLE_TITLE'),
       width: M_W,
@@ -235,23 +264,24 @@ export class BattleModal extends UiModal {
     const w = M_W;
     const h = M_H - 34; // 406
 
-    // Background: sky (0-60%) + ground (60-100%).
+    // Background battleback: chỉ phủ vùng 2 Pokémon (FIELD 40–284), KHÔNG phủ
+    // khung text/hành động ở bottom row (288–406).
     this.bg = this.add(this.scene.add.graphics());
     this.bg.fillStyle(COL.sky, 1);
-    this.bg.fillRect(0, 0, w, h * 0.6);
+    this.bg.fillRect(0, FIELD_TOP, w, (FIELD_BOTTOM - FIELD_TOP) * 0.6);
     this.bg.fillStyle(COL.ground, 1);
-    this.bg.fillRect(0, h * 0.6, w, h * 0.4);
+    this.bg.fillRect(0, FIELD_TOP + (FIELD_BOTTOM - FIELD_TOP) * 0.6, w, (FIELD_BOTTOM - FIELD_TOP) * 0.4);
     this.bg.lineStyle(1, COL.border, 0.5);
-    this.bg.strokeRect(0.5, 0.5, w - 1, h - 1);
+    this.bg.strokeRect(0.5, FIELD_TOP + 0.5, w - 1, FIELD_BOTTOM - FIELD_TOP - 1);
 
     // Battleback overlay: dùng TileSprite giữ nguyên tỉ lệ pixel (không stretch
-// toàn khung → tránh hiệu ứng cỏ bị nhòe như bản cũ).
+    // toàn khung → tránh hiệu ứng cỏ bị nhòe như bản cũ).
     if (this.scene.textures.exists('battleback_ground')) {
       const tex = this.scene.textures.get('battleback_ground').getSourceImage();
-      const groundH = h * 0.4;
+      const groundH = (FIELD_BOTTOM - FIELD_TOP) * 0.4;
       this.battlebackImg = this.add(
         this.scene.add
-          .tileSprite(0, h * 0.6, w, groundH, 'battleback_ground')
+          .tileSprite(0, FIELD_TOP + (FIELD_BOTTOM - FIELD_TOP) * 0.6, w, groundH, 'battleback_ground')
           .setOrigin(0, 0)
           .setAlpha(0.35),
       );
@@ -261,65 +291,68 @@ export class BattleModal extends UiModal {
       }
     }
 
+    // ── LỚP 2: SÀN TRẬN ĐẤU (FIELD) — y 40…284 ──
     // Platform shadows.
-    this.foeShadow = this.add(this.scene.add.ellipse(w * 0.7, h * 0.38 + 55, 120, 24, 0x000000, 0.35));
-    this.allyShadow = this.add(this.scene.add.ellipse(w * 0.25, h * 0.62 + 55, 120, 24, 0x000000, 0.35));
+    this.foeShadow = this.add(this.scene.add.ellipse(w * 0.7, 150, 120, 24, 0x000000, 0.35));
+    this.allyShadow = this.add(this.scene.add.ellipse(w * 0.25, 220, 120, 24, 0x000000, 0.35));
 
     // Sprites.
-    this.foeSprite = this.add(this.scene.add.image(w * 0.7, h * 0.38, 'battle_foe_front'));
-    this.allySprite = this.add(this.scene.add.image(w * 0.25, h * 0.62, 'battle_ally_back'));
+    this.foeSprite = this.add(this.scene.add.image(w * 0.7, 140, 'battle_foe_front'));
+    this.allySprite = this.add(this.scene.add.image(w * 0.25, 210, 'battle_ally_back'));
     this.fitSprite(this.foeSprite, 140);
     this.fitSprite(this.allySprite, 140);
 
-    // ── FOE PLATE (góc trên trái) ──
-    const foePlateX = 14;
-    const foePlateY = 14;
-    const foePlateW = 240;
-    const foePlateH = 78;
-    this.drawPlate(foePlateX, foePlateY, foePlateW, foePlateH);
-    this.foeName = this.mkPlateLabel(foePlateX + 10, foePlateY + 8, '');
-    this.foeLvl = this.mkPlateLabel(foePlateX + 10, foePlateY + 28, '', 0.62);
-    this.foeHpTrack = this.mkBarTrack(foePlateX + 10, foePlateY + 50, foePlateW - 20);
-    this.foeHp = this.mkBar(foePlateX + 10, foePlateY + 50, foePlateW - 20, COL.hpGreen);
-    this.foeHpText = this.mkPlateLabel(foePlateX + foePlateW - 10, foePlateY + 62, '', 1);
+    // ── OPPONENT PLATE (góc trên trái, trong field) ──
+    const foePlate = this.buildInfoPlate({ x: 14, y: FIELD_TOP + 6, w: 240 });
+    this.foeName = foePlate.name;
+    this.foeHp = foePlate.hp;
+    this.foeHpTrack = foePlate.hpTrack;
+    this.foeHpText = foePlate.hpText;
+    this.foeStatus = foePlate.status;
+    this.foeItem = foePlate.item;
 
-    // ── ALLY PLATE (góc dưới phải, TRÊN menu) ──
+    // ── PLAYER PLATE (góc dưới phải, trong field) + dòng EXP bên dưới ──
     const allyPlateW = 240;
-    const allyPlateH = 95;
+    const allyPlateH = PLATE_H;
     const allyPlateX = w - allyPlateW - 14;
-    const allyPlateY = h - 160 - allyPlateH; // h-160 = 246 → y = 246-95 = 151
-    this.drawPlate(allyPlateX, allyPlateY, allyPlateW, allyPlateH);
-    this.allyName = this.mkPlateLabel(allyPlateX + 10, allyPlateY + 8, '');
-    this.allyLvl = this.mkPlateLabel(allyPlateX + 10, allyPlateY + 28, '', 0.62);
-    this.allyHpTrack = this.mkBarTrack(allyPlateX + 10, allyPlateY + 50, allyPlateW - 20);
-    this.allyHp = this.mkBar(allyPlateX + 10, allyPlateY + 50, allyPlateW - 20, COL.hpGreen);
-    this.allyHpText = this.mkPlateLabel(allyPlateX + allyPlateW - 10, allyPlateY + 62, '', 1);
-    this.allyExp = this.mkBar(allyPlateX + 10, allyPlateY + 78, allyPlateW - 20, COL.expBar);
-
-    // ── MENU (góc dưới phải, DƯỚI ally plate) ──
-    // Menu Y starts at h - 140 = 266, 2 rows × 44px = 88 → ends at 354
-    // Message box: h - 50 = 356 → 406 (50px)
-    // Turn text: h - 66 = 340 → 354 (above message box)
-
-    // ── MESSAGE BOX (đáy) ──
-    const msgBg = this.scene.add.rectangle(0, h - 50, w, 50, 0x0b101c).setOrigin(0, 0);
+    const allyPlateY = FIELD_BOTTOM - allyPlateH - 16;
+    const allyPlate = this.buildInfoPlate({ x: allyPlateX, y: allyPlateY, w: allyPlateW });
+    this.allyName = allyPlate.name;
+    this.allyHp = allyPlate.hp;
+    this.allyHpTrack = allyPlate.hpTrack;
+    this.allyHpText = allyPlate.hpText;
+    this.allyStatus = allyPlate.status;
+    this.allyItem = allyPlate.item;
+    // Dòng EXP (chỉ Pokémon của user) — nằm dưới plate.
+    const expLabel = this.scene.add.text(allyPlateX + 10, allyPlateY + allyPlateH + 8, 'EXP', ts(11, '#9aa0c3', FONT.ui)).setOrigin(0, 0);
+    this.add(expLabel);
+    this.allyExpLabel = expLabel;
+    this.allyExp = this.mkBar(allyPlateX + 40, allyPlateY + allyPlateH + 10, allyPlateW - 50, COL.expBar);
+    // ── LỚP 4: BOTTOM ROW — khung text (trái) + khung hành động (phải), cùng 1 dòng ──
+    // Khung text (trái).
+    const msgBg = this.scene.add.rectangle(MSG_X, BOTTOM_Y, MSG_W, BOTTOM_H, 0x0b101c).setOrigin(0, 0);
     msgBg.setStrokeStyle(1, COL.border);
     this.add(msgBg);
-    this.msgText = mkText(this.scene, '', ts(14, '#f4f6fb', FONT.ui));
-    this.msgText.setPosition(14, h - 44);
-    this.add(this.msgText);
-    this.msgText2 = mkText(this.scene, '', ts(12, '#9aa0c3', FONT.ui));
-    this.msgText2.setPosition(14, h - 22);
-    this.add(this.msgText2);
 
-    // Turn text (trên message box).
-    this.turnText = mkText(this.scene, 'BATTLE_CHOOSE_MOVE', ts(13, '#ffd76a', FONT.ui));
-    this.turnText.setPosition(14, h - 66);
+    // Turn text (dòng trên cùng của khung text).
+    this.turnText = mkText(this.scene, 'BATTLE_CHOOSE_MOVE', ts(12, '#ffd76a', FONT.ui));
+    this.turnText.setPosition(MSG_X + 10, BOTTOM_Y + 10);
     this.add(this.turnText);
 
-    // Pop text (effectiveness/crit).
+    // 2 dòng log.
+    this.msgText = mkText(this.scene, '', ts(14, '#f4f6fb', FONT.ui));
+    this.msgText.setPosition(MSG_X + 10, BOTTOM_Y + 36);
+    this.add(this.msgText);
+    this.msgText2 = mkText(this.scene, '', ts(12, '#9aa0c3', FONT.ui));
+    this.msgText2.setPosition(MSG_X + 10, BOTTOM_Y + 64);
+    this.add(this.msgText2);
+
+    // Khung hành động (phải) — nền vẽ trong buildMenu().
+    this.drawMenuPlate(ACT_X, BOTTOM_Y, ACT_W, BOTTOM_H);
+
+    // Pop text (effectiveness/crit) — giữa field.
     this.popText = this.scene.add
-      .text(w / 2, h * 0.25, '', ts(20, '#ffd76a', FONT.ui))
+      .text(w / 2, FIELD_TOP + 60, '', ts(20, '#ffd76a', FONT.ui))
       .setOrigin(0.5)
       .setAlpha(0);
     this.add(this.popText);
@@ -336,6 +369,79 @@ export class BattleModal extends UiModal {
     g.strokeRoundedRect(x, y, w, h, 6);
     this.add(g);
     return g;
+  }
+
+  /**
+   * Dựng 1 **Pokémon info plate** theo mẫu:
+   * ```
+   * ┌──────────────────────────────────┐
+   * │ Name ♂ Lv.5            [item]   │  ← tên + giới tính + level (1 dòng)
+   * │ [status]  HP ████████░░ 12/20   │  ← status + thanh HP + số HP
+   * │                                 │  ← chừa chỗ (reserved)
+   * └──────────────────────────────────┘
+   * ```
+   * Ô góc phải dành cho **item** (Plan 45) — hiện vẽ khung trống.
+   */
+  private buildInfoPlate(o: {
+    x: number;
+    y: number;
+    w: number;
+  }): {
+    name: Phaser.GameObjects.Text;
+    hp: Phaser.GameObjects.Rectangle;
+    hpTrack: Phaser.GameObjects.Rectangle;
+    hpText: Phaser.GameObjects.Text;
+    status: Phaser.GameObjects.Text;
+    item: Phaser.GameObjects.Rectangle;
+  } {
+    const { x, y, w } = o;
+    this.drawPlate(x, y, w, PLATE_H);
+
+    // Dòng 1: name + gender + Lv (trái) — chừa chỗ ô item bên phải.
+    const nameW = w - 20 - PLATE_ITEM_W - PLATE_ITEM_GAP;
+    const name = mkText(this.scene, '', {
+      fontSize: '14px',
+      fontFamily: FONT.ui,
+      color: '#f4f6fb',
+      fixedWidth: nameW,
+    });
+    name.setPosition(x + 10, y + PLATE_NAME_Y).setOrigin(0, 0);
+    this.add(name);
+
+    // Ô item góc phải — reserved cho Plan 45.
+    const item = this.scene.add
+      .rectangle(x + w - 10 - PLATE_ITEM_W, y + PLATE_NAME_Y, PLATE_ITEM_W, PLATE_ITEM_H, COL.track)
+      .setOrigin(0, 0);
+    item.setStrokeStyle(1, COL.border, 0.6);
+    this.add(item);
+
+    // Dòng 2: status badge + HP bar + số HP.
+    const statusW = 62;
+    const status = mkText(this.scene, '', {
+      fontSize: '11px',
+      fontFamily: FONT.ui,
+      color: '#ff9f9f',
+      fixedWidth: statusW - 6,
+      align: 'center',
+    });
+    status.setPosition(x + 10 + statusW / 2, y + PLATE_STATUS_Y + 6).setOrigin(0.5, 0);
+    this.add(status);
+
+    const barX = x + 10 + statusW;
+    const barW = w - 20 - statusW - 54; // chừa 54px cho "12/20"
+    const hpTrack = this.mkBarTrack(barX, y + PLATE_STATUS_Y + 2, barW);
+    const hp = this.mkBar(barX, y + PLATE_STATUS_Y + 2, barW, COL.hpGreen);
+
+    const hpText = mkText(this.scene, '', {
+      fontSize: '11px',
+      fontFamily: FONT.ui,
+      color: '#f4f6fb',
+    });
+    hpText.setPosition(x + w - 10, y + PLATE_STATUS_Y).setOrigin(1, 0);
+    this.add(hpText);
+
+    // Dòng 3: chừa chỗ (reserved) — không vẽ gì để dành chỗ cho status/effect sau này.
+    return { name, hp, hpTrack, hpText, status, item };
   }
 
   /** Vẽ nền plate cho menu switch (tự xoá bản cũ, luôn nằm dưới buttons). */
@@ -377,6 +483,20 @@ export class BattleModal extends UiModal {
     return bar;
   }
 
+  /** Dòng tên: `Name ♂ Lv.5` — gộp tên + giới tính + level trong 1 dòng. */
+  private nameLine(p: any): string {
+    const nick = p.nickname || p.speciesId;
+    const sym = p.gender === 'male' ? '♂' : p.gender === 'female' ? '♀' : '';
+    return `${nick} ${sym} Lv.${p.level}`.trim();
+  }
+
+  /** Nhãn trạng thái (BRN/PAR/PSN…) — chuẩn hoá từ schema. */
+  private statusText(raw: string): string {
+    const s = (raw ?? '').trim();
+    if (!s || s === 'none') return '';
+    return s.toUpperCase();
+  }
+
   // ── State sync ──────────────────────────────────────────────────────────
 
   private syncFromState(): void {
@@ -387,21 +507,21 @@ export class BattleModal extends UiModal {
     const ally = state.ally?.team?.[state.ally.activeIndex ?? 0];
 
     if (foe && this.foeHp) {
-      this.foeName?.setText(foe.nickname || foe.speciesId);
-      this.foeLvl?.setText(`Lv.${foe.level}`);
+      this.foeName?.setText(this.nameLine(foe));
       this.foeHpText?.setText(`${foe.currentHp}/${foe.maxHp}`);
+      this.foeStatus?.setText(this.statusText(foe.status));
       this.tweenBar(this.foeHp, foe.currentHp, foe.maxHp);
       if (this.lastFoeHp >= 0 && foe.currentHp < this.lastFoeHp) this.flashHit(this.foeSprite);
       this.lastFoeHp = foe.currentHp;
     }
     if (ally && this.allyHp) {
-      this.allyName?.setText(ally.nickname || ally.speciesId);
-      this.allyLvl?.setText(`Lv.${ally.level}`);
+      this.allyName?.setText(this.nameLine(ally));
       this.allyHpText?.setText(`${ally.currentHp}/${ally.maxHp}`);
+      this.allyStatus?.setText(this.statusText(ally.status));
       this.tweenBar(this.allyHp, ally.currentHp, ally.maxHp);
       const expPct =
         ally.expToNext > 0 ? Math.min(1, Math.max(0, (ally.exp ?? 0) / ally.expToNext)) : 1;
-      if (this.allyExp) this.allyExp.width = Math.max(0, 220 * expPct);
+      if (this.allyExp) this.allyExp.width = Math.max(0, EXP_BAR_W * expPct);
       if (this.lastAllyHp >= 0 && ally.currentHp < this.lastAllyHp) this.flashHit(this.allySprite);
       this.lastAllyHp = ally.currentHp;
     }
@@ -562,29 +682,25 @@ export class BattleModal extends UiModal {
   private buildMenu(): void {
     this.clearMenu();
     if (this.ended) return;
-    const h = M_H - 34; // 406
-
-    // Menu area: bottom-right, above message box (h-50=356) and below ally plate.
-    // Ally plate ends at y = 151 + 95 = 246
-    // Menu starts at y = 266, 2 rows × 44 = 88 → ends at 354 (2px gap to msg box)
-    const menuBaseY = h - 140; // 266
     const state = this.net.battle?.state as any;
 
-    if (this.mode === 'command') {
-      const btnH = 36;
-      const gap = 10;
-      const rightEdge = M_W - 14;
-      const colW = 120;
-      // Nền menu: 2 cột × 2 hàng + padding — neo phải.
-      this.drawMenuPlate(rightEdge - colW * 2 - gap - 12, menuBaseY - 8, colW * 2 + gap + 24, btnH * 2 + gap + 16);
+    // Mọi mode đều render TRONG khung hành động (ACT_X, BOTTOM_Y, ACT_W, BOTTOM_H).
+    const pad = 10;
+    const colW = (ACT_W - pad * 2 - 8) / 2; // 111
+    const rowY = (r: number, bh: number, gap: number) => BOTTOM_Y + pad + r * (bh + gap);
 
-      this.btn(t('BATTLE_FIGHT'), rightEdge - colW, menuBaseY, () => this.setMode('move'), false, undefined, colW);
-      this.btn(t('BATTLE_POKÉMON'), rightEdge, menuBaseY, () => this.setMode('switch'), false, undefined, colW);
-      this.btn(t('BATTLE_BALL'), rightEdge - colW, menuBaseY + btnH + gap, () => this.net.sendBattleCatch('poke_ball'), false, undefined, colW);
-      this.btn(t('BATTLE_RUN'), rightEdge, menuBaseY + btnH + gap, () => {
-        this.net.sendBattleRun();
-        this.setMode('command');
-      }, false, undefined, colW);
+    if (this.mode === 'command') {
+      const btnH = 44;
+      const gap = 8;
+      // Khung hành động: 2×2 FIGHT / POKEMON / BALL / RUN.
+      this.drawMenuPlate(ACT_X, BOTTOM_Y, ACT_W, BOTTOM_H);
+
+      const xL = ACT_X + ACT_W - pad - colW;
+      const xR = ACT_X + ACT_W - pad;
+      this.btn(t('BATTLE_FIGHT'), xL, rowY(0, btnH, gap), () => this.setMode('move'), false, undefined, colW);
+      this.btn(t('BATTLE_POKÉMON'), xR, rowY(0, btnH, gap), () => this.setMode('switch'), false, undefined, colW);
+      this.btn(t('BATTLE_BALL'), xL, rowY(1, btnH, gap), () => this.net.sendBattleCatch('poke_ball'), false, undefined, colW);
+      this.btn(t('BATTLE_RUN'), xR, rowY(1, btnH, gap), () => this.runNow(), false, undefined, colW);
       return;
     }
 
@@ -592,18 +708,17 @@ export class BattleModal extends UiModal {
       const ally = state?.ally?.team?.[state.ally.activeIndex ?? 0];
       const moves: string[] = ally?.moves ? Array.from(ally.moves) : [];
       const pp: number[] = ally?.pp ? Array.from(ally.pp) : [];
-      const btnH = 36;
+      const btnH = 30;
       const gap = 6;
-      const rightEdge = M_W - 14;
-      const colW = 150;
       const rows = Math.max(2, Math.ceil(Math.max(moves.length, 3) / 2));
-      // Nền menu: rows hàng moves + 1 hàng Back.
-      const plateH = (rows + 1) * (btnH + gap) + gap + 4;
-      this.drawMenuPlate(rightEdge - colW * 2 - gap - 12, menuBaseY - 8, colW * 2 + gap + 24, plateH);
+      const plateH = rows * (btnH + gap) + gap * 2 + 8;
+      this.drawMenuPlate(ACT_X, BOTTOM_Y, ACT_W, Math.min(plateH, BOTTOM_H));
 
+      const xL = ACT_X + ACT_W - pad - colW;
+      const xR = ACT_X + ACT_W - pad;
       moves.forEach((id, i) => {
-        const cx = i % 2 === 0 ? rightEdge - colW - gap : rightEdge;
-        const cy = menuBaseY + Math.floor(i / 2) * (btnH + gap);
+        const cx = i % 2 === 0 ? xL : xR;
+        const cy = BOTTOM_Y + gap + Math.floor(i / 2) * (btnH + gap);
         const left = pp[i] ?? 0;
         const info = this.moveInfo.get(id);
         const typeColor = info ? (TYPE_COLORS[info.type] ?? COL.btn) : COL.btn;
@@ -622,46 +737,58 @@ export class BattleModal extends UiModal {
         );
       });
 
-      // Back button ở hàng cuối — neo phải.
-      this.btn(t('BATTLE_BACK'), rightEdge, menuBaseY + rows * (btnH + gap), () => this.setMode('command'), false, undefined, colW);
+      // Back button — neo phải, hàng cuối trong khung.
+      this.btn(
+        t('BATTLE_BACK'),
+        ACT_X + ACT_W - pad,
+        BOTTOM_Y + gap + rows * (btnH + gap),
+        () => this.setMode('command'),
+        false,
+        undefined,
+        colW,
+      );
       return;
     }
 
     if (this.mode === 'switch') {
       const team: any[] = state?.ally?.team ? Array.from(state.ally.team) : [];
       const activeIdx = state?.ally?.activeIndex ?? 0;
-      const btnH = 36;
-      const gap = 6;
+      const btnH = 26;
+      const gap = 4;
+      const fullW = ACT_W - pad * 2;
+      // Danh sách team + Back — luôn nằm trong khung hành động.
+      const maxRows = Math.max(2, Math.floor((BOTTOM_H - gap * 2) / (btnH + gap)) - 1);
+      const shown = team.slice(0, maxRows);
+      this.drawMenuPlate(ACT_X, BOTTOM_Y, ACT_W, BOTTOM_H);
 
-      // Panel chiếm bên trái (menu vẫn neo phải).
-      const panelW = 340;
-      const panelH = Math.min(team.length * (btnH + gap) + gap * 2, h - 140);
-      const panelX = 14;
-      const panelY = h - 100 - panelH; // Fit above message box (h-50)
-
-      this.drawMenuPlate(panelX, panelY, panelW, panelH);
-
-      team.forEach((p, i) => {
+      shown.forEach((p, i) => {
         const disabled = i === activeIdx || p.currentHp <= 0;
-        const btnY = panelY + gap + i * (btnH + gap);
-        if (btnY + btnH > panelY + panelH - gap) return; // Không tràn panel
+        const cy = BOTTOM_Y + gap + i * (btnH + gap);
         this.btn(
           `${p.nickname || p.speciesId} Lv.${p.level}  ${p.currentHp}/${p.maxHp}`,
-          panelX + panelW - gap,
-          btnY,
+          ACT_X + ACT_W - pad,
+          cy,
           () => {
             this.net.sendBattleSwitch(i);
             this.setMode('command');
           },
           disabled,
           undefined,
-          panelW - gap * 2,
+          fullW,
         );
       });
 
-      // Back button ở đáy panel — neo phải.
-      const backY = panelY + panelH - btnH - gap;
-      this.btn(t('BATTLE_BACK'), panelX + panelW - gap, backY, () => this.setMode('command'), false, undefined, panelW - gap * 2);
+      // Back button — neo phải, hàng cuối.
+      const backY = BOTTOM_Y + gap + shown.length * (btnH + gap);
+      this.btn(
+        t('BATTLE_BACK'),
+        ACT_X + ACT_W - pad,
+        backY,
+        () => this.setMode('command'),
+        false,
+        undefined,
+        fullW,
+      );
     }
   }
 
@@ -674,8 +801,7 @@ export class BattleModal extends UiModal {
       else if (e.key === '2') this.setMode('switch');
       else if (e.key === '3') this.net.sendBattleCatch('poke_ball');
       else if (e.key === '4') {
-        this.net.sendBattleRun();
-        this.setMode('command');
+        this.runNow();
       }
     } else if (this.mode === 'move') {
       const idx = parseInt(e.key) - 1;
@@ -709,7 +835,7 @@ export class BattleModal extends UiModal {
     this.endObjs.push(dim);
 
     const titleTxt = this.scene.add
-      .text(M_W / 2, h * 0.3, title, ts(30, '#ffd76a', FONT.ui))
+      .text(M_W / 2, FIELD_TOP + 50, title, ts(30, '#ffd76a', FONT.ui))
       .setOrigin(0.5);
     this.add(titleTxt);
     this.endObjs.push(titleTxt);
@@ -718,7 +844,7 @@ export class BattleModal extends UiModal {
     if (state.expGained > 0) sub = t('BATTLE_EXP_GAINED').replace('{exp}', String(state.expGained));
     else if (state.caughtSpeciesId) sub = state.caughtSpeciesId;
     if (sub) {
-      const subTxt = this.scene.add.text(M_W / 2, h * 0.44, sub, ts(17, '#eaf0ff', FONT.ui)).setOrigin(0.5);
+      const subTxt = this.scene.add.text(M_W / 2, FIELD_TOP + 105, sub, ts(17, '#eaf0ff', FONT.ui)).setOrigin(0.5);
       this.add(subTxt);
       this.endObjs.push(subTxt);
     }
@@ -730,7 +856,7 @@ export class BattleModal extends UiModal {
       backgroundColor: COL.btn,
       padding: { x: 30, y: 10 },
     });
-    ok.setPosition(M_W / 2, h * 0.6).setOrigin(0.5);
+    ok.setPosition(M_W / 2, FIELD_TOP + 160).setOrigin(0.5);
     ok.setInteractive({ useHandCursor: true });
     ok.on('pointerdown', () => this.finish(state.result ?? 'done'));
     this.add(ok);
@@ -741,6 +867,22 @@ export class BattleModal extends UiModal {
     this.net.leaveBattle();
     this.close();
     this.onFinished(result);
+  }
+
+  /**
+   * Chạy khỏi trận: gửi `battle_run` cho server, ĐÓNG modal NGAY,
+   * và báo chat `Game run safety` thay vì hiện overlay "Đã chạy thoát."
+   *
+   * Flow cũ: bấm Run → server set `result='run'` → `syncFromState()` phát hiện
+   * `winner` → `showEnd()` hiện overlay "Đã chạy thoát." → bấm OK → `finish()`.
+   * Flow mới: đóng tức thì → overlay không còn dịp xuất hiện.
+   */
+  private runNow(): void {
+    if (this.ended) return;
+    this.ended = true; // chặn syncFromState() gọi showEnd()
+    this.net.sendBattleRun();
+    this.onRun?.();
+    this.finish('run');
   }
 
   private refreshLabels(): void {

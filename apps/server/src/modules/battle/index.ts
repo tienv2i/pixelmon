@@ -176,6 +176,8 @@ export class BattleRoom extends Room<BattleState> {
       pokemon.spDefense = m.stats.spDefense;
       pokemon.speed = m.stats.speed;
       pokemon.status = m.status;
+      pokemon.gender = m.gender;
+      pokemon.heldItem = m.heldItem ?? '';
       pokemon.moves = m.moves.map((x) => x.id);
       pokemon.pp = m.moves.map((x) => x.currentPp);
       pokemon.maxPp = m.moves.map((x) => x.maxPp);

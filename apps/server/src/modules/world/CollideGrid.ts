@@ -16,6 +16,8 @@ import {
   getLedgeDirection,
   getWarpAt,
   getCollisionFlag,
+  isDirBlocked,
+  canStep,
   CollisionFlag,
   type ServerMap,
   type WalkableOptions,
@@ -69,6 +71,19 @@ export class CollideGrid {
   /** Ô đi được không? (water cần `canSurf`). */
   walkable(x: number, y: number, opts: WalkableOptions = {}): boolean {
     return isWalkable(this.map, x, y, opts);
+  }
+
+  /**
+   * Đi được hướng `dir` vào ô (x, y) không? (gộp walkable + passage theo hướng).
+   * Dùng cho validateStep và debug.
+   */
+  steppable(x: number, y: number, dir: Dir, opts: WalkableOptions = {}): boolean {
+    return canStep(this.map, x, y, dir, opts);
+  }
+
+  /** Hướng `dir` bị chặn tại ô (x, y) theo `passage` (RMXP)? */
+  dirBlocked(x: number, y: number, dir: Dir): boolean {
+    return isDirBlocked(this.map, x, y, dir);
   }
 
   water(x: number, y: number): boolean {
@@ -219,6 +234,14 @@ export function validateStep(
 
   if (!grid.walkable(to.x, to.y, opts)) {
     return { ok: false, reason: 'destination_blocked' };
+  }
+
+  // Ô đích có `passage` chặn hướng `hopDir` (RMXP bitmask) → không đi được.
+  // Chiều kiểm: `passages[tile]` = hướng bị chặn TẠI ô đích — nghĩa là từ ô đích
+  // không đi được hướng `hopDir` (tương đương không đi từ `from` sang `to`).
+  const stepDir: Dir = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up';
+  if (isDirBlocked(grid.map, to.x, to.y, stepDir)) {
+    return { ok: false, reason: 'passage_direction_blocked' };
   }
   return { ok: true, to };
 }

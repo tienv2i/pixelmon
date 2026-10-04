@@ -33,6 +33,51 @@ export function isWalkable(
   return !!(flag & CollisionFlag.WALKABLE);
 }
 
+/** Hướng di chuyển 4 chiều (giảm thiểu — khớp `Dir` của server/client). */
+export type MoveDir = 'up' | 'down' | 'left' | 'right';
+
+/** Hướng → bit `PASS_*` trong collision.flags (bit 8-11). */
+const DIR_TO_PASS_FLAG: Record<MoveDir, number> = {
+  down: CollisionFlag.PASS_DOWN,
+  left: CollisionFlag.PASS_LEFT,
+  right: CollisionFlag.PASS_RIGHT,
+  up: CollisionFlag.PASS_UP,
+};
+
+/**
+ * Hướng bị chặn theo `passage` (RMXP)?
+ * - `true` = **không đi được** hướng `dir` tại ô (x, y).
+ * - Ô `BLOCKED` toàn phần cũng trả `true` cho mọi hướng.
+ */
+export function isDirBlocked(map: ServerMap, x: number, y: number, dir: MoveDir): boolean {
+  const flag = getCollisionFlag(map, x, y);
+  if (flag & CollisionFlag.BLOCKED) return true;
+  if (flag & CollisionFlag.WATER) return false; // WATER xử lý riêng qua canSurf
+  return (flag & DIR_TO_PASS_FLAG[dir]) !== 0;
+}
+
+/**
+ * Đi được hướng `dir` vào ô (x, y) không? (gộp `isWalkable` + `isDirBlocked`).
+ * Server validate bước đi; client canEnterTile.
+ */
+export function canStep(
+  map: ServerMap,
+  x: number,
+  y: number,
+  dir: MoveDir,
+  opts: WalkableOptions = {},
+): boolean {
+  if (!isWalkable(map, x, y, opts)) return false;
+  return !isDirBlocked(map, x, y, dir);
+}
+
+/** 4 hướng cùng bị chặn? (tương đương `BLOCKED`). */
+export function isPassageAll(map: ServerMap, x: number, y: number): boolean {
+  const flag = getCollisionFlag(map, x, y);
+  if (flag & CollisionFlag.BLOCKED) return true;
+  return (flag & CollisionFlag.PASS_DIR_MASK) === CollisionFlag.PASS_ALL;
+}
+
 /** Tile cỏ (potential encounter)? */
 export function isGrass(map: ServerMap, x: number, y: number): boolean {
   return !!(getCollisionFlag(map, x, y) & CollisionFlag.GRASS);

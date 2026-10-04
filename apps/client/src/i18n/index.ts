@@ -347,6 +347,67 @@ const MESSAGES = {
   WS_CMD_SPEED: ['Cú pháp: /speed <hệ số>', 'Syntax: /speed <multiplier>'],
   WS_CMD_OVERLAY: ['Cú pháp: /overlay <grid|collision|warp> [on|off]', 'Syntax: /overlay <grid|collision|warp> [on|off]'],
   WS_CMD_LAYER: ['Cú pháp: /layer <ground|decoration|overhead> [on|off]', 'Syntax: /layer <ground|decoration|overhead> [on|off]'],
+  WS_CMD_DEBUG_GRID: [
+    'Cú pháp: /debug terrain <số|all|none>  hoặc  /debug is_terrain <x> <y>  hoặc  /debug passage <hướng|all|none>  hoặc  /debug off\n' +
+      'VD: /debug terrain 2        → tô mọi ô có terrain_tag=2 (cỏ thật)\n' +
+      '    /debug terrain all      → tô mọi ô có terrain_tag (bất kể giá trị)\n' +
+      '    /debug terrain none     → tắt overlay terrain\n' +
+      '    /debug is_terrain 5 8   → kiểm tra ô (5,8) có phải terrain không\n' +
+      '    /debug passage up       → tô mọi ô có passage chặn hướng lên\n' +
+      '    /debug passage all      → tô mọi ô có passage (bất kể hướng)\n' +
+      '    /debug off              → tắt toàn bộ overlay debug',
+    'Syntax: /debug terrain <num|all|none>  or  /debug is_terrain <x> <y>  or  /debug passage <dir|all|none>  or  /debug off\n' +
+      'e.g. /debug terrain 2        → highlight all terrain_tag=2 tiles (real grass)\n' +
+      '     /debug terrain all      → highlight every tile with a terrain_tag\n' +
+      '     /debug terrain none     → hide terrain overlay\n' +
+      '     /debug is_terrain 5 8   → check if cell (5,8) is a terrain tile\n' +
+      '     /debug passage up       → highlight tiles whose passage blocks up\n' +
+      '     /debug passage all      → highlight tiles with any passage\n' +
+      '     /debug off              → turn off all debug overlays',
+  ],
+  WS_PASSAGE_OVERLAY: ['Overlay passage', 'Passage overlay'],
+  WS_CMD_PASSAGE: [
+    'Cú pháp: /debug passage <up|down|left|right|all|none>',
+    'Syntax: /debug passage <up|down|left|right|all|none>',
+  ],
+  WS_DEBUG_OFF: ['Đã tắt toàn bộ overlay debug.', 'All debug overlays turned off.'],
+  WS_TERRAIN_OVERLAY_STATE: ['Overlay terrain', 'Terrain overlay'],
+  WS_CMD_TERRAIN: [
+    'Cú pháp: /debug terrain <số|none>  (số = terrain_tag, vd 2 = cỏ)',
+    'Syntax: /debug terrain <num|none>  (num = terrain_tag, e.g. 2 = grass)',
+  ],
+  WS_CMD_IS_TERRAIN: [
+    'Cú pháp: /debug is_terrain <x> <y>  hoặc  /debug is_terrain  (ô đang đứng)',
+    'Syntax: /debug is_terrain <x> <y>  or  /debug is_terrain  (current cell)',
+  ],
+  WS_PROP_OVERLAY_STATE: ['Overlay tile property', 'Tile property overlay'],
+  WS_PROP_OVERLAY_ON: ['ĐANG BẬT', 'ON'],
+  WS_PROP_OVERLAY_OFF: ['ĐÃ TẮT', 'OFF'],
+  WS_PROP_OVERLAY_QUERY: ['Truy vấn', 'Query'],
+  WS_PROP_OVERLAY_HITS: ['Số ô khớp', 'Matched tiles'],
+
+  // ── `/tile <x> [y]` — soi 1 ô: gid/tile property + collision flag ────────
+  WS_CMD_TILE: [
+    'Cú pháp: /tile <x> <y>  hoặc  /tile  (lấy ô đang đứng)  hoặc  /tile off  (xoá đánh dấu)\n' +
+      'Ô được chọn sẽ được đánh dấu bằng viền + nhãn toạ độ trên bản đồ.',
+    'Syntax: /tile <x> <y>  or  /tile  (inspect current cell)  or  /tile off  (clear marker)\n' +
+      'The selected cell is highlighted on the map with a border + coordinate label.',
+  ],
+  WS_TILE_OOB: ['Ô này nằm ngoài bản đồ', 'Cell is outside the map'],
+  WS_TILE_CELL: ['Ô', 'Cell'],
+  WS_TILE_LAYERS: ['Lớp', 'Layers'],
+  WS_TILE_EMPTY: ['(trống)', '(empty)'],
+  WS_TILE_TERRAIN: ['Terrain', 'Terrain'],
+  WS_TILE_TERRAIN_NONE: ['KHÔNG phải terrain', 'NOT a terrain tile'],
+  WS_TILE_PASSAGE: ['Passage', 'Passage'],
+  WS_TILE_FLAG: ['Collision flag', 'Collision flag'],
+  WS_TILE_MARKER: ['Đã đánh dấu ô trên bản đồ', 'Marked on map'],
+  WS_TILE_MARKER_CLEARED: ['Đã xoá đánh dấu', 'Marker cleared'],
+  WS_TILE_WALKABLE: ['đi được', 'walkable'],
+  WS_TILE_BLOCKED: ['bị chặn', 'blocked'],
+  WS_TILE_GRASS: ['CỎ (gặp Pokémon hoang dã)', 'GRASS (wild encounter)'],
+  WS_TILE_LEDGE: ['ledge', 'ledge'],
+  WS_TILE_WARP: ['warp', 'warp'],
 
   // ── WorldScene: còn lại ─────────────────────────────────────────────────
   WS_LOGOUT_TITLE: ['⚠ XÁC NHẬN ĐĂNG XUẤT', '⚠ CONFIRM LOGOUT'],
@@ -362,13 +423,14 @@ const MESSAGES = {
   WS_HELP_HELP: ['/help : Xem danh sách lệnh', '/help : List commands'],
   WS_HELP_MAP: ['/map : Thông tin chi tiết map hiện tại', '/map : Current map details'],
   WS_HELP_POS: ['/pos : Toạ độ chi tiết pixel & tile', '/pos : Pixel & tile coordinates'],
+  WS_HELP_TILE: ['/tile <x> <y> : Soi 1 ô (gid, terrain, flag) + đánh dấu ô trên bản đồ', '/tile <x> <y> : Inspect a cell (gid, terrain, flag) + mark it on the map'],
   WS_HELP_SERVER: ['/server : Thông tin kết nối server Colyseus', '/server : Colyseus connection info'],
   WS_HELP_TP: ['/tp <x> <y> hoặc /tp <mapId> : Teleport tức thì', '/tp <x> <y> or /tp <mapId> : Instant teleport'],
   WS_HELP_SPEED: ['/speed <hệ số> : Đổi tốc độ di chuyển (1 -> 5)', '/speed <mult> : Change move speed (1 -> 5)'],
   WS_HELP_NOCLIP: ['/noclip [on|off] : Bật/tắt chế độ đi xuyên tường', '/noclip [on|off] : Toggle no-clip mode'],
   WS_HELP_OVERLAY: ['/overlay <grid|collision|warp> [on|off] : Bật/tắt overlay', '/overlay <grid|collision|warp> [on|off] : Toggle overlay'],
   WS_HELP_LAYER: ['/layer <ground|decoration|overhead> [on|off] : Bật/tắt tầng tilemap', '/layer <ground|decoration|overhead> [on|off] : Toggle tilemap layer'],
-  WS_HELP_CLEAR: ['/clear : Xoá trắng cửa sổ console', '/clear : Clear console window'],
+  WS_HELP_CLEAR: ['/clear : Xoá trắng cửa sổ console + khung chat', '/clear : Clear console window + chat log'],
   WS_HELP_SPAWN: ['/spawn [số Pokédex] : Gọi trận wild (bỏ trống = ngẫu nhiên)', '/spawn [dexNum] : Trigger a wild battle (empty = random)'],
   WS_HELP_SPAWN_USAGE: ['/spawn <số 1..1025> | /spawn | /spawn random', '/spawn <1..1025> | /spawn | /spawn random'],
   WS_HELP_NO_ARGS: ['/spawn không có tham số → chọn ngẫu nhiên từ bảng encounter của map.', '/spawn with no argument → random from this map encounter table.'],
@@ -415,6 +477,8 @@ const MESSAGES = {
   BATTLE_DEFEAT: ['💀 THUA TRẬN...', '💀 DEFEAT...'],
   BATTLE_CAUGHT: ['✨ ĐÃ BẮT ĐƯỢC!', '✨ CAUGHT!'],
   BATTLE_FLED: ['🏃 Đã chạy thoát.', '🏃 Got away safely.'],
+  /** Dòng chat hiển thị khi bấm Run (thay cho overlay "Đã chạy thoát."). */
+  BATTLE_RUN_SAFETY: ['🏃 Bạn đã chạy khỏi trận đấu an toàn!', '🏃 You got away safely!'],
   BATTLE_EXP_GAINED: ['Nhận được {exp} EXP!', 'Gained {exp} EXP!'],
   BATTLE_OK: ['OK', 'OK'],
   BATTLE_YOUR: ['Your', 'Your'],

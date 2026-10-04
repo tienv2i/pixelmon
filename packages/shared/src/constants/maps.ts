@@ -9,8 +9,13 @@ export interface MapData {
   pvp: boolean;
   /** encounter rate 0-100 */
   encounterRate: number;
-  /** grass tile ranges for encounters */
-  encounterZones: { x1: number; y1: number; x2: number; y2: number }[];
+  /**
+   * Mốc kiểm tra vùng spawn (rect) — GIỮ LẠI từ `encounterZones` cũ.
+   * KHÔNG còn inject vào collision nữa; vùng spawn thật nay đến từ property
+   * `spawn_zone=1` trong tileset (xem `scripts/build-server-map.ts`).
+   * Dùng để đối chiếu khi vẽ ô cỏ trong Tiled.
+   */
+  spawnZones: { x1: number; y1: number; x2: number; y2: number }[];
 }
 
 export const MAPS: Record<string, MapData> = {
@@ -22,7 +27,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 8, y: 8 },
     pvp: false,
     encounterRate: 15,
-    encounterZones: [{ x1: 7, y1: 17, x2: 12, y2: 20 }],
+    spawnZones: [{ x1: 7, y1: 17, x2: 12, y2: 20 }],
   },
   'route-1': {
     id: 'route-1',
@@ -32,7 +37,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 13, y: 22 },
     pvp: true,
     encounterRate: 20,
-    encounterZones: [{ x1: 4, y1: 4, x2: 28, y2: 20 }],
+    spawnZones: [{ x1: 4, y1: 4, x2: 28, y2: 20 }],
   },
   'players-house': {
     id: 'players-house',
@@ -42,7 +47,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 3, y: 8 },
     pvp: false,
     encounterRate: 0,
-    encounterZones: [],
+    spawnZones: [],
   },
   'pokemon-lab': {
     id: 'pokemon-lab',
@@ -52,7 +57,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 6, y: 12 },
     pvp: false,
     encounterRate: 0,
-    encounterZones: [],
+    spawnZones: [],
   },
   'daisys-house': {
     id: 'daisys-house',
@@ -62,7 +67,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 3, y: 8 },
     pvp: false,
     encounterRate: 0,
-    encounterZones: [],
+    spawnZones: [],
   },
   // Backward-compatibility aliases
   'pallet-town': {
@@ -73,7 +78,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 8, y: 8 },
     pvp: false,
     encounterRate: 15,
-    encounterZones: [{ x1: 7, y1: 17, x2: 12, y2: 20 }],
+    spawnZones: [{ x1: 7, y1: 17, x2: 12, y2: 20 }],
   },
   'interior-player-house': {
     id: 'players-house',
@@ -83,7 +88,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 3, y: 8 },
     pvp: false,
     encounterRate: 0,
-    encounterZones: [],
+    spawnZones: [],
   },
   'interior-lab': {
     id: 'pokemon-lab',
@@ -93,7 +98,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 6, y: 12 },
     pvp: false,
     encounterRate: 0,
-    encounterZones: [],
+    spawnZones: [],
   },
   'interior-rival-house': {
     id: 'daisys-house',
@@ -103,7 +108,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 3, y: 8 },
     pvp: false,
     encounterRate: 0,
-    encounterZones: [],
+    spawnZones: [],
   },
   route_1: {
     id: 'route-1',
@@ -113,7 +118,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 13, y: 22 },
     pvp: true,
     encounterRate: 20,
-    encounterZones: [{ x1: 4, y1: 4, x2: 28, y2: 20 }],
+    spawnZones: [{ x1: 4, y1: 4, x2: 28, y2: 20 }],
   },
   oak_lab: {
     id: 'pokemon-lab',
@@ -123,7 +128,7 @@ export const MAPS: Record<string, MapData> = {
     spawn: { x: 6, y: 12 },
     pvp: false,
     encounterRate: 0,
-    encounterZones: [],
+    spawnZones: [],
   },
 } as const;
 

@@ -235,7 +235,7 @@ export class WorldRoom extends Room<WorldState> {
     const rolled = rollEncounter(table, {}, 1);
     if (!rolled) return;
 
-    await this.initiateWildBattle(client, rolled.species, rolled.level);
+    await this.initiateWildBattle(client, rolled.species, rolled.level, { x: col, y: row });
   }
 
   /**
@@ -319,7 +319,9 @@ export class WorldRoom extends Room<WorldState> {
       }
     }
 
-    await this.initiateWildBattle(client, species.id, level);
+    // Ô nhân vật đang đứng — dùng làm toạ độ xuất hiện của Pokémon.
+    const spawnTile = pixelToTile(player.x, player.y);
+    await this.initiateWildBattle(client, species.id, level, spawnTile);
 
     client.send('debug_msg', {
       type: 'debug_msg',
@@ -336,6 +338,11 @@ export class WorldRoom extends Room<WorldState> {
     client: Client,
     speciesId: string,
     level: number,
+    /**
+     * Ô (tile) đã kích hoạt encounter — ô cỏ khi gặp tự nhiên, ô nhân vật
+     * đứng khi `/spawn`. Client dùng để hiện toạ độ Pokémon trong khung chat.
+     */
+    tile?: { x: number; y: number },
   ): Promise<void> {
     const player = this.state.players.get(client.sessionId);
     if (!player || this.inBattleSessions.has(client.sessionId)) return;
@@ -368,6 +375,7 @@ export class WorldRoom extends Room<WorldState> {
       foe: foeTeam[0],
       ally: allyTeam,
       mapId: this.state.mapId,
+      tile,
     });
     console.log(
       `[world] battle_init → ${player.displayName}: wild ${speciesId} Lv.${level} (token=${token.slice(0, 8)}…)`,

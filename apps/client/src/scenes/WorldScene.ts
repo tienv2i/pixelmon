@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { PlayerSprite, registerPlayerAnims, type Dir } from '../entities/PlayerSprite';
+import { PlayerSprite, registerPlayerAnims, PLAYER_DEPTH, type Dir } from '../entities/PlayerSprite';
 import { loadSpriteSheet } from '../entities/SpriteSheetLoader';
 import { ColyseusManager } from '../network/ColyseusManager';
 import { TILE_SIZE, PLAYER_SPEED, MOVE_COOLDOWN_MS, MAPS, resolveSpawnTile } from '@pixelmon/shared';
@@ -51,6 +51,36 @@ const DEBUG_GRID_DEPTH = 31;
 const DEBUG_COLLISION_DEPTH = 31.5;
 const DEBUG_WARP_DEPTH = 32;
 const DEBUG_TRACKER_DEPTH = 33;
+/** Overlay tile property — nằm trên warp, dưới HUD. */
+const DEBUG_PROP_DEPTH = 34;
+/** Ô đánh dấu bởi `/tile` — cao nhất trong nhóm overlay debug. */
+const DEBUG_MARKER_DEPTH = 35;
+
+/**
+ * Tên đọc được của `terrain_tag` (RMXP/Essentials) — khớp bảng trong
+ * `scripts/build-server-map.ts` (`TERRAIN_TAG_TO_FLAG`). Chỉ dùng cho debug.
+ */
+function describeTerrainTag(tag: number): string {
+  const names: Record<number, string> = {
+    1: 'Ledge (jump down)',
+    2: 'Grass',
+    3: 'Sand',
+    4: 'Rock',
+    5: 'DeepWater',
+    6: 'StillWater',
+    7: 'Water',
+    8: 'Waterfall',
+    9: 'WaterfallCrest',
+    10: 'TallGrass',
+    11: 'UnderwaterGrass',
+    12: 'Ice',
+    13: 'Neutral',
+    14: 'SootGrass',
+    15: 'Bridge',
+    16: 'Puddle',
+  };
+  return names[tag] ?? `unknown(${tag})`;
+}
 
 /**
  * 3 tầng tilemap chuẩn của bản đồ Essentials (khớp `TiledMapLoader`).
@@ -135,6 +165,14 @@ export class WorldScene extends Phaser.Scene {
   private collisionOverlay?: Phaser.GameObjects.Graphics;
   /** Overlay vẽ điểm warp (cổng chuyển map) trên bản đồ. */
   private warpOverlay?: Phaser.GameObjects.Graphics;
+  /** Overlay đánh dấu ô theo tile property trong Tiled (vd `terrain_tag=2`). */
+  private propOverlay?: Phaser.GameObjects.Graphics;
+  /** Overlay đánh dấu 1 ô cụ thể do lệnh `/tile` chọn (viền + nhãn toạ độ). */
+  private tileMarker?: Phaser.GameObjects.Graphics;
+  /** Nhãn toạ độ gắn trên ô đang được `/tile` đánh dấu. */
+  private tileMarkerLabel?: Phaser.GameObjects.Text;
+  /** Tọa độ ô đang được `/tile` đánh dấu (`null` = chưa đánh dấu). */
+  private markedTile: { x: number; y: number } | null = null;
   /** Nhãn toạ độ bám theo nhân vật (công cụ tracking toạ độ). */
   private coordTracker?: Phaser.GameObjects.Text;
   /** Trạng thái hiển thị của từng lớp tilemap (Ground/Decoration/Overhead). */
@@ -355,7 +393,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.player = new PlayerSprite(this, spawnX, spawnY, sheetKey, seed, frameCount);
     this.player.setDisplayName(network.name || 'Guest');
-    this.player.setDepth(20);
+    this.player.setDepth(PLAYER_DEPTH);
     if (savedLoc?.direction) {
       this.player.setDirection(savedLoc.direction as Dir);
     }
@@ -397,7 +435,30 @@ export class WorldScene extends Phaser.Scene {
   private onBattleInit(data: any): void {
     const token = data?.token;
     if (!token) return;
+    this.reportEncounter(data);
     this.startBattle(token, data?.foe, data?.ally);
+  }
+
+  /**
+   * Hiện toạ độ lên khung chat khi Pokémon hoang xuất hiện:
+   * - **Character**: toạ độ nhân vật (pixel + ô) lúc gặp.
+   * - **Pokemon**: toạ độ ô Pokémon xuất hiện (server gửi trong `battle_init.tile`).
+   */
+  private reportEncounter(data: any): void {
+    const tile = data?.tile as { x?: number; y?: number } | undefined;
+    const charTileX = Math.floor(this.player.x / TILE_SIZE);
+    const charTileY = Math.floor(this.player.y / TILE_SIZE);
+
+    const lines = [
+      `Character: (${charTileX}, ${charTileY}) [pixel ${Math.round(this.player.x)}, ${Math.round(this.player.y)}]`,
+    ];
+    if (tile && Number.isInteger(tile.x) && Number.isInteger(tile.y)) {
+      lines.push(`Pokemon: (${tile.x}, ${tile.y})`);
+    } else {
+      // Fallback: không có tile từ server → ô nhân vật đứng (spawn tại chỗ).
+      lines.push(`Pokemon: (${charTileX}, ${charTileY})`);
+    }
+    this.chatLog?.addSystemBlock(lines.join('\n'), '#fdcb6e');
   }
 
   private mapWidth = 60 * 32;
@@ -613,6 +674,11 @@ export class WorldScene extends Phaser.Scene {
     if (this.coordTracker) objs.push(this.coordTracker);
     if (this.hoverGfx) objs.push(this.hoverGfx);
     if (this.destGfx) objs.push(this.destGfx);
+    // Marker `/tile` + nhãn toạ độ + overlay property — tạo SAU setupUiCamera,
+    // nên phải kê khai ở đây để main camera ignore (tránh render đôi 2 camera).
+    if (this.tileMarker) objs.push(this.tileMarker);
+    if (this.tileMarkerLabel) objs.push(this.tileMarkerLabel);
+    if (this.propOverlay) objs.push(this.propOverlay);
 
     // Map Tiled có nhiều tilelayer (Ground/Decoration/Overhead) → push tất cả.
     if (this.tiledLayers.length > 0) {
@@ -721,6 +787,52 @@ export class WorldScene extends Phaser.Scene {
    * Highlight ô theo `pointermove` → `getWorldPoint` → `pixelToTile` → tileToPixel.
    * Không vẽ path — chỉ làm viền sáng trên ô đích.
    */
+  /**
+   * UI nào đang chặn tương tác với gameplay (click-to-move / pan / hover) phía dưới?
+   *
+   * SSOT: **bất kỳ modal nào có `lockUi: true`** (SettingsPanel, ConfirmModal,
+   * BattleModal, SelectToolsModal) đều đã bật `overlayBlocker` phủ toàn màn hình →
+   * gameplay phía dưới phải bị chặn hoàn toàn.
+   *
+   * Modal `lockUi: false` (HelpModal, PcBoxModal, PokemonSummaryModal, PartyStrip…)
+   * không phủ màn hình → vẫn cho click xuyên qua vùng trống, nên KHÔNG chặn ở đây;
+   * việc chặn cục bộ do `over` + depth trong `isClickOnUiLayer()` bên dưới.
+   */
+  private isBlockingUiOpen(): boolean {
+    return Boolean(
+      this.settingsPanel?.isOpen() ||
+        this.confirmModal?.isOpen() ||
+        this.battleModal?.isOpen() ||
+        this.topMenu?.isToolsModalOpen(),
+    );
+  }
+
+  /**
+   * Click có rơi vào UI overlay (depth >= 100) không?
+   *
+   * Dùng `pointerover` — Phaser chỉ liệt kê object **thực sự nhận input** tại điểm
+   * chuột, và đã loại object `visible: false` / `input.enabled: false`.
+   */
+  private isClickOnUiLayer(over: Phaser.GameObjects.GameObject[]): boolean {
+    return over.some((o: any) => {
+      if (!o || o.visible === false || o.input?.enabled === false) return false;
+      // Object nằm trong container ẩn (vd modal minimize) → coi như không có UI ở đó.
+      let parent = o.parentContainer;
+      while (parent) {
+        if (parent.visible === false) return false;
+        parent = parent.parentContainer;
+      }
+      // Depth của child = max(depth mình, depth mọi container cha).
+      let d = o.depth ?? 0;
+      let pNode = o.parentContainer;
+      while (pNode) {
+        d = Math.max(d, pNode.depth ?? 0);
+        pNode = pNode.parentContainer;
+      }
+      return d >= 100;
+    });
+  }
+
   private setupPointerInput(): void {
     this.input.mouse?.disableContextMenu();
 
@@ -728,34 +840,28 @@ export class WorldScene extends Phaser.Scene {
     this.input.on(
       'pointerdown',
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-        if (
-          this.settingsPanel?.isOpen() ||
+        // Modal `lockUi` che màn hình → chặn mọi tương tác gameplay.
+        if (this.isBlockingUiOpen()) return;
+
+        // Modal popup đang mở → không cho click xuyên xuống map.
+        // KHÔNG gộp panel HUD thường trực (partyStrip, infoPanel…): chúng không có
+        // nút đóng nên `isOpen()` luôn true → sẽ chặn click-to-move vĩnh viễn.
+        // Với panel HUD, `isClickOnUiLayer()` đã loại đúng vùng bị che.
+        const anyModalOpen =
           this.debugModal?.isOpen() ||
-          this.confirmModal?.isOpen() ||
           this.helpModal?.isOpen() ||
           this.pcBoxModal?.isOpen() ||
-          this.pokemonSummaryModal?.isOpen() ||
-          this.topMenu?.isToolsModalOpen()
-        )
-          return;
+          this.pokemonSummaryModal?.isOpen();
+        if (anyModalOpen) return;
 
-        // Chỉ bỏ qua nếu thực sự nhấp vào UI element có depth >= 100 và đang hiển thị
-        const isUiClick = over.some((o: any) => {
-          if (!o || o.visible === false || o.input?.enabled === false) return false;
-          let parent = o.parentContainer;
-          while (parent) {
-            if (parent.visible === false) return false;
-            parent = parent.parentContainer;
-          }
-          let d = o.depth ?? 0;
-          let pNode = o.parentContainer;
-          while (pNode) {
-            d = Math.max(d, pNode.depth ?? 0);
-            pNode = pNode.parentContainer;
-          }
-          return d >= 100;
-        });
-        if (isUiClick) return;
+        // UI nằm trên camera riêng (`uiCam`) — camera được `cameras.add()` sau
+        // `cameras.main` nên nằm TRÊN trong danh sách. Phaser hit-test `uiCam`
+        // TRƯỚC rồi return ngay khi thấy object (xem InputPlugin.hitTestPointer):
+        //   "if (over.length > 0) { pointer.camera = camera; return over; }"
+        // ⇒ `over` chỉ chứa object của `uiCam` → `over.length > 0` ⇔ click vào UI.
+        // Dùng cách này thay vì whitelist tên modal: mọi UI (chat, nút settings,
+        // nút OK battle, HUD panel…) đều tự động bị chặn, không bỏ sót.
+        if (over.length > 0) return;
 
         const wantPan = p.middleButtonDown() || (p.leftButtonDown() && p.event?.shiftKey);
         if (wantPan) return;
@@ -773,7 +879,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.on(
       'pointerdown',
       (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-        if (this.settingsPanel?.isOpen() || this.debugModal?.isOpen()) return;
+        if (this.isBlockingUiOpen()) return;
         const wantPan = p.middleButtonDown() || (p.leftButtonDown() && p.event.shiftKey);
         if (!wantPan) return;
         if (over.length > 0) return; // đang click lên UI → bỏ qua
@@ -794,7 +900,7 @@ export class WorldScene extends Phaser.Scene {
 
     // Hover → highlight ô đích
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (this.settingsPanel?.isOpen()) return;
+      if (this.isBlockingUiOpen()) return;
       if (this.camDrag && this.camDrag.pointerId === p.id) {
         // Đang pan camera — update scroll
         const cam = this.cameras.main;
@@ -922,7 +1028,20 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
-    const path = findPath(this.player.x, this.player.y, targetX, targetY, (c, r) => this.canEnterTile(c, r));
+    const path = findPath(
+      this.player.x,
+      this.player.y,
+      targetX,
+      targetY,
+      (c, r, fc, fr) => {
+        // `passage` chặn hướng tại ô đích → cần biết hướng đi (từ ô cha sang ô này).
+        if (fc === undefined || fr === undefined) return this.canEnterTile(c, r);
+        const dc = c - fc;
+        const dr = r - fr;
+        const dir: Dir = dc > 0 ? 'right' : dc < 0 ? 'left' : dr > 0 ? 'down' : 'up';
+        return this.canEnterTile(c, r, dir);
+      },
+    );
     if (path.length === 0) {
       // Thử fallback trực tiếp nếu ô đích là ô lân cận đi được
       const curCol = Math.floor(this.player.x / TILE_SIZE);
@@ -930,7 +1049,11 @@ export class WorldScene extends Phaser.Scene {
       const destCol = Math.floor(targetX / TILE_SIZE);
       const destRow = Math.floor(targetY / TILE_SIZE);
       const isNeighbor = Math.abs(destCol - curCol) + Math.abs(destRow - curRow) === 1;
-      if (isNeighbor && this.canEnterTile(destCol, destRow)) {
+      const ndc = destCol - curCol;
+      const ndr = destRow - curRow;
+      const stepDir: Dir =
+        ndc > 0 ? 'right' : ndc < 0 ? 'left' : ndr > 0 ? 'down' : 'up';
+      if (isNeighbor && this.canEnterTile(destCol, destRow, stepDir)) {
         this.movePath = [this.tileCenter(destCol, destRow)];
         this.nextStepAt = 0;
         return;
@@ -1295,6 +1418,10 @@ export class WorldScene extends Phaser.Scene {
     // ── Công cụ Debug (chỉ bật cho tài khoản moderator trở lên) ──
     this.setupDebugTools();
     this.syncDebugTools();
+    // Lưu ý: các overlay debug (tileMarker, propOverlay...) đã được
+    // `registerWorldObject()` ignore ở `uiCam` → chỉ main camera render.
+    // TUYỆT ĐỐI không gọi `main.ignore()` cho chúng — nếu không cả 2 camera
+    // đều bỏ qua → overlay biến mất khỏi màn hình.
 
     // Phím tắt F3 / F2 mở Debug Modal riêng
     this.input.keyboard?.on('keydown-F3', (e: KeyboardEvent) => {
@@ -1740,6 +1867,11 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private showChat(from: string, message: string): void {
+    // Ghi vào khung chat (kênh chính) — trước đây chỉ hiện chữ nổi nên người
+    // chơi gõ tin không thấy gì trong khung chat.
+    this.chatLog?.addLine(`${from}: ${message}`);
+
+    // Chữ nổi trên đầu nhân vật (giữ lại cho chat kiểu Pokemon).
     const text = this.add
       .text(this.player.x, this.player.y - TILE_SIZE - 4, `${from}: ${message}`, {
         fontSize: '12px',
@@ -1788,6 +1920,7 @@ export class WorldScene extends Phaser.Scene {
             this,
             { token, foe: foe as any, ally: (ally ?? []) as any },
             () => this.onBattleEnded(),
+            () => this.chatLog?.addSystemLine(t('BATTLE_RUN_SAFETY'), '#7bed9f'),
           );
           this.battleModal.setUiZoomManager(this.uiZoom);
           this.battleStarting = false;
@@ -1933,8 +2066,9 @@ export class WorldScene extends Phaser.Scene {
    * Ô (col,row) có thể đi vào không?
    * - Nước: chỉ khi đang Surf.
    * - Ledge: đi vào được (xử lý nhảy riêng ở `handleInputDirection`).
+   * - `dir` (tuỳ chọn): kiểm thêm `passage` chặn hướng tại ô đích.
    */
-  private canEnterTile(col: number, row: number): boolean {
+  private canEnterTile(col: number, row: number, dir?: Dir): boolean {
     if (this.noclip) return true;
     const curCol = Math.floor(this.player.x / TILE_SIZE);
     const curRow = Math.floor(this.player.y / TILE_SIZE);
@@ -1944,6 +2078,7 @@ export class WorldScene extends Phaser.Scene {
       const safe = this.collision.nearestWalkable(curCol, curRow, { canSurf: this.surfing }, 12);
       if (safe && col === safe.x && row === safe.y) return true;
     }
+    if (dir && this.collision.isDirBlocked(col, row, dir)) return false;
     return this.collision.isWalkable(col, row, { canSurf: this.surfing });
   }
 
@@ -1976,7 +2111,7 @@ export class WorldScene extends Phaser.Scene {
       const v = WorldScene.dirToVector(dir);
       const landX = col + v.dx * 2;
       const landY = row + v.dy * 2;
-      if (!this.canEnterTile(landX, landY)) return false;
+      if (!this.canEnterTile(landX, landY, dir)) return false;
       this.jumpLedge(landX, landY, dir);
       return true;
     }
@@ -1985,7 +2120,7 @@ export class WorldScene extends Phaser.Scene {
     const v = WorldScene.dirToVector(dir);
     const nx = col + v.dx;
     const ny = row + v.dy;
-    if (!this.canEnterTile(nx, ny)) {
+    if (!this.canEnterTile(nx, ny, dir)) {
       // Không đi được — vẫn quay mặt sang hướng đó (phản hồi trực quan).
       this.player.setDirection(dir);
       return false;
@@ -2338,6 +2473,39 @@ export class WorldScene extends Phaser.Scene {
       .setScrollFactor(1);
     this.registerWorldObject(this.warpOverlay);
 
+    // Overlay đánh dấu ô theo tile property trong Tiled (ví dụ `terrain_tag=2`).
+    // Dùng để đối chiếu trực quan vùng cỏ THẬT với vùng `spawnZones` (mốc kiểm tra) đang
+    // được inject trong `build-server-map.ts` (thường rộng hơn nhiều).
+    this.propOverlay = this.add
+      .graphics()
+      .setDepth(DEBUG_PROP_DEPTH)
+      .setVisible(false)
+      .setScrollFactor(1);
+    this.registerWorldObject(this.propOverlay);
+
+    // Overlay đánh dấu 1 ô do lệnh `/tile` chọn — viền sáng + nhãn toạ độ.
+    // Depth cao nhất trong nhóm debug để luôn thấy khi nhiều overlay cùng bật.
+    this.tileMarker = this.add
+      .graphics()
+      .setDepth(DEBUG_MARKER_DEPTH)
+      .setVisible(false)
+      .setScrollFactor(1);
+    this.registerWorldObject(this.tileMarker);
+
+    this.tileMarkerLabel = this.add
+      .text(0, 0, '', {
+        fontSize: '11px',
+        fontFamily: FONT.mono,
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(DEBUG_MARKER_DEPTH)
+      .setScrollFactor(1)
+      .setVisible(false);
+    this.registerWorldObject(this.tileMarkerLabel);
+
     // Nhãn toạ độ nằm trên tầng overhead + trên đầu nhân vật.
     // `stroke` đen để đọc được trên nền cỏ/sàn sáng.
     this.coordTracker = this.add
@@ -2370,6 +2538,52 @@ export class WorldScene extends Phaser.Scene {
     if (on) this.drawGrid();
   }
 
+  /**
+   * Đánh dấu 1 ô trên bản đồ (viền sáng + nhãn toạ độ) — gọi từ lệnh `/tile`.
+   * Ô ngoài bản đồ → bỏ qua, không đánh dấu.
+   */
+  private markTile(tx: number, ty: number): void {
+    const mapW = Math.round(this.mapWidth / TILE_SIZE);
+    const mapH = Math.round(this.mapHeight / TILE_SIZE);
+    if (tx < 0 || ty < 0 || tx >= mapW || ty >= mapH) return;
+    this.markedTile = { x: tx, y: ty };
+    this.drawTileMarker();
+  }
+
+  /** Xoá mọi đánh dấu ô do `/tile` tạo ra. */
+  private clearTileMarker(): void {
+    this.markedTile = null;
+    this.tileMarker?.clear();
+    this.tileMarker?.setVisible(false);
+    this.tileMarkerLabel?.setText('');
+    this.tileMarkerLabel?.setVisible(false);
+  }
+
+  /** Vẽ viền + nhãn toạ độ cho ô đang được đánh dấu. */
+  private drawTileMarker(): void {
+    const g = this.tileMarker;
+    const label = this.tileMarkerLabel;
+    if (!g || !label || !this.markedTile) return;
+    const { x, y } = this.markedTile;
+    const px = x * TILE_SIZE;
+    const py = y * TILE_SIZE;
+
+    g.clear();
+    // Nền tối nhẹ để viền nổi bật trên mọi loại nền.
+    g.fillStyle(0x000000, 0.25);
+    g.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+    // Viền trắng dày + viền trong màu cyan.
+    g.lineStyle(3, 0xffffff, 1);
+    g.strokeRect(px + 1.5, py + 1.5, TILE_SIZE - 3, TILE_SIZE - 3);
+    g.lineStyle(1.5, 0x00cec9, 1);
+    g.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+    g.setVisible(true);
+
+    label.setText(`[${x}, ${y}]`);
+    label.setPosition(px + TILE_SIZE / 2, py - 2);
+    label.setVisible(true);
+  }
+
   /** Bật/tắt overlay vùng va chạm. */
   private setCollisionOverlay(on: boolean): void {
     if (!this.collisionOverlay) return;
@@ -2383,6 +2597,113 @@ export class WorldScene extends Phaser.Scene {
     this.warpOverlay.setVisible(on);
     if (on) this.drawWarpOverlay();
   }
+
+  /** Bật/tắt overlay đánh dấu ô theo tile property. */
+  private setPropOverlay(on: boolean): void {
+    if (!this.propOverlay) return;
+    this.propOverlay.setVisible(on);
+    if (on && this.propOverlayQuery) this.drawPropOverlay(this.propOverlayQuery);
+  }
+
+  /**
+   * Đọc tile property của 1 GID từ tileset đầu tiên của map hiện tại.
+   * Trả về `Map<name, value>` (rỗng nếu tile không khai báo property).
+   */
+  private getTileProps(gid: number): Map<string, unknown> {
+    const tmj = TILED_MAPS[this.currentMapId];
+    const ts = tmj?.tilesets?.[0];
+    if (!ts) return new Map();
+    const firstgid = ts.firstgid ?? 1;
+    const tile = ts.tiles?.find((x) => firstgid + x.id === gid);
+    const m = new Map<string, unknown>();
+    for (const p of tile?.properties ?? []) m.set(p.name, p.value);
+    return m;
+  }
+
+  /**
+   * Tô đậm mọi ô có tile property khớp truy vấn.
+   *
+   * @param query `name=value` (vd `terrain_tag=2`), hoặc chỉ `name` để tô mọi ô
+   *              có property đó (bất kể giá trị). Rỗng → tắt overlay.
+   *
+   * Quét **mọi** tilelayer (Ground/Decoration/Overhead) vì `ledge_dir` nằm ở
+   * Decoration còn `terrain_tag` nằm ở Ground — chỉ nhìn 1 layer sẽ bỏ sót.
+   */
+  private drawPropOverlay(query: string): void {
+    const g = this.propOverlay;
+    if (!g) return;
+    g.clear();
+
+    const q = query.trim();
+    if (!q) return;
+
+    const eq = q.indexOf('=');
+    const name = (eq >= 0 ? q.slice(0, eq) : q).trim();
+    const value = eq >= 0 ? q.slice(eq + 1).trim() : undefined;
+
+    const tmj = TILED_MAPS[this.currentMapId];
+    if (!tmj) return;
+    const width = tmj.width;
+
+    // Cache props theo GID để không parse lặp lại (map 36×24 × 3 layer).
+    const cache = new Map<number, Map<string, unknown>>();
+    const propsOf = (gid: number) => {
+      let p = cache.get(gid);
+      if (!p) {
+        p = this.getTileProps(gid);
+        cache.set(gid, p);
+      }
+      return p;
+    };
+
+    let hits = 0;
+    for (const layer of tmj.layers ?? []) {
+      if (layer.type !== 'tilelayer' || !layer.data) continue;
+      for (let i = 0; i < layer.data.length; i++) {
+        const gid = layer.data[i] ?? 0;
+        if (!gid) continue;
+        const props = propsOf(gid);
+        if (!props.has(name)) continue;
+        if (value !== undefined && String(props.get(name)) !== value) continue;
+
+        const px = (i % width) * TILE_SIZE;
+        const py = Math.floor(i / width) * TILE_SIZE;
+        g.fillStyle(0xff00ff, 0.35);
+        g.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        g.lineStyle(1, 0xff00ff, 0.9);
+        g.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        hits++;
+      }
+    }
+
+    this.propOverlayHits = hits;
+  }
+
+  /** Truy vấn property hiện đang được tô overlay (`''` = đang tắt). */
+  private propOverlayQuery = '';
+
+  /**
+   * Đọc `terrain_tag` của 1 ô (tile coords) từ layer **Ground** —
+   * nguồn terrain thật (Decoration/Overhead không mang terrain_tag).
+   * @returns terrain_tag (number) hoặc `undefined` nếu ô không có terrain.
+   */
+  private getTerrainAt(tx: number, ty: number): number | undefined {
+    const tmj = TILED_MAPS[this.currentMapId];
+    if (!tmj) return undefined;
+    const idx = ty * tmj.width + tx;
+    for (const layer of tmj.layers ?? []) {
+      if (layer.type !== 'tilelayer' || !layer.data) continue;
+      // Tên layer phân biệt hoa/thường ('Ground' trong .tmj) → so sánh lowercase.
+      if (layer.name.toLowerCase() !== 'ground') continue;
+      const gid = layer.data[idx] ?? 0;
+      if (!gid) return undefined;
+      const v = this.getTileProps(gid).get('terrain_tag');
+      return v === undefined ? undefined : Number(v);
+    }
+    return undefined;
+  }
+  /** Số ô khớp truy vấn ở lần vẽ gần nhất. */
+  private propOverlayHits = 0;
 
   private setCoordTracking(on: boolean): void {
     this.coordTracker?.setVisible(on);
@@ -2465,6 +2786,23 @@ export class WorldScene extends Phaser.Scene {
         } else if (this.collision.isGrass(c, r)) {
           g.fillStyle(0x55efc4, 0.4);
           g.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        }
+
+        // 🟣 Passage: ô đi được nhưng có hướng bị chặn (RMXP `passage`).
+        // Vẽ dải dày ở CẠNH bị chặn (dành cho ô không BLOCKED đã xử lý ở trên).
+        if (this.collision.isWalkable(c, r, { canSurf: true })) {
+          const blocked: Dir[] = (['up', 'down', 'left', 'right'] as Dir[]).filter((d) =>
+            this.collision.isDirBlocked(c, r, d),
+          );
+          if (blocked.length > 0) {
+            g.lineStyle(4, 0xa29bfe, 0.95);
+            if (blocked.includes('up')) g.lineBetween(px, py + 2, px + TILE_SIZE, py + 2);
+            if (blocked.includes('down'))
+              g.lineBetween(px, py + TILE_SIZE - 2, px + TILE_SIZE, py + TILE_SIZE - 2);
+            if (blocked.includes('left')) g.lineBetween(px + 2, py, px + 2, py + TILE_SIZE);
+            if (blocked.includes('right'))
+              g.lineBetween(px + TILE_SIZE - 2, py, px + TILE_SIZE - 2, py + TILE_SIZE);
+          }
         }
       }
     }
@@ -2596,6 +2934,9 @@ export class WorldScene extends Phaser.Scene {
       if (this.gridOverlay?.visible) this.drawGrid();
       if (this.collisionOverlay?.visible) this.drawCollisionOverlay();
       if (this.warpOverlay?.visible) this.drawWarpOverlay();
+      if (this.propOverlay?.visible && this.propOverlayQuery) this.drawPropOverlay(this.propOverlayQuery);
+      // Đánh dấu `/tile` thuộc map cũ → bỏ vì tọa độ không còn đúng.
+      this.clearTileMarker();
       // Áp dụng lại trạng thái 3 lớp tilemap (layers vừa được tạo mới).
       for (const key of MAP_LAYER_KEYS) this.setMapLayerVisible(key, this.layerVisibility[key]);
 
@@ -2673,12 +3014,14 @@ export class WorldScene extends Phaser.Scene {
         t('WS_HELP_HELP'),
         t('WS_HELP_MAP'),
         t('WS_HELP_POS'),
+        t('WS_HELP_TILE'),
         t('WS_HELP_SERVER'),
         t('WS_HELP_TP'),
         t('WS_HELP_SPEED'),
         t('WS_HELP_NOCLIP'),
         t('WS_HELP_OVERLAY'),
         t('WS_HELP_LAYER'),
+        t('WS_CMD_DEBUG_GRID'),
         t('WS_HELP_CLEAR'),
         t('WS_HELP_SPAWN'),
       ].join('\n');
@@ -2741,6 +3084,93 @@ export class WorldScene extends Phaser.Scene {
       ].join('\n');
     }
 
+    // `/tile [x] [y]` — soi 1 ô: gid 3 lớp, tile property (terrain_tag/passage),
+    //   và collision flag từ server JSON. Bỏ trống → ô đang đứng (center → tile).
+    //   Dùng để trả lời nhanh: "ô này có phải terrain (cỏ/nước/ledge) không?"
+    if (action === '/tile') {
+      const mapW = Math.round(this.mapWidth / TILE_SIZE);
+      const mapH = Math.round(this.mapHeight / TILE_SIZE);
+
+      // `/tile off` — xoá đánh dấu ô đang hiển thị trên bản đồ.
+      if (parts[1]?.toLowerCase() === 'off') {
+        this.clearTileMarker();
+        return `${t('WS_TILE_CELL')}: ${t('WS_TILE_MARKER_CLEARED')}`;
+      }
+
+      let tx: number;
+      let ty: number;
+      if (parts.length >= 3) {
+        tx = parseInt(parts[1], 10);
+        ty = parseInt(parts[2], 10);
+        if (!Number.isInteger(tx) || !Number.isInteger(ty)) return t('WS_CMD_TILE');
+      } else {
+        tx = Math.floor(this.player.x / TILE_SIZE);
+        ty = Math.floor(this.player.y / TILE_SIZE);
+      }
+      if (tx < 0 || ty < 0 || tx >= mapW || ty >= mapH) {
+        return `${t('WS_TILE_OOB')} (${tx}, ${ty}) — ${mapW}×${mapH}`;
+      }
+
+      // Đánh dấu ô trên bản đồ (viền + nhãn toạ độ) trước khi in thông tin.
+      this.markTile(tx, ty);
+
+      const tmj = TILED_MAPS[this.currentMapId];
+      const idx = ty * mapW + tx;
+      const rows: string[] = [`${t('WS_TILE_CELL')}: (${tx}, ${ty}) [map ${this.currentMapId}]`];
+
+      // 1) gid trên từng lớp + property của tile trong Tiled (nguồn terrain thật).
+      const props = new Map<string, unknown>();
+      const gidLines: string[] = [];
+      let firstGid = 1;
+      if (tmj?.tilesets?.[0]) {
+        firstGid = tmj.tilesets[0].firstgid ?? 1;
+        for (const layer of tmj.layers) {
+          if (layer.type !== 'tilelayer' || !layer.data) continue;
+          const gid = layer.data[idx] ?? 0;
+          if (gid === 0) {
+            gidLines.push(`    ${layer.name}: ${t('WS_TILE_EMPTY')}`);
+            continue;
+          }
+          gidLines.push(`    ${layer.name}: gid=${gid} tile_id=${gid - firstGid}`);
+          if (layer.name.toLowerCase() !== 'ground') continue; // terrain chỉ đọc ở Ground
+          const tile = tmj.tilesets[0]?.tiles?.find((x) => x.id === gid - firstGid);
+          for (const p of tile?.properties ?? []) props.set(p.name, p.value);
+        }
+      }
+      rows.push(`${t('WS_TILE_LAYERS')}:`, ...(gidLines.length ? gidLines : [`    ${t('WS_TILE_EMPTY')}`]));
+
+      const terrain = props.get('terrain_tag');
+      const passage = props.get('passage');
+      rows.push(
+        `${t('WS_TILE_TERRAIN')}: ${
+          terrain === undefined
+            ? `${t('WS_TILE_TERRAIN_NONE')} (không có terrain_tag)`
+            : `terrain_tag=${String(terrain)} (${describeTerrainTag(Number(terrain))})`
+        }`,
+        `${t('WS_TILE_PASSAGE')}: ${passage === undefined ? '—' : String(passage)}`,
+      );
+
+      // 2) Collision flag từ server JSON (client bundle — cùng logic với server).
+      const flag = this.collision.getFlag(tx, ty);
+      const bits: string[] = [];
+      if (flag & 0x01) bits.push(t('WS_TILE_WALKABLE'));
+      if (flag & 0x04) bits.push(t('WS_TILE_BLOCKED'));
+      if (flag & 0x02) bits.push(t('WS_TILE_WATER'));
+      if (flag & 0x08) bits.push(`** ${t('WS_TILE_GRASS')} **`);
+      if (flag & 0x60) bits.push(`${t('WS_TILE_LEDGE')} 0x${(flag & 0x60).toString(16)}`);
+      if (flag & 0x80) bits.push(t('WS_TILE_WARP'));
+      // Bit 8-11: passage theo hướng (RMXP) — hướng bị chặn.
+      const passBits: string[] = [];
+      if (flag & 0x0100) passBits.push('down');
+      if (flag & 0x0200) passBits.push('left');
+      if (flag & 0x0400) passBits.push('right');
+      if (flag & 0x0800) passBits.push('up');
+      if (passBits.length) bits.push(`passage chặn: ${passBits.join(', ')}`);
+      rows.push(`${t('WS_TILE_FLAG')}: 0x${flag.toString(16).padStart(4, '0')} → ${bits.join(' | ') || '—'}`);
+      rows.push(`${t('WS_TILE_MARKER')}: (${tx}, ${ty})`);
+      return rows.join('\n');
+    }
+
     if (action === '/noclip') {
       const arg = parts[1]?.toLowerCase();
       const next = arg === 'on' ? true : arg === 'off' ? false : !this.noclip;
@@ -2750,6 +3180,8 @@ export class WorldScene extends Phaser.Scene {
 
     if (action === '/clear') {
       this.debugConsole?.clearLogs();
+      // Xoá luôn nội dung khung chat (không hiện dòng confirm).
+      this.chatLog?.clear();
       return;
     }
 
@@ -2817,6 +3249,113 @@ export class WorldScene extends Phaser.Scene {
       this.setMapLayerVisible(key, on);
       this.debugModal?.setToggleState(`layer_${key}`, on);
       return `${t('WS_LAYER_STATE')}${key}": ${on ? t('WS_LAYER_VISIBLE') : t('WS_LAYER_HIDDEN')}`;
+    }
+
+    // `/debug grid property <name[=value]>` — tô đậm ô theo tile property trong Tiled.
+    //   /debug grid property terrain_tag=2   → tô mọi ô có terrain_tag = 2 (cỏ thật)
+    //   /debug grid property ledge_dir       → tô mọi ô có ledge_dir (bất kể hướng)
+    //   /debug grid property                 → tắt overlay
+    // Dùng để đối chiếu vùng cỏ THẬT (spawn_zone/terrain_tag trong Tiled).
+    // `spawnZones` trong constants/maps.ts chỉ là MỐC KIỂM TRA (không inject nữa).
+    if (action === '/debug') {
+      const sub = parts[1]?.toLowerCase();
+
+      // `/debug terrain <num|all|none>` — tô mọi ô có `terrain_tag = num`
+      //   (vd `/debug terrain 2` = cỏ thật). `all` = mọi ô có terrain_tag
+      //   (bất kể giá trị). `none` hoặc bỏ trống → tắt overlay.
+      if (sub === 'terrain') {
+        const arg = parts[2]?.toLowerCase();
+        if (arg === undefined || arg === 'none' || arg === '') {
+          this.propOverlayQuery = '';
+          this.setPropOverlay(false);
+          return `${t('WS_TERRAIN_OVERLAY_STATE')}: ${t('WS_PROP_OVERLAY_OFF')}`;
+        }
+        if (arg === 'all') {
+          this.propOverlayQuery = 'terrain_tag';
+          this.setPropOverlay(true);
+          return [
+            `${t('WS_TERRAIN_OVERLAY_STATE')}: ${t('WS_PROP_OVERLAY_ON')}`,
+            `${t('WS_PROP_OVERLAY_QUERY')}: terrain_tag (mọi giá trị)`,
+            `${t('WS_PROP_OVERLAY_HITS')}: ${this.propOverlayHits}`,
+          ].join('\n');
+        }
+        const num = parseInt(arg, 10);
+        if (!Number.isInteger(num) || num < 0) return t('WS_CMD_TERRAIN');
+        this.propOverlayQuery = `terrain_tag=${num}`;
+        this.setPropOverlay(true);
+        return [
+          `${t('WS_TERRAIN_OVERLAY_STATE')}: ${t('WS_PROP_OVERLAY_ON')}`,
+          `${t('WS_PROP_OVERLAY_QUERY')}: terrain_tag=${num} (${describeTerrainTag(num)})`,
+          `${t('WS_PROP_OVERLAY_HITS')}: ${this.propOverlayHits}`,
+        ].join('\n');
+      }
+
+      // `/debug is_terrain <x> <y>` — kiểm tra 1 ô có phải terrain không.
+      //   Bỏ trống → ô nhân vật đang đứng. Trả về terrain_tag + tên đọc được.
+      if (sub === 'is_terrain') {
+        const mapW = Math.round(this.mapWidth / TILE_SIZE);
+        const mapH = Math.round(this.mapHeight / TILE_SIZE);
+        let tx: number;
+        let ty: number;
+        if (parts.length >= 4) {
+          tx = parseInt(parts[2], 10);
+          ty = parseInt(parts[3], 10);
+          if (!Number.isInteger(tx) || !Number.isInteger(ty)) return t('WS_CMD_IS_TERRAIN');
+        } else {
+          tx = Math.floor(this.player.x / TILE_SIZE);
+          ty = Math.floor(this.player.y / TILE_SIZE);
+        }
+        if (tx < 0 || ty < 0 || tx >= mapW || ty >= mapH) {
+          return `${t('WS_TILE_OOB')} (${tx}, ${ty}) — ${mapW}×${mapH}`;
+        }
+        const tag = this.getTerrainAt(tx, ty);
+        const rows = [`${t('WS_TILE_CELL')}: (${tx}, ${ty}) [map ${this.currentMapId}]`];
+        if (tag === undefined) {
+          rows.push(`${t('WS_TILE_TERRAIN')}: ${t('WS_TILE_TERRAIN_NONE')}`);
+        } else {
+          rows.push(
+            `${t('WS_TILE_TERRAIN')}: terrain_tag=${tag} (${describeTerrainTag(tag)})`,
+          );
+        }
+        return rows.join('\n');
+      }
+
+      // `/debug passage <up|down|left|right|all|none>` — tô ô có `passage` chặn hướng.
+      //   Dùng để kiểm hàng loạt sau khi vẽ `passage` trong Tiled.
+      if (sub === 'passage') {
+        const arg = parts[2]?.toLowerCase();
+        if (arg === undefined || arg === 'none' || arg === '') {
+          this.propOverlayQuery = '';
+          this.setPropOverlay(false);
+          return `${t('WS_PASSAGE_OVERLAY')}: ${t('WS_PROP_OVERLAY_OFF')}`;
+        }
+        const valid = ['up', 'down', 'left', 'right', 'all'];
+        if (!valid.includes(arg)) return t('WS_CMD_PASSAGE');
+        // Map hướng → bit passage của RMXP (bit 0-3).
+        const bit: Record<string, number> = { down: 0x01, left: 0x02, right: 0x04, up: 0x08 };
+        this.propOverlayQuery = arg === 'all' ? 'passage' : `passage=${bit[arg]}`;
+        this.setPropOverlay(true);
+        return [
+          `${t('WS_PASSAGE_OVERLAY')}: ${t('WS_PROP_OVERLAY_ON')}`,
+          `${t('WS_PROP_OVERLAY_QUERY')}: passage=${arg}`,
+          `${t('WS_PROP_OVERLAY_HITS')}: ${this.propOverlayHits}`,
+        ].join('\n');
+      }
+
+      return t('WS_CMD_DEBUG_GRID');
+    }
+
+    // `/debug off` — tắt toàn bộ overlay debug (grid/collision/warp/terrain/marker).
+    if (action === '/debug' && !parts[1]) {
+      this.setGridOverlay(false);
+      this.setCollisionOverlay(false);
+      this.setWarpOverlay(false);
+      this.setPropOverlay(false);
+      this.clearTileMarker();
+      this.debugModal?.setToggleState('grid', false);
+      this.debugModal?.setToggleState('collision', false);
+      this.debugModal?.setToggleState('warp', false);
+      return t('WS_DEBUG_OFF');
     }
 
     return `${t('WS_CMD_INVALID')}${cmd}${t('WS_CMD_HELP')}`;

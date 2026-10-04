@@ -5,6 +5,20 @@ import { C, FONT } from '../ui/theme';
 const DIRS = ['down', 'up', 'left', 'right'] as const;
 export type Dir = (typeof DIRS)[number];
 
+/**
+ * Depth của nhân vật (player sprite) — khớp chuẩn chung trong `TiledMapLoader`:
+ * Ground (10) < Decoration (12) < **Player (20)** < Overhead (30).
+ *
+ * Lớp `Overhead` (tán cây, mái nhà, rào trên cao...) render Ở TRÊN nhân vật
+ * (`depth = 30`) để "che" người chơi khi đứng dưới — nhưng **không chặn di
+ * chuyển** (xem heuristic trong `scripts/build-server-map.ts`).
+ */
+export const PLAYER_DEPTH = 20;
+/** Bóng nằm dưới chân: trên mặt đất (Ground 10 / Decoration 12), dưới nhân vật. */
+export const PLAYER_SHADOW_DEPTH = 19;
+/** Bảng tên trên đầu: trên nhân vật (20) — vẫn bị Overhead (30) che khi đứng dưới. */
+export const PLAYER_NAME_DEPTH = 21;
+
 /** Số frame đi bộ mỗi hướng: sheet trainer cũ = 3, sheet hero = 4. */
 const FRAMES_PER_DIR = { legacy: 3, hero: 4 } as const;
 
@@ -92,13 +106,13 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
     // - legacy (frame 32px): originY = (32-16)/32 = 0.5
     this.sheet = frameCount === 16 ? 'hero' : 'legacy';
     this.setOrigin(0.5, this.sheet === 'hero' ? 0.75 : 0.5);
-    this.setDepth(10);
+    this.setDepth(PLAYER_DEPTH);
     this.hue = hueSeed;
 
     // Bóng đặt ngay dưới chân (đáy ô = y + 16, hình bầu dục nằm phía dưới 1px).
     this.shadow = scene.add
       .image(x, y + 15, 'shadow')
-      .setDepth(9)
+      .setDepth(PLAYER_SHADOW_DEPTH)
       .setAlpha(0.6);
 
     this.nameText = scene.add
@@ -110,7 +124,7 @@ export class PlayerSprite extends Phaser.GameObjects.Sprite {
         strokeThickness: 3,
       })
       .setOrigin(0.5, 1)
-      .setDepth(11);
+      .setDepth(PLAYER_NAME_DEPTH);
   }
 
   private getNameOffsetY(): number {

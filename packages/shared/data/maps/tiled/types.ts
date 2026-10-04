@@ -19,6 +19,18 @@ export interface TiledLayer {
   y?: number;
 }
 
+export interface TiledProperty {
+  name: string;
+  type?: string;
+  value: unknown;
+}
+
+/** Tile overrides trong tileset (`tiles[]`) — mang property riêng như terrain_tag, ledge_dir. */
+export interface TiledTile {
+  id: number;
+  properties?: TiledProperty[];
+}
+
 export interface TiledTileset {
   firstgid: number;
   name: string;
@@ -31,6 +43,8 @@ export interface TiledTileset {
   tilecount: number;
   margin?: number;
   spacing?: number;
+  /** Property riêng cho từng tile (gid = firstgid + tile.id) */
+  tiles?: TiledTile[];
 }
 
 export interface TiledMapJSON {

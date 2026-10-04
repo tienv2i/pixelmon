@@ -11,7 +11,8 @@
  *   node scripts/build-server-map.ts --all --watch   # tự regenerate khi Tiled save
  *
  * Collision derive 3 tầng (plan §3.3 + §3.4):
- *   A. Layer heuristic:  Overhead!=0 → BLOCKED | Decoration!=0 → BLOCKED | Ground!=0 → WALKABLE
+ *   A. Layer heuristic:  Decoration!=0 → BLOCKED | Ground!=0 → WALKABLE
+ *      (Overhead KHÔNG chặn — mặc định walkable, render depth 30 che nhân vật)
  *   B. Tileset tile property (ưu tiên hơn A): `passage` (0x00 walkable / 0x0f blocked),
  *      `terrain_tag` (0x02 grass, 0x06 water, 0x0a tall grass), `ledge_dir`, `water`
  *   C. Object property override: `passage`, `terrain_tag`, `ledge_dir`, `water`
@@ -39,6 +40,34 @@ const LEDGE_NORTH = 0x30;
 const LEDGE_WEST = 0x50;
 const LEDGE_EAST = 0x70;
 const WARP = 0x80;
+// ── Bit 8-15: passage theo hướng (RMXP 4-bit) ──
+const PASS_DOWN = 0x0100;
+const PASS_LEFT = 0x0200;
+const PASS_RIGHT = 0x0400;
+const PASS_UP = 0x0800;
+const PASS_DIR_MASK = 0x0f00;
+const PASS_ALL = 0x0f00;
+
+/**
+ * `passage` (RMXP bitmask 4 hướng) → bit `PASS_*` trong collision.flags.
+ * Chuẩn RMXP: bit = 1 nghĩa là **không cho đi** theo hướng đó.
+ * Chỉ mask `0x0f` — bit cao (0x40/0x80) là cờ khác của RMXP, bỏ qua.
+ */
+const PASSAGE_TO_PASS_FLAG: Record<number, number> = {
+  0x01: PASS_DOWN,
+  0x02: PASS_LEFT,
+  0x04: PASS_RIGHT,
+  0x08: PASS_UP,
+};
+
+/** `passage & 0x0f` → tổng bit `PASS_*` tương ứng. */
+function passageToPassFlags(low: number): number {
+  let out = 0;
+  for (const [pBit, fBit] of Object.entries(PASSAGE_TO_PASS_FLAG)) {
+    if (low & Number(pBit)) out |= fBit;
+  }
+  return out;
+}
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -225,38 +254,66 @@ function deriveCollision(map: TiledMap, mapId: string): CollisionLayer {
 
     let flag: number;
     if (anyProps) {
+      // `passage` — ưu tiên Ground → Decoration → Overhead (layer đầu tiên CÓ).
+      // Không layer nào có → `passLow = 0` (đi được cả 4 hướng, hành vi cũ).
       const gPass = gProps ? propNumFromMap(gProps, 'passage') : undefined;
       const dPass = dProps ? propNumFromMap(dProps, 'passage') : undefined;
       const hPass = hProps ? propNumFromMap(hProps, 'passage') : undefined;
-      const isBlocked = [gPass, dPass, hPass].some(
-        (p) => p !== undefined && (p & 0x0f) === 0x0f,
-      );
+      const passSrc = [gPass, dPass, hPass].find((p) => p !== undefined) ?? 0;
+      const passLow = passSrc & 0x0f;
+      // passage 0x0f → BLOCKED toàn phần (giữ hành vi cũ, không dùng bit PASS_*).
+      const passAll = [gPass, dPass, hPass].some((p) => p !== undefined && (p & 0x0f) === 0x0f);
 
       const terrainTag = gProps ? propNumFromMap(gProps, 'terrain_tag') : undefined;
       const terrainFlag = terrainTag !== undefined ? (TERRAIN_TAG_TO_FLAG[terrainTag] ?? 0) : 0;
 
+      // `spawn_zone=1` — CHỈ đọc từ Ground (không quét Decoration/Overhead để
+      // ô trang trí không bị vô tình thành vùng spawn). Thay cho `grass_zone` cũ.
+      const spawnZone =
+        gProps && propNumFromMap(gProps, 'spawn_zone') === 1 ? GRASS : 0;
+      const grassFlag = terrainFlag | spawnZone;
+
       // Cỏ luôn đi được (tall grass / grass chỉ gây encounter, không chặn di chuyển).
       // BUG cũ: `isBlocked` khiến tag 2/10/14 thành GRASS|BLOCKED (0x0C) → ô cỏ bị coi
       // là không đi được. Ưu tiên GRASS giữ WALKABLE, chỉ clear BLOCKED.
-      if (terrainFlag & GRASS) {
-        flag = (flag & ~BLOCKED) | WALKABLE | GRASS;
-      } else if (isBlocked) {
+      if (grassFlag & GRASS) {
+        flag = (flag & ~BLOCKED) | WALKABLE | grassFlag;
+      } else if (passAll) {
+        // passage 0x0f → BLOCKED toàn phần.
         flag = terrainFlag & WATER ? terrainFlag : (terrainFlag & ~WALKABLE) | BLOCKED;
       } else {
-        flag = terrainFlag | WALKABLE;
+        // Ô đi được — gắn bit PASS_* cho các hướng bị chặn (nếu có).
+        flag = terrainFlag | WALKABLE | passageToPassFlags(passLow);
       }
 
-      const ledSrc = gProps || dProps || hProps;
+      // Ledge: `ledge_dir` có thể nằm ở BẤT KỲ layer nào (Ground/Decoration/Overhead).
+      // BUG cũ: `gProps || dProps || hProps` dừng ngay khi Ground có props → ô ledge
+      // vẽ ở Decoration (vd route-1 gid 829) không bao giờ được đọc → mất bit LEDGE,
+      // người chơi đi thẳng xuyên qua. Quét cả 3 lớp thay vì dừng ở Ground.
+      const ledSrc = [gProps, dProps, hProps].find(
+        (p): p is Map<string, unknown> =>
+          p !== undefined && propStrFromMap(p, 'ledge_dir') !== undefined,
+      );
       const led = ledSrc ? propStrFromMap(ledSrc, 'ledge_dir') : undefined;
       if (led && LEDGE_DIR_TO_FLAG[led.toLowerCase()] !== undefined) {
         flag = (flag & ~LEDGE_DIR_MASK) | LEDGE_DIR_TO_FLAG[led.toLowerCase()]!;
       }
-      if (ledSrc && propBoolFromMap(ledSrc, 'water') === true) flag |= WATER;
+
+      // `water` — quét độc lập với ledge (trước đây dùng chung ledSrc, nên ô có
+      // `water` mà không có `ledge_dir` sẽ bị bỏ sót).
+      const waterSrc = [gProps, dProps, hProps].find(
+        (p): p is Map<string, unknown> =>
+          p !== undefined && propBoolFromMap(p, 'water') !== undefined,
+      );
+      if (waterSrc && propBoolFromMap(waterSrc, 'water') === true) flag |= WATER;
     } else {
       // A. Layer heuristic (chỉ khi không có tile property nào — map vẽ tay trong Tiled)
-      if (h[i] !== 0) flag = BLOCKED;
-      else if (d[i] !== 0) flag = BLOCKED;
+      //    Overhead KHÔNG chặn: đây là lớp tile vẽ ĐÈ LÊN nhân vật (tán cây, mái nhà,
+      //    rào trên cao...) — người chơi đi được bên dưới. Muốn chặn ô có Overhead
+      //    thì gán `passage=0x0f` cho tile đó trong Tiled (đi qua nhánh B ở trên).
+      if (d[i] !== 0) flag = BLOCKED;
       else if (g[i] !== 0) flag = WALKABLE;
+      else if (h[i] !== 0) flag = WALKABLE;
       else flag = BLOCKED;
     }
 
@@ -274,8 +331,9 @@ function deriveCollision(map: TiledMap, mapId: string): CollisionLayer {
 
       const passage = propNum(o, 'passage');
       if (passage !== undefined) {
-        if ((passage & 0x0f) === 0x0f) flags[i] = (flags[i] & ~WALKABLE) | BLOCKED;
-        else flags[i] = (flags[i] & ~BLOCKED) | WALKABLE;
+        const low = passage & 0x0f;
+        if (low === 0x0f) flags[i] = (flags[i] & ~WALKABLE) | BLOCKED;
+        else flags[i] = (flags[i] & ~BLOCKED) | WALKABLE | passageToPassFlags(low);
       }
       const terrainTag = propNum(o, 'terrain_tag');
       if (terrainTag !== undefined && TERRAIN_TAG_TO_FLAG[terrainTag] !== undefined) {
@@ -302,28 +360,11 @@ function deriveCollision(map: TiledMap, mapId: string): CollisionLayer {
     }
   }
 
-  // D2. grass_zone post-pass: vùng cỏ → set GRASS|WALKABLE cho mọi ô trong rect.
-  //     `isGrass()` đọc bit GRASS → encounter trigger. Không set thì vùng cỏ vẽ trong
-  //     Tiled nhưng không bao giờ gặp wild (route-1 encounterRate=20 nhưng 0 ô grass).
-  if (objects?.objects) {
-    for (const o of objects.objects) {
-      if ((o.type ?? '').toLowerCase() !== 'grass_zone') continue;
-      const tx = Math.floor(o.x / map.tilewidth);
-      const ty = Math.floor(o.y / map.tileheight);
-      const tw = Math.max(1, Math.floor((o.width ?? map.tilewidth) / map.tilewidth));
-      const th = Math.max(1, Math.floor((o.height ?? map.tileheight) / map.tileheight));
-      for (let dy = 0; dy < th; dy++) {
-        for (let dx = 0; dx < tw; dx++) {
-          const nx = tx + dx;
-          const ny = ty + dy;
-          if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
-          const i = ny * map.width + nx;
-          if (flags[i] & WATER) continue; // nước — bỏ qua
-          flags[i] = (flags[i] & ~BLOCKED) | WALKABLE | GRASS;
-        }
-      }
-    }
-  }
+  // D2. ĐÃ BỎ `grass_zone` post-pass.
+  //     Trước đây object `grass_zone` trong Tiled set GRASS|WALKABLE cho mọi ô
+  //     trong rect, gây lệch pha với `terrain_tag` (Pokémon spawn ở ô không phải
+  //     cỏ). Nay GRASS chỉ đến từ property `spawn_zone=1` trong tileset (xem B)
+  //     và `terrain_tag` — nguồn duy nhất, tuỳ biến được trong Tiled.
 
   // E. Landing post-pass: ô đích warp (cùng map) → clear BLOCKED, set WALKABLE
   if (objects?.objects) {
@@ -380,56 +421,17 @@ function applyCrossMapLandings(
 }
 
 /**
- * Inject `grass_zone` từ `MAPS[mapId].encounterZones` khi TMJ chưa vẽ zone nào.
+ * ĐÃ BỎ `injectGrassZonesFromEncounterZones`.
  *
- * Bối cảnh: converter Essentials chỉ emit `terrain_tag` cho tile thực sự dùng,
- * và RMXP `5.tmj` (route-1) không có ô cỏ nào → 0 ô GRASS dù `encounterRate=20`.
- * Đây là nguồn ý định vùng cỏ duy nhất trong repo (`constants/maps.ts`).
+ * Trước đây hàm này inject object `grass_zone` từ `MAPS[mapId].encounterZones`
+ * khi TMJ chưa vẽ zone nào → set GRASS cho mọi ô trong rect. Gây lệch pha với
+ * `terrain_tag` (Pokémon spawn ở ô không phải cỏ). Nay GRASS chỉ đến từ property
+ * `spawn_zone=1` trong tileset (xem bước B) và `terrain_tag` — nguồn duy nhất,
+ * tuỳ biến được trong Tiled.
  *
- * Không ghi đè zone đã vẽ tay trong Tiled — chỉ chạy khi map chưa có grass_zone.
+ * `MAPS[mapId].spawnZones` (đổi tên từ `encounterZones`) được GIỮ LẠI làm mốc
+ * kiểm tra — không còn inject vào collision nữa.
  */
-function injectGrassZonesFromEncounterZones(
-  objects: MapObject[],
-  flags: number[],
-  map: TiledMap,
-  mapId: string,
-): void {
-  const hasZone = objects.some((o) => o.type === 'grass_zone');
-  if (hasZone) return;
-
-  const zones = MAPS[mapId]?.encounterZones ?? [];
-  if (zones.length === 0) return;
-
-  let nextId = Math.max(0, ...objects.map((o) => o.id ?? 0)) + 1;
-  for (const z of zones) {
-    const w = z.x2 - z.x1 + 1;
-    const h = z.y2 - z.y1 + 1;
-    objects.push({
-      id: nextId++,
-      name: `Grass ${z.x1},${z.y1}`,
-      x: z.x1,
-      y: z.y1,
-      width: w,
-      height: h,
-      visible: true,
-      type: 'grass_zone',
-      encounterTableId: mapId,
-    } as MapObject);
-
-    // Set GRASS|WALKABLE cho mọi ô trong vùng (bỏ qua nước).
-    for (let dy = 0; dy < h; dy++) {
-      for (let dx = 0; dx < w; dx++) {
-        const nx = z.x1 + dx;
-        const ny = z.y1 + dy;
-        if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
-        const i = ny * map.width + nx;
-        if (flags[i] & WATER) continue;
-        flags[i] = (flags[i] & ~BLOCKED) | WALKABLE | GRASS;
-      }
-    }
-  }
-  console.log(`  🌱 ${mapId}: inject ${zones.length} grass_zone từ MAPS.encounterZones`);
-}
 
 /** Derive `objects[]` — warp + các object khác. */function deriveObjects(map: TiledMap): MapObject[] {
   const layer = pickLayer(map, 'Objects', 'objects', 'objectgroup');
@@ -541,10 +543,7 @@ async function buildOne(
     applyCrossMapLandings(collision.flags, map, mapId, allMaps);
 
     const objects = deriveObjects(map);
-    // Fallback: nếu TMJ chưa vẽ `grass_zone` nào nhưng MAPS khai báo encounterZones
-    // → tự inject grass_zone + set GRASS flag, để encounter trigger (route-1
-    // encounterRate=20 nhưng 0 ô grass nếu không có bước này).
-    injectGrassZonesFromEncounterZones(objects, collision.flags, map, mapId);
+    // (đã bỏ inject grass_zone — GRASS nay chỉ từ spawn_zone/terrain_tag trong Tiled)
     const encounters = await readEncounters(mapId);
 
     const out: ServerMap = {

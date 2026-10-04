@@ -239,13 +239,23 @@ export const CollisionFlag = {
    *  Du dung cho object loai "warp" trong ServerMap.objects.
    */
   WARP: 0x80,
+  // ── Byte cao (bit 8-15): passage theo hướng (RMXP) ──
+  /** Hướng bị chặn theo `passage` của RMXP. 0 = đi được cả 4 hướng.
+   *  Bit 8-11 map với passage bit 0-3: 0x01=Down, 0x02=Left, 0x04=Right, 0x08=Up.
+   *  PASS_ALL (0x0F00) tương đương passage 0x0F → BLOCKED toàn phần. */
+  PASS_DOWN: 0x0100,
+  PASS_LEFT: 0x0200,
+  PASS_RIGHT: 0x0400,
+  PASS_UP: 0x0800,
+  PASS_DIR_MASK: 0x0f00,
+  PASS_ALL: 0x0f00,
 } as const;
 
 export const CollisionLayerSchema = z.object({
   name: z.string().default('collision'),
   width: z.number().int().min(1),
   height: z.number().int().min(1),
-  flags: z.array(z.number().int().min(0).max(255)),
+  flags: z.array(z.number().int().min(0).max(65535)),
 });
 export type CollisionLayer = z.infer<typeof CollisionLayerSchema>;
 

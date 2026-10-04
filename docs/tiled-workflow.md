@@ -136,12 +136,46 @@ Trong Tiled, chọn tile trong tileset → `Properties` → thêm property:
 
 | Property | Type | Ý nghĩa |
 |---|---|---|
-| `passage` | int | `0x00` = walkable, `0x0f` = blocked (override heuristic) |
+| `passage` | int | **Bitmask 4 hướng (chuẩn RMXP)** — xem bảng bên dưới |
 | `terrain_tag` | int | `0x02` = grass, `0x06` = water, `0x0a` = tall grass |
 | `ledge_dir` | string | `down` / `up` / `left` / `right` |
+| `spawn_zone` | int | `1` = ô có thể spawn wild Pokémon (chỉ đọc từ layer **Ground**) |
 | `water` | bool | true = ô nước |
 
 **Cách thêm:** trong Tiled, mở `Tileset` panel → chọn tile → thêm property. Tiled lưu vào `tilesets[].tiles[].properties` trong `.tmj`.
+
+### 5.2b `passage` — bitmask 4 hướng (Plan 46)
+
+`passage` là **bitmask 4 bit** của RMXP — bit = 1 nghĩa là **không cho đi** theo hướng đó:
+
+| Bit | Giá trị | Hướng bị chặn |
+|---|---|---|
+| 0 | `0x01` | Down (xuống) |
+| 1 | `0x02` | Left (trái) |
+| 2 | `0x04` | Right (phải) |
+| 3 | `0x08` | Up (lên) |
+| 0–3 | `0x0f` | cả 4 hướng → ô thành **BLOCKED** toàn phần |
+
+| `passage` | Kết quả |
+|---|---|
+| `0` | đi được cả 4 hướng |
+| `13` (`0b1101`) | chặn **down, right, up** — chỉ đi được sang **trái** |
+| `15` (`0x0f`) | **BLOCKED** (tường/cây/đá) |
+
+**Bit cao (`0x40`/`0x80`) bị bỏ qua** — build chỉ mask `0x0f`.
+
+**Encode:** `build-server-map.ts` map `passage & 0x0f` → bit `PASS_*` (bits 8–11) trong
+`collision.flags` (uint16): `PASS_DOWN 0x0100`, `PASS_LEFT 0x0200`, `PASS_RIGHT 0x0400`,
+`PASS_UP 0x0800`, `PASS_ALL = PASS_DIR_MASK = 0x0F00`.
+Logic dùng chung client & server: `isDirBlocked()` / `canStep()` / `isPassageAll()` trong
+`packages/shared/src/formulas/mapruntime.ts`.
+
+> **Quy tắc Decoration:** mặc định **BLOCKED** (heuristic bước A). Ô Decoration chỉ đi được
+> khi tile có `passage` walkable (`0`) hoặc là ledge (`ledge_dir` / `terrain_tag = 1`).
+> `terrain_tag` và `spawn_zone` **chỉ đọc từ layer Ground** — Decoration không tạo cỏ/spawn.
+
+**Debug:** `/tile <x> <y>` in dòng `passage chặn: …`; `/debug passage <up|down|left|right|all|none>`
+tô overlay; `/overlay collision on` vẽ dải tím ở cạnh bị chặn.
 
 > **Lưu ý quan trọng về `ledge_dir`:** code đã hỗ trợ đủ 4 hướng (`contracts.ts` encode
 > 2-bit field bits 5–6: `LEDGE_SOUTH` 0x10, `LEDGE_NORTH` 0x30, `LEDGE_WEST` 0x50,

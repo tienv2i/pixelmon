@@ -13655,19 +13655,9 @@
         "item": "leafstone"
       },
       {
-        "to": "leafeon",
-        "method": "level",
-        "level": 16
-      },
-      {
         "to": "glaceon",
         "method": "item",
         "item": "icestone"
-      },
-      {
-        "to": "glaceon",
-        "method": "level",
-        "level": 16
       },
       {
         "to": "sylveon",
@@ -13676,7 +13666,15 @@
       },
       {
         "to": "espeon",
-        "method": "friendship"
+        "method": "time",
+        "timeOfDay": ["dawn", "day"],
+        "condition": { "minFriendship": 160 }
+      },
+      {
+        "to": "umbreon",
+        "method": "time",
+        "timeOfDay": ["dusk", "night"],
+        "condition": { "minFriendship": 160 }
       }
     ],
     "learnSet": [

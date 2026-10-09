@@ -3105,7 +3105,10 @@ export class WorldScene extends Phaser.Scene {
         isNoclip: this.noclip,
       };
 
-      this.debugModal.updateInfo(mapInfo, playerInfo);
+      this.debugModal.updateInfo(mapInfo, playerInfo, {
+        online: ColyseusManager.getInstance().world != null,
+        players: this.remotePlayers.size + 1,
+      });
     }
 
     // Cập nhật toạ độ chuột và nhân vật vào DebugTrackerWidget & 4 Widgets ghim (nếu đang mở)
@@ -3171,7 +3174,9 @@ export class WorldScene extends Phaser.Scene {
     }
 
     if (this.debugPerfWidget?.isOpen()) {
-      this.debugPerfWidget.updatePerfInfo(fps, cam.scrollX, cam.scrollY, cam.zoom, 'Online', 15);
+      // Ping chưa có cơ chế đo thật → để null (hiện `—`), không bịa số.
+      const online = ColyseusManager.getInstance().world != null;
+      this.debugPerfWidget.updatePerfInfo(fps, cam.scrollX, cam.scrollY, cam.zoom, online ? 'Online' : 'Offline', null);
     }
 
     if (DEBUG && this.debugText) {

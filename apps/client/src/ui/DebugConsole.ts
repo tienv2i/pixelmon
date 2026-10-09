@@ -214,6 +214,9 @@ export class DebugConsole extends UiModal {
 
   public override show(): void {
     super.show();
+    // Input bị `removeInput()` xoá khỏi DOM khi close → tạo lại nếu thiếu,
+    // nếu không mở console lần 2 sẽ mất ô nhập lệnh vĩnh viễn.
+    if (!this.inputEl) this.createDomInput();
     this.renderVisibility();
     this.positionDomInput();
     (this.opts as any).onVisibilityChange?.(true);

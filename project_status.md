@@ -321,6 +321,8 @@ Tab Debug gồm:
 | `/spawn [dexNum]` | **Gọi trận wild** (bỏ trống = random) |
 | `/map` `/pos` `/server` `/help` `/clear` | Thông tin / lệnh |
 
+> 🔧 **Fix 2026-10-10 (panel debug):** `DebugConsole` mất ô nhập lệnh sau close→mở lại (`removeInput()` xoá DOM, `show()` không tạo lại — đã tạo lại khi thiếu) · card Server + perf widget bỏ số liệu bịa (`Ping: <20ms`/`15`, `players: 1`) → dùng trạng thái kết nối + số người trong room thật, ping hiện `—` (chưa có cơ chế đo). Còn dead-code: `onTeleport`/input X-Y trong DebugModal không có UI gọi (teleport toạ độ chỉ còn qua `/tp` console).
+
 ### 4.3 i18n — song ngữ VI/EN (chỉ hiển thị 1 ngôn ngữ)
 - **Module** `apps/client/src/i18n/index.ts` — 291+ key dạng tuple `[vi, en]`.
 - **API:** `t(key)` · `mkText(scene,key,style)` (Text bind key, tự refresh) · `tr(text,key)` ·

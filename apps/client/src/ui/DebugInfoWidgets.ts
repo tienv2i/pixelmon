@@ -186,13 +186,14 @@ export class DebugPerfWidget extends DebugInfoWidgetBase {
     camY: number,
     zoom: number,
     serverStatus = 'Connected',
-    ping = 15,
+    /** Ping ms — `null` = chưa đo được (hiện `—`, không bịa số). */
+    ping: number | null = null,
   ): void {
     if (!this.open || this.isMinimized) return;
     this.bodyText.setText(
       `FPS: ${fps} | Cam: (${Math.round(camX)}, ${Math.round(camY)})\n` +
       `Zoom: ${zoom.toFixed(1)}x\n` +
-      `Server: ${serverStatus} | Ping: ${ping}ms`
+      `Server: ${serverStatus} | Ping: ${ping ?? '—'}${ping == null ? '' : 'ms'}`
     );
   }
 }

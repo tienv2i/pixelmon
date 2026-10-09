@@ -763,9 +763,15 @@ export class DebugModal extends UiModal {
   }
 
   /**
-   * Cập nhật số liệu động thời gian thực mỗi frame
+   * Cập nhật số liệu động thời gian thực mỗi frame.
+   * `net` — trạng thái mạng thật (online + số người trong room); không có →
+   * hiện `—` chứ không bịa Ping/số người chơi.
    */
-  public updateInfo(map: DebugMapInfo, p: DebugPlayerInfo): void {
+  public updateInfo(
+    map: DebugMapInfo,
+    p: DebugPlayerInfo,
+    net?: { online: boolean; players: number },
+  ): void {
     if (p.isNoclip !== undefined && p.isNoclip !== this.toggleStates.noclip) {
       this.toggleStates.noclip = p.isNoclip;
       const setter = this.checkboxSetters.get('noclip');
@@ -786,8 +792,10 @@ export class DebugModal extends UiModal {
     // Camera
     this.txtPerf.setText(`${t('DBG_FPS_NOW')}${p.fps}\n${t('DBG_CAM_POS')}(${Math.round(p.camX)}, ${Math.round(p.camY)})\n${t('DBG_ZOOM')}${p.zoom.toFixed(2)}x`);
 
-    // Server
-    this.txtServer.setText(`Status: Connected\nPing: < 20ms\n${t('DBG_ACTIVE_PLAYERS')}1\nMap: ${map.id}`);
+    // Server — số liệu thật từ room (không ghi cứng Ping/players).
+    const status = net ? (net.online ? 'Online' : 'Offline') : '—';
+    const players = net ? String(net.players) : '—';
+    this.txtServer.setText(`Status: ${status}\nPing: —\n${t('DBG_ACTIVE_PLAYERS')}${players}\nMap: ${map.id}`);
   }
 
   destroy(): void {

@@ -153,11 +153,14 @@ export async function tryEvolve(
   const sp = gameData.getSpecies(row.species_id);
   if (!sp) return { evolved: false, error: 'unknown_species' };
 
-  // Everstone: chặn method `level` + `friendship` (resolve bình thường rồi loại
-  // sau — `skipMethod` chỉ nhận 1 giá trị).
+  // Everstone: chặn method `level` + `friendship` + `time` (resolve bình thường
+  // rồi loại sau — `skipMethod` chỉ nhận 1 giá trị).
   const resolution = resolveEvolution(sp, ctx);
   if (!resolution) return { evolved: false };
-  if (row.held_item === 'everstone' && (resolution.method === 'level' || resolution.method === 'friendship')) {
+  if (
+    row.held_item === 'everstone' &&
+    (resolution.method === 'level' || resolution.method === 'friendship' || resolution.method === 'time')
+  ) {
     return { evolved: false, error: 'everstone' };
   }
 

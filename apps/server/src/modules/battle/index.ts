@@ -23,6 +23,7 @@ import {
   ballMultiplierFor,
   PVP_WIN_MONEY,
   PVP_LOSE_MONEY,
+  worldClockNow,
   type CatchContext,
   type StatusEffect,
 } from '@pixelmon/shared';
@@ -40,6 +41,7 @@ import {
   logMoney,
 } from '../events/eventLog.js';
 import { tryEvolve } from '../evolution/evolution.service.js';
+import { adjustForParticipants, FRIENDSHIP_DELTA } from '../pokemon/friendship.js';
 import { hasItem, removeItem } from '../items/inventory.service.js';
 import { recordPokedexEntry } from '../pokemon/pokedex.js';
 
@@ -773,6 +775,12 @@ export class BattleRoom extends Room<BattleState> {
       hasFaint = true;
       this.log(`${this.labelOf(side, active)} fainted!`, 'faint');
 
+      // Friendship: Pokémon CỦA MÌNH gục → −2 hạnh phúc. Bỏ qua foe (wild/PvP
+      // không sở hữu → update sẽ không khớp dòng nào).
+      if (!this.isPvp && side === 'ally' && active.pokemonId) {
+        void adjustForParticipants(this.userId, [active.pokemonId], FRIENDSHIP_DELTA.faint);
+      }
+
       const next = s.team.findIndex((p, i) => i !== s.activeIndex && p.currentHp > 0);
       if (next === -1) {
         this.endBattle(side === 'ally' ? 'foe' : 'ally', side === 'ally' ? 'defeat' : 'victory');
@@ -1263,8 +1271,24 @@ export class BattleRoom extends Room<BattleState> {
       this.log('You caught the Pokémon!', 'result');
     } else if (winner === 'foe') {
       this.log('You lost the battle...', 'result');
+      // Friendship: thua trận → party Pokémon tham gia −1 hạnh phúc.
+      const participants = this.allySnapshot.filter((m) => this.participated.has(m.id));
+      void adjustForParticipants(
+        this.userId,
+        participants.map((m) => m.id),
+        FRIENDSHIP_DELTA.battleLoss,
+      );
     } else if (result === 'run') {
       this.log('You fled the battle.', 'result');
+      // Friendship: bỏ chạy khỏi trận wild → Pokémon đang đánh −2 hạnh phúc.
+      if (!this.isPvp) {
+        const participants = this.allySnapshot.filter((m) => this.participated.has(m.id));
+        void adjustForParticipants(
+          this.userId,
+          participants.map((m) => m.id),
+          FRIENDSHIP_DELTA.fled,
+        );
+      }
     }
 
     this.publishBattleEnd();
@@ -1392,6 +1416,10 @@ export class BattleRoom extends Room<BattleState> {
         void this.maybeAutoEvolve(m.id, m.level);
       }
     }
+
+    // Friendship: Pokémon đã tham gia trận thắng được +1 hạnh phúc (fire-and-forget).
+    void adjustForParticipants(this.userId, share.map((m) => m.id), FRIENDSHIP_DELTA.battleWin);
+
     return total;
   }
 
@@ -1408,6 +1436,8 @@ export class BattleRoom extends Room<BattleState> {
       level,
       friendship: Number(row.friendship),
       knownMoves: moves,
+      // Method `time` cần giai đoạn trong ngày (Espeon ban ngày / Umbreon ban đêm).
+      timeOfDay: worldClockNow().phase,
     });
     if (r.evolved) {
       this.log(`${r.from} evolved into ${r.to}!`, 'result');

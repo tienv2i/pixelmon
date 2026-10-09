@@ -35,6 +35,7 @@ import * as inventory from '../items/inventory.service.js';
 import * as evolution from '../evolution/evolution.service.js';
 import * as store from '../store/store.service.js';
 import { logItemUsed } from '../events/eventLog.js';
+import { WorldClockService } from './worldClock.js';
 import {
   resolveItemEffect,
   speciesAcceptsStone,
@@ -92,6 +93,15 @@ export class WorldRoom extends Room<WorldState> {
   maxClients = 50;
   private dirtyPlayerSessions = new Set<string>();
   private locationSyncTimer?: NodeJS.Timeout;
+  /** Đồng hồ thế giới + thời tiết của map này (server-authoritative). */
+  private worldClockSvc = new WorldClockService((c, w) => {
+    this.state.timeOfDay = c.phase;
+    this.state.weather = w;
+    this.state.gameMinutes = c.gameMinutes;
+    this.currentTimeOfDay = c.phase;
+  });
+  /** `timeOfDay` hiện tại — đọc nhanh cho encounter/evolution (không qua state). */
+  private currentTimeOfDay: import('@pixelmon/shared').TimeOfDay = 'day';
   /** Grid va chạm của map mà room này phụ trách — nạp 1 lần lúc `onCreate`. */
   private grid!: CollideGrid;
   private moveSessions = new Map<string, MoveSession>();
@@ -288,6 +298,10 @@ export class WorldRoom extends Room<WorldState> {
       this.flushPlayerLocations();
     }, 5000);
 
+    // Đồng hồ thế giới (giờ + thời tiết) — server-authoritative, broadcast qua
+    // WorldState.timeOfDay/weather. Cập nhật state + tick friendship theo ngày.
+    this.worldClockSvc.start(mapId, this.grid.map.weather ?? null);
+
     console.log(`[world] room created for map "${mapId}" (${this.grid.width}x${this.grid.height})`);
   }
 
@@ -410,7 +424,13 @@ export class WorldRoom extends Room<WorldState> {
     if (table.length === 0) return; // map không có bảng spawn → không encounter
 
     // encounterRate đã roll ở trên → truyền 1 (luôn trúng) cho rollEncounter.
-    const rolled = rollEncounter(table, {}, 1);
+    // ctx lấy từ worldClock (server-authoritative) để spawn table lọc đúng
+    // timeOfDay/weather — trước đây ctx rỗng nên filter này chưa bao giờ chạy.
+    const rolled = rollEncounter(
+      table,
+      { timeOfDay: this.currentTimeOfDay, weather: this.state.weather },
+      1,
+    );
     if (!rolled) return;
 
     await this.initiateWildBattle(client, rolled.species, rolled.level, { x: col, y: row });
@@ -959,6 +979,8 @@ export class WorldRoom extends Room<WorldState> {
       level: Number(row.level),
       friendship: Number(row.friendship),
       knownMoves: moves,
+      // Method `time` cần giai đoạn trong ngày (Espeon ban ngày / Umbreon ban đêm).
+      timeOfDay: this.currentTimeOfDay,
     });
     if (r.evolved) {
       client.send('evolved', { type: 'evolved', pokemonId, from: r.from, to: r.to });
@@ -1895,6 +1917,7 @@ export class WorldRoom extends Room<WorldState> {
   }
 
   async onDispose() {
+    this.worldClockSvc.stop();
     if (this.locationSyncTimer) {
       clearInterval(this.locationSyncTimer);
     }

@@ -737,8 +737,19 @@ export class WorldRoom extends Room<WorldState> {
         break;
       }
       case 'exp_boost': {
-        // v1: buff passive — chưa áp dụng trong battle; báo rõ.
-        this.useItemSuccess(client, itemId, 'Lucky Egg: +50% EXP khi thắng trận (tự động).');
+        // Lucky Egg là **held item** (+50% EXP khi thắng trận), không phải
+        // item tiêu hao. Trước đây nhánh này chỉ trừ 1 item rồi in log
+        // "tự động" trong khi `grantExp()` không hề đọc multiplier → người
+        // chơi mất trắng Lucky Egg. Giờ trang bị thật (holdItem tự trừ túi).
+        if (!target) return this.useItemError(client, 'Cần chọn Pokémon để trang bị Lucky Egg.');
+        const held = await evolution.holdItem(player.userId, target.id, itemId);
+        if (!held.ok) return this.useItemError(client, 'Không thể trang bị Lucky Egg.');
+        client.send('debug_msg', {
+          type: 'debug_msg',
+          level: 'info',
+          message: `${target.nickname ?? target.species_id} đang cầm ${itemId} — +${Math.round((effect.mult - 1) * 100)}% EXP khi thắng trận.`,
+        });
+        this.broadcastBag(client);
         break;
       }
       case 'evo_stone': {

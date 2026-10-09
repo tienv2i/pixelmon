@@ -1342,14 +1342,26 @@ export class BattleRoom extends Room<BattleState> {
     const share = targets.length > 0 ? targets : this.allySnapshot.filter((m) => m.currentHp > 0);
     if (share.length === 0) return 0;
 
-    const gain = calcExpGain(foe.level, species.baseExperience, share.length, !this.isTrainer);
+    const baseGain = calcExpGain(foe.level, species.baseExperience, share.length, !this.isTrainer);
     let total = 0;
 
-    void logXp(this.userId, share[0]?.id ?? '', gain, this.isTrainer ? 'battle_trainer' : 'battle_wild', { foe: foe.speciesId });
+    void logXp(this.userId, share[0]?.id ?? '', baseGain, this.isTrainer ? 'battle_trainer' : 'battle_wild', { foe: foe.speciesId });
 
     for (const m of share) {
       const sp = gameData.getSpecies(m.speciesId);
       if (!sp) continue;
+
+      // Lucky Egg (và item EXP boost khác) là **held item**: nhân EXP theo
+      // multiplier của item đang cầm. `resolveItemEffect` là SSOT nên không
+      // hard-code tên item ở đây.
+      let gain = baseGain;
+      if (m.heldItem) {
+        const held = resolveItemEffect(m.heldItem);
+        if (held && held.kind === 'exp_boost') {
+          gain = Math.floor(baseGain * held.mult);
+        }
+      }
+
       const beforeLevel = m.level;
       m.exp += gain;
       total += gain;

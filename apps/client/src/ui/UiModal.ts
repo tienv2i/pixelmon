@@ -49,8 +49,29 @@ export interface UiModalOptions {
    */
   showDragGrip?: boolean;
 
-  /** Chế độ khóa UI: phủ overlay mờ đen khóa toàn bộ gameplay & UI bên dưới (mặc định: false) */
+  /**
+   * Hiển thị lớp phủ mờ nền (backdrop overlay) phía sau modal (mặc định: false;
+   * nếu lockUi: true thì overlay mặc định là true).
+   */
+  overlay?: boolean;
+  /** Độ mờ của overlay (0 - 1, mặc định: 0.55) */
+  overlayAlpha?: number;
+  /** Màu sắc của overlay (mặc định: 0x000000) */
+  overlayColor?: number;
+  /** Depth riêng cho overlay nếu muốn chỉ định cụ thể */
+  overlayDepth?: number;
+
+  /** Chế độ khóa UI: phủ overlay blocker khóa tương tác bên dưới (mặc định: false) */
   lockUi?: boolean;
+  /**
+   * Nếu lockUi = true:
+   * - lockGameOnly: true (mặc định): overlay & overlayBlocker đặt ở depth 90 (dưới các HUD
+   *   như partybox, player info, map, chat, time, topbar có depth >= 100), giúp khóa gameplay
+   *   nhưng vẫn cho phép bấm và tương tác các UI HUD khác.
+   * - lockGameOnly: false: overlay & overlayBlocker đặt ở depth của modal (phủ toàn bộ UI bên dưới).
+   */
+  lockGameOnly?: boolean;
+
   /** Độ sâu rendering layer / z-index (mặc định: 200 nếu lockUi, 100 nếu không lockUi) */
   depth?: number;
   /** Z-index alias của depth */
@@ -60,6 +81,8 @@ export interface UiModalOptions {
   draggable?: boolean;
   /** Chế độ neo: nếu true, vị trí bị gắn cứng và KHÔNG thể kéo đi cho đến khi mở neo (mặc định: false) */
   docked?: boolean;
+  /** Tự động đưa về trạng thái neo khi mở modal (show) (mặc định: false) */
+  dockOnOpen?: boolean;
 
   /** Cấu hình các nút điều khiển mặc định trên thanh Header */
   showClose?: boolean; // Nút ✕ đóng
@@ -170,8 +193,12 @@ export class UiModal {
       topDragPadding: 0,
       showDragGrip: true,
       lockUi: false,
+      lockGameOnly: true,
+      overlayAlpha: 0.55,
+      overlayColor: 0x000000,
       draggable: true,
       docked: false,
+      dockOnOpen: false,
       showClose: true,
       showMinimize: true,
       showDock: true,
@@ -185,21 +212,27 @@ export class UiModal {
     };
 
     this.isDocked = this.opts.docked ?? false;
-    const depth = this.opts.zIndex ?? this.opts.depth ?? (this.opts.lockUi ? 200 : 100);
+    const modalDepth = this.opts.zIndex ?? this.opts.depth ?? (this.opts.lockUi ? 200 : 100);
+    const lockGameOnly = this.opts.lockGameOnly ?? true;
+    const overlayDepth = this.opts.overlayDepth ?? (lockGameOnly ? 90 : modalDepth);
 
-    // 1. Overlay khóa UI (nếu lockUi = true)
-    if (this.opts.lockUi) {
+    // 1. Overlay làm mờ nền (nếu bật overlay hoặc lockUi)
+    const hasOverlay = this.opts.overlay ?? (this.opts.lockUi ? true : false);
+    if (hasOverlay) {
       this.overlay = scene.add
         .graphics()
-        .setDepth(depth)
+        .setDepth(overlayDepth)
         .setScrollFactor(0)
         .setVisible(false);
       this.allObjects.push(this.overlay);
+    }
 
+    // 1b. Blocker khóa input bên dưới (nếu lockUi = true)
+    if (this.opts.lockUi) {
       this.overlayBlocker = scene.add
         .zone(0, 0, 10, 10)
         .setOrigin(0, 0)
-        .setDepth(depth)
+        .setDepth(overlayDepth)
         .setScrollFactor(0)
         .setVisible(false);
 
@@ -215,7 +248,7 @@ export class UiModal {
     // 2. Container chính của Modal
     this.modalContainer = scene.add
       .container(0, 0)
-      .setDepth(depth + 1)
+      .setDepth(modalDepth + 1)
       .setScrollFactor(0)
       .setVisible(false);
     this.allObjects.push(this.modalContainer);
@@ -594,8 +627,10 @@ export class UiModal {
   public setDepth(depth: number): this {
     this.opts.depth = depth;
     this.opts.zIndex = depth;
-    if (this.overlay) this.overlay.setDepth(depth);
-    if (this.overlayBlocker) this.overlayBlocker.setDepth(depth);
+    const lockGameOnly = this.opts.lockGameOnly ?? true;
+    const overlayDepth = this.opts.overlayDepth ?? (lockGameOnly ? 90 : depth);
+    if (this.overlay) this.overlay.setDepth(overlayDepth);
+    if (this.overlayBlocker) this.overlayBlocker.setDepth(overlayDepth);
     this.modalContainer.setDepth(depth + 1);
     return this;
   }
@@ -683,10 +718,73 @@ export class UiModal {
     return this.isDocked;
   }
 
+  isLockUi(): boolean {
+    return Boolean(this.opts.lockUi);
+  }
+
+  hasOverlay(): boolean {
+    return Boolean(this.opts.overlay ?? (this.opts.lockUi ? true : false));
+  }
+
+  setOverlay(enabled: boolean, alpha?: number, color?: number): this {
+    this.opts.overlay = enabled;
+    if (alpha !== undefined) this.opts.overlayAlpha = alpha;
+    if (color !== undefined) this.opts.overlayColor = color;
+    const lockGameOnly = this.opts.lockGameOnly ?? true;
+    const overlayDepth = this.opts.overlayDepth ?? (lockGameOnly ? 90 : this.getDepth() - 1);
+    if (enabled && !this.overlay) {
+      this.overlay = this.scene.add
+        .graphics()
+        .setDepth(overlayDepth)
+        .setScrollFactor(0)
+        .setVisible(false);
+      this.allObjects.push(this.overlay);
+    }
+    if (this.overlay) {
+      this.overlay.setVisible(this.open && enabled);
+      if (this.open) this.relayout();
+    }
+    return this;
+  }
+
+  setLockUi(lock: boolean, lockGameOnly = true): this {
+    this.opts.lockUi = lock;
+    this.opts.lockGameOnly = lockGameOnly;
+    const overlayDepth = this.opts.overlayDepth ?? (lockGameOnly ? 90 : this.getDepth() - 1);
+    if (lock && !this.overlayBlocker) {
+      this.overlayBlocker = this.scene.add
+        .zone(0, 0, 10, 10)
+        .setOrigin(0, 0)
+        .setDepth(overlayDepth)
+        .setScrollFactor(0)
+        .setVisible(false);
+      this.overlayBlocker.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        p.event?.stopPropagation();
+      });
+      this.allObjects.push(this.overlayBlocker);
+    }
+    if (this.overlayBlocker) {
+      this.overlayBlocker.setDepth(overlayDepth);
+      this.overlayBlocker.setVisible(this.open && lock);
+      if (this.open && lock) {
+        this.overlayBlocker.setInteractive({ cursor: 'default' });
+      } else {
+        this.overlayBlocker.disableInteractive();
+      }
+    }
+    return this;
+  }
+
   show(): void {
     this.open = true;
-    if (this.overlay) this.overlay.setVisible(true);
-    if (this.overlayBlocker) {
+    if (this.opts.dockOnOpen) {
+      this.dock();
+    }
+    const hasOverlay = this.opts.overlay ?? (this.opts.lockUi ? true : false);
+    if (this.overlay && hasOverlay) {
+      this.overlay.setVisible(true);
+    }
+    if (this.overlayBlocker && this.opts.lockUi) {
       this.overlayBlocker.setVisible(true);
       this.overlayBlocker.setInteractive({ cursor: 'default' });
     }
@@ -826,11 +924,16 @@ export class UiModal {
     const curH = this.isMinimized && showHeader ? headerH : this.opts.height;
     const W = this.opts.width;
 
-    // 1. Render Overlay nếu có lockUi
-    if (this.opts.lockUi && this.overlay && this.overlayBlocker) {
+    // 1. Render Overlay nếu có
+    const hasOverlay = this.opts.overlay ?? (this.opts.lockUi ? true : false);
+    if (hasOverlay && this.overlay) {
+      const alpha = this.opts.overlayAlpha ?? 0.55;
+      const col = this.opts.overlayColor ?? 0x000000;
       this.overlay.clear();
-      this.overlay.fillStyle(0x000000, 0.65);
+      this.overlay.fillStyle(col, alpha);
       this.overlay.fillRect(0, 0, screenW, screenH);
+    }
+    if (this.opts.lockUi && this.overlayBlocker) {
       this.overlayBlocker.setPosition(0, 0).setSize(screenW, screenH);
     }
 

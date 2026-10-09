@@ -619,6 +619,10 @@ export class ChatLog extends UiModal {
     this.inputEl?.focus();
   }
 
+  isInputFocused(): boolean {
+    return this.inputEl !== null && document.activeElement === this.inputEl;
+  }
+
   // ── Ghi log ─────────────────────────────────────────────────────────────
   addSystemLine(text: string, color: string = C.text): void {
     this.pushLines([text], color);

@@ -52,6 +52,14 @@ export {
   type ParsedSpawnOptions,
 } from './spawnCommand.js';
 
+// ── friendship (SSOT bậc hạnh phúc) ──
+export {
+  FRIENDSHIP_TIERS,
+  clampFriendship,
+  friendshipTier,
+  type FriendshipTier,
+} from './friendship.js';
+
 // ── encounter ──
 export {
   rollEncounter,

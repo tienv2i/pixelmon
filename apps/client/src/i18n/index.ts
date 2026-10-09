@@ -614,6 +614,7 @@ const MESSAGES = {
   WS_HELP_DEBUG: ['/debug terrain|is_terrain|passage|off — overlay soi tile/terrain', '/debug terrain|is_terrain|passage|off — tile/terrain inspection overlays'],
   WS_HELP_TIME: ['/time — xem giờ game + phase ngày/đêm', '/time — show game time + day/night phase'],
   WS_HELP_WEATHER: ['/weather — xem thời tiết map hiện tại', '/weather — show current map weather'],
+  WS_HELP_FRIENDSHIP: ['/friendship [slot] — xem điểm happiness (ngưỡng evolve 160)', '/friendship [slot] — show happiness (evolve threshold 160)'],
   WS_SWITCH_DONE: ['Đã hoán đổi vị trí Pokémon.', 'Swapped Pokémon positions.'],
   WS_SWITCH_FAIL: ['Hoán đổi thất bại.', 'Swap failed.'],
 

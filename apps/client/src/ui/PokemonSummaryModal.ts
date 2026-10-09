@@ -34,6 +34,8 @@ export interface PokemonData {
   types?: string[];
   /** Item đang cầm (Plan 45) — id, ví dụ `everstone`. */
   held_item?: string | null;
+  /** Điểm happiness 0..255 (server đã trả trong `/api/pokemon` — dùng cho `/friendship` + evolve). */
+  friendship?: number;
 }
 
 const MODAL_W = 500;

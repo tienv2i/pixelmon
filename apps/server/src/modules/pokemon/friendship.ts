@@ -1,4 +1,15 @@
 import { pool } from '../../config/database.js';
+import { FRIENDSHIP_EVO_THRESHOLD } from '@pixelmon/shared';
+
+/** Ngưỡng friendship cho evolution (re-export để server dùng chung). */
+export { FRIENDSHIP_EVO_THRESHOLD };
+/** Bậc hạnh phúc + clamp — SSOT từ `@pixelmon/shared` (re-export tương thích). */
+export {
+  FRIENDSHIP_TIERS,
+  clampFriendship,
+  friendshipTier,
+  type FriendshipTier,
+} from '@pixelmon/shared';
 
 /**
  * Friendship (happiness) — **SSOT hạnh phúc Pokémon**.
@@ -29,30 +40,6 @@ export const FRIENDSHIP_DELTA = {
 } as const;
 
 export type FriendshipReason = keyof typeof FRIENDSHIP_DELTA;
-
-/** Ngưỡng của từng bậc hạnh phúc (mainline). */
-export const FRIENDSHIP_TIERS = [
-  { min: 200, tier: 'devoted' },
-  { min: 160, tier: 'loving' },
-  { min: 100, tier: 'friendly' },
-  { min: 50, tier: 'neutral' },
-  { min: 0, tier: 'hated' },
-] as const;
-
-export type FriendshipTier = (typeof FRIENDSHIP_TIERS)[number]['tier'];
-
-/** Bậc hạnh phúc từ giá trị 0..255. */
-export function friendshipTier(value: number): FriendshipTier {
-  const v = clampFriendship(value);
-  for (const t of FRIENDSHIP_TIERS) if (v >= t.min) return t.tier;
-  return 'hated';
-}
-
-/** Chuẩn hoá friendship về 0..255. */
-export function clampFriendship(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(255, Math.round(value)));
-}
 
 /**
  * Cộng/trừ friendship cho MỌI Pokémon thuộc user (dùng cho job theo ngày).

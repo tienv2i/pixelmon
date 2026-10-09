@@ -1168,6 +1168,11 @@ export class PokedexModal extends UiModal {
         methodDesc = `Lv. ${targetEvo.level ?? '?'}`;
       } else if (targetEvo.method === 'item') {
         methodDesc = (targetEvo.item || 'Item').toUpperCase();
+      } else if (targetEvo.method === 'time') {
+        const tod = Array.isArray((targetEvo as any).timeOfDay)
+          ? (targetEvo as any).timeOfDay.join('/').toUpperCase()
+          : 'TIME';
+        methodDesc = `❤+${tod}`;
       } else {
         methodDesc = targetEvo.method.toUpperCase();
       }

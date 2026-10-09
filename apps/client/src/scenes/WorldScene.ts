@@ -220,6 +220,13 @@ export class WorldScene extends Phaser.Scene {
   private tileMarker?: Phaser.GameObjects.Graphics;
   /** Nhãn toạ độ gắn trên ô đang được `/tile` đánh dấu. */
   private tileMarkerLabel?: Phaser.GameObjects.Text;
+  /**
+   * Lớp phủ tối khi trời tối (ngày/đêm từ server). Rectangle fullscreen,
+   * scrollFactor 0, chỉ camera world render — HUD không bị tối theo.
+   */
+  private nightOverlay?: Phaser.GameObjects.Rectangle;
+  /** Phase ngày/đêm đang hiển thị — tránh set alpha mỗi frame state. */
+  private shownPhase = '';
   /** Tọa độ ô đang được `/tile` đánh dấu (`null` = chưa đánh dấu). */
   private markedTile: { x: number; y: number } | null = null;
   /** Nhãn toạ độ bám theo nhân vật (công cụ tracking toạ độ). */
@@ -467,7 +474,10 @@ export class WorldScene extends Phaser.Scene {
   private bindWorldRoomEvents(): void {
     const remote = ColyseusManager.getInstance().world;
     if (!remote) return;
-    remote.onStateChange((state) => this.syncRemotePlayers(state));
+    remote.onStateChange((state) => {
+      this.syncRemotePlayers(state);
+      this.syncWorldClock(state);
+    });
     remote.onMessage('chat', (data) => this.showChat(data.from, data.message));
     // Server xác nhận đổi map (warp) → client rejoin room mới.
     remote.onMessage('player_moved_map', (data) => this.onServerChangeMap(data));
@@ -2360,6 +2370,48 @@ export class WorldScene extends Phaser.Scene {
         this.remotePlayers.delete(sid);
       }
     }
+  }
+
+  /**
+   * Đồng bộ ngày/đêm + thời tiết từ server (`WorldState.timeOfDay/weather/
+   * gameMinutes`) → InfoPanel hiển thị + lớp phủ tối bản đồ.
+   *
+   * Chỉ chạy khi phase đổi để tránh set alpha mỗi nhịp state (Colyseus sync
+   * state liên tục theo chuyển động người chơi).
+   */
+  private syncWorldClock(state: any): void {
+    if (!state) return;
+    const phase = typeof state.timeOfDay === 'string' ? state.timeOfDay : 'day';
+    const weather = typeof state.weather === 'string' ? state.weather : 'sunny';
+    const gameMinutes = typeof state.gameMinutes === 'number' ? state.gameMinutes : 0;
+
+    this.infoPanel?.setServerClock(phase, weather, gameMinutes);
+    if (phase === this.shownPhase) return;
+    this.shownPhase = phase;
+
+    const overlay = this.ensureNightOverlay();
+    // Độ tối theo phase: đêm rõ rệt, chạng vạng nhẹ, ngày trong.
+    const alpha = phase === 'night' ? 0.38 : phase === 'dusk' || phase === 'dawn' ? 0.14 : 0;
+    const tint = phase === 'night' ? 0x1a2350 : 0x53350a;
+    overlay.setFillStyle(tint, alpha).setVisible(alpha > 0);
+  }
+
+  /**
+   * Tạo (1 lần) lớp phủ tối fullscreen cho camera world. `scrollFactor(0)` +
+   * bám kích thước viewport khi resize; đăng ký `registerWorldObject` để camera
+   * UI bỏ qua (HUD giữ nguyên độ sáng).
+   */
+  private ensureNightOverlay(): Phaser.GameObjects.Rectangle {
+    if (this.nightOverlay) return this.nightOverlay;
+    const { width, height } = this.scale;
+    const rect = this.add.rectangle(0, 0, width + 4, height + 4, 0x1a2350, 0);
+    rect.setOrigin(0, 0).setScrollFactor(0).setDepth(5000).setVisible(false);
+    this.registerWorldObject(rect);
+    this.scale.on('resize', (size: Phaser.Structs.Size) => {
+      rect.setSize(size.width + 4, size.height + 4);
+    });
+    this.nightOverlay = rect;
+    return rect;
   }
 
   private showChat(from: string, message: string): void {

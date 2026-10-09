@@ -17,6 +17,16 @@ const WEATHERS: WeatherDef[] = [
   { glyph: '⛈', tint: 0xa29bfe },
 ];
 
+/** Map `weather` (server) → glyph/tint. Fallback về WEATHERS khi id lạ. */
+const WEATHER_BY_ID: Record<string, WeatherDef> = {
+  sunny: { glyph: '☀', tint: 0xfdcb6e },
+  cloudy: { glyph: '⛅', tint: 0xc9d1e0 },
+  rain: { glyph: '🌧', tint: 0x6c9fd8 },
+  storm: { glyph: '⛈', tint: 0xa29bfe },
+  snow: { glyph: '❄', tint: 0xdfe9ff },
+  fog: { glyph: '🌫', tint: 0x9aa0c3 },
+};
+
 const NORMAL_W = 140;
 const NORMAL_H = 46;
 const MINI_W = 54;
@@ -38,6 +48,14 @@ export class InfoPanel extends UiModal {
   private weatherGlyph: Phaser.GameObjects.Text;
   private seed: number;
   private _hudMode: HudMode = 'normal';
+  /**
+   * Clock server-authoritative (từ `WorldState.timeOfDay/weather/gameMinutes`).
+   * Chưa nhận được lần nào → giữ đồng hồ giả lập cũ để panel không đứng hình.
+   */
+  private serverSync = false;
+  private serverPhase = 'day';
+  private serverWeather = 'sunny';
+  private serverGameMinutes = 0;
 
   constructor(scene: Phaser.Scene, seed = 0, onClose?: () => void) {
     super(scene, {
@@ -158,6 +176,15 @@ export class InfoPanel extends UiModal {
     return this.currentY + this.getActualSize().h + 4;
   }
 
+  /** WorldScene gọi mỗi khi `WorldState` đổi — đồng hồ/thời tiết từ server. */
+  setServerClock(phase: string, weather: string, gameMinutes: number): void {
+    this.serverPhase = phase || 'day';
+    this.serverWeather = weather || 'sunny';
+    this.serverGameMinutes = Number.isFinite(gameMinutes) ? gameMinutes : 0;
+    if (!this.serverSync) this.serverSync = true;
+    this.updateClock();
+  }
+
   private updateClock(): void {
     const now = new Date();
     // 1. Real time
@@ -165,11 +192,19 @@ export class InfoPanel extends UiModal {
     const realM = String(now.getMinutes()).padStart(2, '0');
     const realTimeStr = `${realH}:${realM}`;
 
-    // 2. Poke time (nhanh gấp 6 lần thời gian thực: 1 ngày thực = 6 chu kỳ ngày đêm Pokémon)
-    const totalRealSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-    const pokeSeconds = (totalRealSeconds * 6) % (24 * 3600);
-    const pokeH = String(Math.floor(pokeSeconds / 3600)).padStart(2, '0');
-    const pokeM = String(Math.floor((pokeSeconds % 3600) / 60)).padStart(2, '0');
+    // 2. Poke time — server-authoritative khi đã sync; chưa sync thì giả lập cũ (x6).
+    let pokeH: string;
+    let pokeM: string;
+    if (this.serverSync) {
+      const mins = ((this.serverGameMinutes % 1440) + 1440) % 1440;
+      pokeH = String(Math.floor(mins / 60)).padStart(2, '0');
+      pokeM = String(mins % 60).padStart(2, '0');
+    } else {
+      const totalRealSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const pokeSeconds = (totalRealSeconds * 6) % (24 * 3600);
+      pokeH = String(Math.floor(pokeSeconds / 3600)).padStart(2, '0');
+      pokeM = String(Math.floor((pokeSeconds % 3600) / 60)).padStart(2, '0');
+    }
     const pokeTimeStr = `${pokeH}:${pokeM}`;
 
     const isMini = this.isMiniMode();
@@ -181,13 +216,20 @@ export class InfoPanel extends UiModal {
       this.realTimeText.setText(`${t('INFO_REAL')}: ${realTimeStr}`);
     }
 
-    // 3. Thời tiết (dựa trên Poke Time ngày hoặc đêm)
+    // 3. Thời tiết — server-authoritative khi đã sync (weather + phase từ
+    // WorldState). Ban đêm hiện 🌙, ban ngày hiện glyph theo thời tiết thật.
     const pokeHourNum = parseInt(pokeH, 10);
-    const isNight = pokeHourNum >= 20 || pokeHourNum < 5;
+    const isNight = this.serverSync
+      ? this.serverPhase === 'night'
+      : pokeHourNum >= 20 || pokeHourNum < 5;
 
     if (isNight) {
       this.weatherGlyph.setText('🌙');
       this.weatherGlyph.setColor('#f1c40f');
+    } else if (this.serverSync) {
+      const w = WEATHER_BY_ID[this.serverWeather] || WEATHERS[0];
+      this.weatherGlyph.setText(w.glyph);
+      this.weatherGlyph.setColor(`#${w.tint.toString(16).padStart(6, '0')}`);
     } else {
       const slot = Math.floor(pokeHourNum / 4 + this.seed) % WEATHERS.length;
       const w = WEATHERS[slot] || WEATHERS[0];

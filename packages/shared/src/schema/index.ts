@@ -119,5 +119,15 @@ export class BattleState extends Schema {
 // ===== World State =====
 export class WorldState extends Schema {
   @type('string') mapId: string = 'lappet-town';
+  /**
+   * Giai đoạn trong ngày (server-authoritative, đổi ~mỗi giờ game). Client
+   * dùng để: (a) hiện đúng icon thời tiết/đồng hồ ở InfoPanel, (b) filter
+   * encounter/evolution theo `timeOfDay`, (c) vẽ overlay ánh sáng ngày/đêm.
+   */
+  @type('string') timeOfDay: string = 'day';
+  /** Thời tiết hiện tại của map này (deterministic từ worldClock). */
+  @type('string') weather: string = 'sunny';
+  /** Phút game tính từ epoch — client hiện đồng hồ + nhận diện ngày mới. */
+  @type('number') gameMinutes: number = 0;
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
 }

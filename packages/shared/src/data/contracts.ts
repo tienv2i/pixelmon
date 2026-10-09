@@ -57,10 +57,12 @@ export type BaseStats = z.infer<typeof BaseStatsSchema>;
 // ===== Evolution / LearnSet =====
 export const EvolutionEntrySchema = z.object({
   to: z.string().min(1),
-  method: z.enum(['level', 'item', 'trade', 'move', 'friendship']),
+  method: z.enum(['level', 'item', 'trade', 'move', 'friendship', 'time']),
   level: z.number().int().min(1).optional(),
   item: z.string().optional(),
   move: z.string().optional(),
+  /** Phương pháp dựa trên thời gian trong ngày (method `time`). */
+  timeOfDay: z.array(z.enum(['day', 'night', 'dawn', 'dusk'])).optional(),
   condition: z.record(z.unknown()).optional(),
 });
 export type EvolutionEntry = z.infer<typeof EvolutionEntrySchema>;

@@ -65,6 +65,23 @@ export {
   type EncounterContext,
 } from './encounter.js';
 
+// ── world clock + weather (SSOT ngày/đêm + thời tiết) ──
+export {
+  TIME_SCALE,
+  WEATHER_IDS,
+  WEATHER_BLOCKS,
+  phaseAt,
+  worldClockAt,
+  worldClockNow,
+  msUntilNextPhase,
+  weatherBlock,
+  weatherPoolFor,
+  weatherFor,
+  type TimeOfDay,
+  type WeatherId,
+  type WorldClock,
+} from './worldClock.js';
+
 // ── moveset ──
 export { hasPp, consumePp, restorePp, type MoveSlot } from './moveset.js';
 

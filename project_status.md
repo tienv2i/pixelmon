@@ -231,6 +231,14 @@ pixelmon/
 
 ## 3. Hệ thống Bản đồ & Quy chuẩn Đồ hoạ
 
+### 3.0 Multi-world (2026-10-10) — mỗi world một bộ riêng
+- Registry `maps/worlds.json`: `essen-classic` (legacy — toàn bộ map cũ) + `vibe-world` (draft, rỗng).
+- Storage: `maps/worlds/<world>/{tiled,server,tilesets}` + `map-index.json` gốc (`{mapId: world}`).
+- `ServerMap.worldId` (default `essen-classic`); build script/loader/admin API/client loader
+  đều world-aware (glob theo world, tileset resolve theo world, admin `?world=` + chuyển world + import `--world`).
+- Chuẩn thiết kế: `docs/map-standard-gen4.md` (tile/layer/terrain_tag/warp/encounter + checklist merge).
+- Plan tiếp: `docs/plans/2026-10-10-multi-world-maps.md` (warp cổng, admin switcher/form, content vibe-world).
+
 ### 3.1 Quy chuẩn tileset & render
 - **Tileset chuẩn: 32×32 px, 8 cột/tileset** (rút từ Essentials v21.1).
 - **Giới hạn WebGL `MAX_TEXTURE_SIZE` = 8192**: `Outdoor.png` cao 16096px → client dùng

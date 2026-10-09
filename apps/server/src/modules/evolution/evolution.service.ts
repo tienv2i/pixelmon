@@ -11,6 +11,7 @@ import {
   expForLevel,
   getNatureMod,
   learnsetAtLevel,
+  type MoveSlot,
 } from '@pixelmon/shared';
 import { logEvolve, logLevelUp } from '../events/eventLog.js';
 
@@ -44,7 +45,8 @@ interface OwnedPokemonRow {
   current_hp: number;
   moves: unknown;
   status: string | null;
-  nature: string | null;
+  /** DB lưu object JSONB `{name,...}` — cũng chịu được string cũ. */
+  nature: { name?: string } | string | null;
   held_item: string | null;
   friendship: number;
 }
@@ -57,6 +59,20 @@ async function loadOwned(userId: string, pokemonId: string): Promise<OwnedPokemo
     [pokemonId, userId],
   );
   return (rows[0] as OwnedPokemonRow | undefined) ?? null;
+}
+
+/**
+ * Bóc tên nature từ giá trị DB (object JSONB `{name,...}` hoặc string cũ)
+ * trước khi truyền cho `getNatureMod` — nếu truyền thẳng object thì
+ * `NATURE_MAP.get(object)` luôn miss → stat bị tính theo `hardy` oan.
+ */
+function natureNameOf(raw: unknown): string {
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  if (raw && typeof raw === 'object' && typeof (raw as { name?: unknown }).name === 'string') {
+    const name = (raw as { name: string }).name.trim();
+    if (name) return name;
+  }
+  return 'hardy';
 }
 
 /** Recompute stats + HP delta khi đổi level/species. */
@@ -72,27 +88,54 @@ function recompute(
     row.ivs as BaseStats,
     row.evs as BaseStats,
     level,
-    getNatureMod(row.nature ?? 'hardy'),
+    getNatureMod(natureNameOf(row.nature)),
   );
   return { stats, maxHp };
 }
 
-/** Chọn moves mới sau khi evolve: ưu tiên learnset species mới, giữ move cũ nếu còn hợp lệ. */
-function movesAfterEvolve(row: OwnedPokemonRow, speciesId: string, level: number): string[] {
+/**
+ * Chọn moves mới sau khi evolve: ưu tiên learnset species mới, giữ move cũ nếu còn hợp lệ.
+ *
+ * PHẢI trả về **object array** (`{id, ...}`) — mọi writer khác đều lưu move dạng
+ * object vào cột `pokemon.moves` (battle/index.ts, world/index.ts, battleParty.ts).
+ * Nếu lưu `string[]` thì `normalizeMoves` (`battleParty.ts`) bỏ qua vì
+ * `typeof m !== 'object'` → Pokémon sau khi tiến hoá **mất sạch moveset**.
+ */
+function movesAfterEvolve(row: OwnedPokemonRow, speciesId: string, level: number): MoveSlot[] {
   const sp = gameData.getSpecies(speciesId);
   if (!sp) return [];
   const fresh = learnsetAtLevel(sp, level, (id) => gameData.getMove(id)).map((m) => m.id);
-  const old = Array.isArray(row.moves) ? (row.moves as Array<{ id?: string }>).map((m) => m.id).filter((id): id is string => Boolean(id)) : [];
-  const out: string[] = [];
-  for (const id of fresh) {
-    if (out.length >= 4) break;
-    if (!out.includes(id)) out.push(id);
+  const old = Array.isArray(row.moves)
+    ? (row.moves as Array<{ id?: string }>).map((m) => m?.id).filter((id): id is string => Boolean(id))
+    : [];
+
+  // Learnset species mới có quyền ưu tiên. Khi learnset rỗng (dữ liệu thiếu) →
+  // giữ nguyên move cũ để Pokémon không bị mất sạch moveset sau tiến hoá.
+  const source = fresh.length > 0 ? fresh : old;
+
+  const ids: string[] = [];
+  for (const id of source) {
+    if (ids.length >= 4) break;
+    if (!id || ids.includes(id)) continue;
+    ids.push(id);
   }
-  for (const id of old) {
-    if (out.length >= 4) break;
-    if (fresh.includes(id) && !out.includes(id)) out.push(id);
-  }
-  return out;
+
+  // Chuẩn hoá sang MoveSlot đầy đủ giống `normalizeMoves` phía đọc.
+  return ids
+    .map((id) => gameData.getMove(id))
+    .filter((m): m is NonNullable<typeof m> => Boolean(m))
+    .slice(0, 4)
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      type: m.type,
+      category: m.category,
+      power: m.power ?? null,
+      accuracy: m.accuracy,
+      maxPp: m.pp,
+      currentPp: m.pp,
+      priority: m.priority ?? 0,
+    }));
 }
 
 /**

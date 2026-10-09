@@ -337,6 +337,8 @@ export const ServerMapSchema = z.object({
   mapType: z.enum(['town', 'route', 'dungeon', 'gym', 'interior', 'battle']),
   music: z.string().optional(),
   weather: z.string().optional(),
+  /** World chứa map — mặc định `essen-classic` (toàn bộ map cũ, không đụng data). */
+  worldId: z.string().min(1).default('essen-classic'),
   width: z.number().int().min(1),
   height: z.number().int().min(1),
   tileWidth: z.number().int().positive().default(16),
@@ -347,6 +349,20 @@ export const ServerMapSchema = z.object({
   requiredBadges: z.array(z.string()).default([]),
 });
 export type ServerMap = z.infer<typeof ServerMapSchema>;
+
+// ===== Worlds (multi-world maps) =====
+export const WorldStatusSchema = z.enum(['active', 'draft', 'legacy']);
+export type WorldStatus = z.infer<typeof WorldStatusSchema>;
+
+export const WorldSchema = z.object({
+  id: z.string().min(1),
+  name: z.object({ vi: z.string().min(1), en: z.string().min(1) }),
+  /** Map spawn của world — rỗng khi world `draft` chưa có map. */
+  spawnMap: z.string().default(''),
+  assetPack: z.string().min(1),
+  status: WorldStatusSchema,
+});
+export type World = z.infer<typeof WorldSchema>;
 
 export const ServerMapIndexEntrySchema = z.object({
   mapId: z.string(),

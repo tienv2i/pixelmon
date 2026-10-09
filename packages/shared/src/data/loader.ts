@@ -20,6 +20,7 @@ import {
   TrainerTemplateSchema,
   ServerMapSchema,
   ServerMapIndexEntrySchema,
+  WorldSchema,
   type Species,
   type Move,
   type Item,
@@ -29,6 +30,7 @@ import {
   type TrainerTemplate,
   type ServerMap,
   type ServerMapIndexEntry,
+  type World,
 } from './contracts.js';
 import { normalizeSpecies, normalizeMove, normalizeItem } from './normalize.js';
 
@@ -309,12 +311,19 @@ export class GameData {
  */
 export class MapLoader {
   private cache = new Map<string, ServerMap>();
+  private worldsCache: World[] | null = null;
 
   async load(mapId: string): Promise<ServerMap> {
     const cached = this.cache.get(mapId);
     if (cached) return cached;
     const raw = await readJson(join(SERVER_MAPS_DIR, `${mapId}.json`));
     const parsed = ServerMapSchema.parse(raw);
+    // Validate worldId — lạ → rơi về `essen-classic` + warn (không crash).
+    const worlds = await this.listWorlds();
+    if (!worlds.some((w) => w.id === parsed.worldId)) {
+      console.warn(`[mapLoader] map "${mapId}" có worldId lạ "${parsed.worldId}" → dùng essen-classic.`);
+      parsed.worldId = 'essen-classic';
+    }
     this.cache.set(mapId, parsed);
     return parsed;
   }
@@ -333,11 +342,32 @@ export class MapLoader {
     return (await this.listIndex()).map((e: ServerMapIndexEntry) => e.mapId);
   }
 
+  /** Danh sách world (`maps/worlds.json`, validate zod, cache). */
+  async listWorlds(): Promise<World[]> {
+    if (!this.worldsCache) {
+      const raw = await readJson(join(MAPS_DIR, 'worlds.json'));
+      this.worldsCache = WorldSchema.array().parse(raw);
+    }
+    return this.worldsCache;
+  }
+
+  /** 1 world theo id (undefined = không tồn tại). */
+  async getWorld(id: string): Promise<World | undefined> {
+    return (await this.listWorlds()).find((w) => w.id === id);
+  }
+
+  /** Các map thuộc 1 world (lọc theo `worldId`). */
+  async listMapsOfWorld(worldId: string): Promise<ServerMap[]> {
+    const all = await this.loadAll();
+    return all.filter((m) => m.worldId === worldId);
+  }
+
   has(mapId: string): boolean {
     return this.cache.has(mapId);
   }
   clear(): void {
     this.cache.clear();
+    this.worldsCache = null;
   }
 }
 

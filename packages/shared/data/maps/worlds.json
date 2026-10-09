@@ -1,0 +1,16 @@
+[
+  {
+    "id": "essen-classic",
+    "name": { "vi": "Essen (Cũ)", "en": "Essen (Classic)" },
+    "spawnMap": "lappet-town",
+    "assetPack": "classic",
+    "status": "legacy"
+  },
+  {
+    "id": "vibe-world",
+    "name": { "vi": "Vibe World", "en": "Vibe World" },
+    "spawnMap": "",
+    "assetPack": "vibe-v1",
+    "status": "draft"
+  }
+]

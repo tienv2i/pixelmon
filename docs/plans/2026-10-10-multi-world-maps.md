@@ -1,6 +1,9 @@
 # Multi-World Maps — Plan (2026-10-10)
 
-> Trạng thái: **PLAN — chưa triển khai**.
+> Trạng thái: **P0 xong một phần (2026-10-10)** — `worlds.json` có `essen-classic`
+> (legacy, 13 map cũ) + `vibe-world` (draft, chưa có map); `WorldSchema`,
+> `ServerMap.worldId` (default essen-classic), `MapLoader.listWorlds/getWorld/
+> listMapsOfWorld` + validate fallback. Còn lại (warp cổng, admin UI, content) theo phases.
 > Vấn đề: 17 map hiện tại trộn nhiều nguồn (Essen hand-made + Cedolan/Pallet import
 > Essentials + interiors rời rạc) — phong cách lệch nhau ("tạp nham"). Mục tiêu: dựng
 > **world mới với bộ maps + assets mới**, **giữ nguyên world cũ** chơi được song song.

@@ -19,6 +19,8 @@ export {
   type TrainerTemplate,
   type ServerMap,
   type ServerMapIndexEntry,
+  type World,
+  type WorldStatus,
   type MapObject,
   type CollisionLayer,
   CollisionFlag,
@@ -33,6 +35,7 @@ export {
   EncounterSetSchema,
   ServerMapSchema,
   ServerMapIndexEntrySchema,
+  WorldSchema,
 } from './contracts.js';
 export {
   normalizeSpecies,

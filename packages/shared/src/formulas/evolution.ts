@@ -6,6 +6,7 @@
  * Thuần tuý — không I/O; caller (server) lo phần recompute stats + ghi DB.
  */
 import type { Species, EvolutionEntry } from '../data/contracts.js';
+import type { TimeOfDay } from './worldClock.js';
 
 /**
  * Item id đá tiến hoá (khớp `evolutions[].item` trong data).
@@ -54,6 +55,11 @@ export interface EvolutionContext {
   /** Danh sách move id Pokémon đang biết — dùng cho method `move`. */
   knownMoves?: readonly string[];
   /**
+   * Giai đoạn trong ngày hiện tại (server-authoritative, từ `worldClock`).
+   * Dùng cho method `time` (vd: Eevee → Espeon ban ngày, Umbreon ban đêm).
+   */
+  timeOfDay?: TimeOfDay;
+  /**
    * Server quyết định — client KHÔNG được gửi cờ này.
    * Bật khi Pokémon vừa được giao dịch với NPC.
    */
@@ -101,6 +107,18 @@ function entrySatisfied(evo: EvolutionEntry, ctx: EvolutionContext): boolean {
       if (!evo.move) return false;
       return (ctx.knownMoves ?? []).includes(evo.move);
     }
+    case 'time': {
+      // Method `time` — yêu cầu đúng giai đoạn trong ngày (nếu entry chỉ định)
+      // VÀ (nếu entry có đặt ngưỡng) đủ `minFriendship`.
+      const allowed = evo.timeOfDay;
+      if (allowed && allowed.length > 0) {
+        if (!ctx.timeOfDay || !allowed.includes(ctx.timeOfDay)) return false;
+      }
+      const need = evo.condition?.minFriendship;
+      if (typeof need === 'number' && (ctx.friendship ?? 0) < need) return false;
+      // entry `time` không có timeOfDay lẫn minFriendship → thoả đã (data yếu, cho qua).
+      return true;
+    }
     default:
       return false;
   }
@@ -141,11 +159,15 @@ export function resolveEvolution(
   // Người chơi CHỦ ĐỘNG dùng đá → `item` phải đứng TRƯỚC `level`. Nếu không,
   // eevee Lv16+ (hoặc kirlia Lv30+) dùng Water/Dawn Stone sẽ tiến hoá theo level
   // (Leafeon / Gardevoir) thay vì theo đá (Vaporeon / Gallade) — mất đá + sai loài.
+  //
+  // `time` đặt TRƯỚC `friendship` vì nó chặt hơn (đòi cả điều kiện giờ + friendship
+  // ngưỡng); friendship thuần là fallback rộng hơn.
   if (ctx.usedItemId) {
     return (
       find('trade') ??
       find('item') ??
       find('level') ??
+      find('time') ??
       find('friendship') ??
       find('move')
     );
@@ -154,6 +176,7 @@ export function resolveEvolution(
   return (
     find('trade') ??
     find('level') ??
+    find('time') ??
     find('item') ??
     find('friendship') ??
     find('move')

@@ -2,7 +2,7 @@
  * LearnSet + Evolution — helpers chọn move theo level, kiểm tra tiến hóa.
  */
 import type { Species, LearnSetEntry, Move } from '../data/contracts.js';
-import { resolveEvolution, type EvolutionContext } from './evolution.js';
+import { resolveEvolution, type EvolutionContext, type EvolutionMethod } from './evolution.js';
 
 /**
  * Lấy 4 move cuối mà species biết ở level hiện tại (mainline: move mới thay cũ).
@@ -68,7 +68,7 @@ export function checkLevelEvolution(
  */
 export function evolveSpecies(
   species: Species,
-  method: 'level' | 'item' | 'trade' | 'friendship' | 'move',
+  method: EvolutionMethod,
   param?: string | number,
 ): { targetId: string; method: string } | null {
   const ctx: EvolutionContext = { level: typeof param === 'number' ? param : 0 };
@@ -85,7 +85,7 @@ export function evolveSpecies(
  */
 export function evolutionTargetId(
   species: Species,
-  method: 'level' | 'item' | 'trade' | 'friendship' | 'move',
+  method: EvolutionMethod,
   param?: string | number,
 ): string | undefined {
   const r = evolveSpecies(species, method, param);

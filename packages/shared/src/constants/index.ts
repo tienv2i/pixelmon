@@ -19,4 +19,5 @@ export {
   TYPE_NO_EFFECT,
   STAT_STAGE_MULTIPLIER,
 } from './game.js';
-export { MAPS, DEFAULT_MAP, type MapData } from './maps.js';
+export { MAPS, DEFAULT_MAP, getTownMapCoords, MAP_TO_TOWN_POINT, type MapData } from './maps.js';
+export { STORE_STOCK } from './store.js';

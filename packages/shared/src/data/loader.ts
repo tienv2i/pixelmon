@@ -122,6 +122,67 @@ export class GameData {
   getSpeciesByDexNum(dexNum: number): Species | undefined {
     return this.getAllSpecies().find((s) => s.dexNum === dexNum);
   }
+  /**
+   * Tìm loài Pokémon linh hoạt theo dexNum, ID hoặc tên (không phân biệt hoa/thường, dấu cách/gạch nối).
+   */
+  findSpecies(query: string | number): Species | undefined {
+    if (typeof query === 'number') {
+      return this.getSpeciesByDexNum(query);
+    }
+    const raw = String(query).trim();
+    if (!raw) return undefined;
+    const num = parseInt(raw, 10);
+    if (Number.isInteger(num) && String(num) === raw && num >= 1 && num <= 1025) {
+      const byDex = this.getSpeciesByDexNum(num);
+      if (byDex) return byDex;
+    }
+
+    const norm = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const all = this.getAllSpecies();
+
+    // 1. Khớp chính xác ID
+    const byId = this.species.get(raw.toLowerCase());
+    if (byId) return byId;
+
+    // 2. Khớp normalized ID
+    const byNormId = all.find((s) => s.id.toLowerCase().replace(/[^a-z0-9]/g, '') === norm);
+    if (byNormId) return byNormId;
+
+    // 3. Khớp normalized Name
+    const byNormName = all.find((s) => s.name.toLowerCase().replace(/[^a-z0-9]/g, '') === norm);
+    if (byNormName) return byNormName;
+
+    // 4. Khớp prefix (bắt đầu bằng)
+    const byPrefix = all.find(
+      (s) =>
+        s.id.toLowerCase().replace(/[^a-z0-9]/g, '').startsWith(norm) ||
+        s.name.toLowerCase().replace(/[^a-z0-9]/g, '').startsWith(norm),
+    );
+    if (byPrefix) return byPrefix;
+
+    // 5. Khớp contains (chứa)
+    return all.find(
+      (s) =>
+        s.id.toLowerCase().replace(/[^a-z0-9]/g, '').includes(norm) ||
+        s.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(norm),
+    );
+  }
+
+  /**
+   * Gợi ý các loài tương tự khi không tìm thấy kết quả chính xác.
+   */
+  suggestSpecies(query: string, limit = 5): Species[] {
+    const norm = String(query).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!norm) return [];
+    const all = this.getAllSpecies();
+    return all
+      .filter(
+        (s) =>
+          s.id.toLowerCase().replace(/[^a-z0-9]/g, '').includes(norm) ||
+          s.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(norm),
+      )
+      .slice(0, limit);
+  }
   /** Chọn 1 loài ngẫu nhiên (dùng cho lệnh debug `/spawn`). */
   getRandomSpecies(): Species {
     const all = this.getAllSpecies();
@@ -192,8 +253,24 @@ export class GameData {
   getTrainers(): TrainerTemplate[] {
     return this.trainers;
   }
-  getTrainer(name: string): TrainerTemplate | undefined {
-    return this.trainers.find((t) => t.name === name);
+  getTrainer(idOrName: string): TrainerTemplate | undefined {
+    if (!idOrName) return undefined;
+    const clean = idOrName.trim();
+    const exact = this.trainers.find((t) => t.id === clean || t.name === clean);
+    if (exact) return exact;
+
+    const lower = clean.toLowerCase();
+    const caseMatch = this.trainers.find(
+      (t) => (t.id && t.id.toLowerCase() === lower) || (t.name && t.name.toLowerCase() === lower),
+    );
+    if (caseMatch) return caseMatch;
+
+    const norm = lower.replace(/[^a-z0-9]/g, '');
+    return this.trainers.find(
+      (t) =>
+        (t.id && t.id.toLowerCase().replace(/[^a-z0-9]/g, '').includes(norm)) ||
+        (t.name && t.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(norm)),
+    );
   }
 
   // ── Encounters / Quests ──

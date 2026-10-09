@@ -71,6 +71,28 @@
       'Interactive map viewer, collision layers, warps & spawn points',
       'Xem bản đồ trực quan, lớp va chạm, cổng dịch chuyển & điểm hồi sinh',
     ],
+    'view.items': ['Items & Trades', 'Vật phẩm & Giao dịch'],
+    'view.items.sub': [
+      'Inventory distribution, economy, evolution history & event log',
+      'Phân bố túi đồ, kinh tế, lịch sử tiến hoá & nhật ký sự kiện',
+    ],
+
+    // ── Items & Trades (Plan 45 Phase 7) ──
+    'it.title': ['Items & Trades', 'Vật phẩm & Giao dịch'],
+    'it.empty': ['No data yet.', 'Chưa có dữ liệu.'],
+    'it.colPlayer': ['Player', 'Người chơi'],
+    'it.colRole': ['Role', 'Quyền'],
+    'it.colMoney': ['Money', 'Tiền'],
+    'it.colLevel': ['Level', 'Cấp'],
+    'it.colMap': ['Map', 'Map'],
+    'it.colTime': ['Time', 'Thời gian'],
+    'it.colOwner': ['Owner', 'Chủ nhân'],
+    'it.colFrom': ['From', 'Từ'],
+    'it.colTo': ['To', 'Thành'],
+    'it.colMethod': ['Method', 'Phương thức'],
+    'it.colMod': ['By', 'Bởi'],
+    'it.colKind': ['Kind', 'Loại'],
+    'it.colDetail': ['Detail', 'Chi tiết'],
 
     // ── Sprites ──
     'sp.title': ['Character sprite library', 'Thư viện Sprite nhân vật'],

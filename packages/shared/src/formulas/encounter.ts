@@ -57,7 +57,18 @@ export interface CatchResult {
   message: string;
 }
 
-/** Tính xác suất bắt (0.01 - 1). */
+export interface CatchContext {
+  turn?: number;
+  types?: string[];
+  baseSpeed?: number;
+  allyLevel?: number;
+  foeLevel?: number;
+  isWater?: boolean;
+  isDarkOrCave?: boolean;
+  alreadyCaught?: boolean;
+}
+
+/** Tính xác suất bắt (0.01 - 1.0) theo chuẩn Gen 3-8 / Essentials. */
 export function calculateCatchChance(
   species: { catchRate: number },
   hpCurrent: number,
@@ -65,14 +76,24 @@ export function calculateCatchChance(
   statusEffect: string | null,
   ballMultiplier: number,
 ): number {
-  const catchRate = species.catchRate / 255;
-  const hpPercent = Math.max(0, 1 - hpCurrent / hpMax);
+  if (ballMultiplier >= 255) return 1.0;
+
+  const catchRate = species.catchRate ?? 45;
+  const maxHp = Math.max(1, hpMax);
+  const curHp = Math.max(1, Math.min(maxHp, hpCurrent));
   const statusBonus = statusMultiplier(statusEffect);
-  const raw = catchRate * hpPercent * ballMultiplier * statusBonus;
-  return Math.min(1, Math.max(0.01, raw / 4));
+
+  // a = ((3 * MaxHP - 2 * CurrentHP) * CatchRate * BallMultiplier) / (3 * MaxHP) * StatusBonus
+  const a = (((3 * maxHp - 2 * curHp) * catchRate * ballMultiplier) / (3 * maxHp)) * statusBonus;
+
+  if (a >= 255) return 1.0;
+  if (a <= 0) return 0.01;
+
+  const chance = a / 255;
+  return Math.min(1.0, Math.max(0.01, chance));
 }
 
-/** Thực hiện attempt bắt, trả về result với số shake. */
+/** Thực hiện attempt bắt, tính chính xác số lần lắc bóng (0-3) và critical capture. */
 export function attemptCatch(
   species: { catchRate: number },
   hpCurrent: number,
@@ -81,14 +102,66 @@ export function attemptCatch(
   ballMultiplier: number,
   rng: () => number = Math.random,
 ): CatchResult {
-  const chance = calculateCatchChance(species, hpCurrent, hpMax, statusEffect, ballMultiplier);
-  const caught = rng() < chance;
-  const shakes = caught ? 3 : Math.min(3, Math.floor((1 - chance) * 3));
+  if (ballMultiplier >= 255) {
+    return {
+      caught: true,
+      chance: 1.0,
+      shakes: 3,
+      critical: false,
+      message: 'Gotcha! The Pokémon was caught!',
+    };
+  }
+
+  const catchRate = species.catchRate ?? 45;
+  const maxHp = Math.max(1, hpMax);
+  const curHp = Math.max(1, Math.min(maxHp, hpCurrent));
+  const statusBonus = statusMultiplier(statusEffect);
+
+  const a = (((3 * maxHp - 2 * curHp) * catchRate * ballMultiplier) / (3 * maxHp)) * statusBonus;
+
+  if (a >= 255) {
+    return {
+      caught: true,
+      chance: 1.0,
+      shakes: 3,
+      critical: false,
+      message: 'Gotcha! The Pokémon was caught!',
+    };
+  }
+
+  // Xác suất mỗi lần lắc: b = (a / 255)^0.25
+  const shakeProb = Math.min(1, Math.max(0.05, Math.pow(Math.max(0.001, a / 255), 0.25)));
+
+  // Bắt chí mạng (Critical Capture)
+  const criticalRoll = rng();
+  const critical = (a > 120 && criticalRoll < 0.1) || criticalRoll < 0.01;
+
+  if (critical) {
+    const passed = rng() < shakeProb;
+    return {
+      caught: passed,
+      chance: Math.min(1, a / 255),
+      shakes: passed ? 1 : 0,
+      critical: true,
+      message: passed ? 'Gotcha! Critical capture!' : 'Oh no! The Pokémon broke free!',
+    };
+  }
+
+  let shakes = 0;
+  for (let i = 0; i < 3; i++) {
+    if (rng() < shakeProb) {
+      shakes++;
+    } else {
+      break;
+    }
+  }
+
+  const caught = shakes === 3;
   return {
     caught,
-    chance,
+    chance: Math.min(1, Math.max(0.01, a / 255)),
     shakes,
-    critical: caught && chance > 0.9,
+    critical: false,
     message: buildCatchMessage(caught, shakes),
   };
 }
@@ -97,14 +170,14 @@ function statusMultiplier(status: string | null): number {
   switch (status) {
     case 'sleep':
     case 'freeze':
-      return 2;
+      return 2.5;
     case 'paralysis':
     case 'poison':
     case 'badly_poisoned':
     case 'burn':
       return 1.5;
     default:
-      return 1;
+      return 1.0;
   }
 }
 
@@ -118,17 +191,51 @@ function buildCatchMessage(caught: boolean, shakes: number): string {
   return messages[shakes] ?? messages[0]!;
 }
 
-/** Bóng theo multiplier. */
-export function ballMultiplierFor(ballId: string): number {
-  switch (ballId) {
+/** Tỷ lệ bóng (Ball multiplier) theo loại bóng và ngữ cảnh trận đấu. */
+export function ballMultiplierFor(ballId: string, ctx?: CatchContext): number {
+  const id = ballId.toLowerCase().replace(/[^a-z0-9]/g, '');
+  switch (id) {
     case 'masterball':
+    case 'parkball':
       return 255;
     case 'ultraball':
-      return 2;
+      return 2.0;
     case 'greatball':
+    case 'safariball':
       return 1.5;
+    case 'netball':
+      if (ctx?.types?.some((t) => t.toLowerCase() === 'water' || t.toLowerCase() === 'bug')) return 3.5;
+      return 1.0;
+    case 'diveball':
+      if (ctx?.isWater) return 3.5;
+      return 1.0;
+    case 'nestball':
+      if (ctx?.foeLevel) return Math.min(3.0, Math.max(1.0, (41 - ctx.foeLevel) / 10));
+      return 1.0;
+    case 'repeatball':
+      if (ctx?.alreadyCaught) return 3.5;
+      return 1.0;
+    case 'timerball':
+      if (ctx?.turn) return Math.min(4.0, 1.0 + (ctx.turn - 1) * 0.3);
+      return 1.0;
+    case 'quickball':
+      if (ctx?.turn === 1) return 5.0;
+      return 1.0;
+    case 'duskball':
+      if (ctx?.isDarkOrCave) return 3.0;
+      return 1.0;
+    case 'fastball':
+      if (ctx?.baseSpeed && ctx.baseSpeed >= 100) return 4.0;
+      return 1.0;
+    case 'levelball':
+      if (ctx?.allyLevel && ctx?.foeLevel) {
+        if (ctx.allyLevel >= ctx.foeLevel * 4) return 8.0;
+        if (ctx.allyLevel >= ctx.foeLevel * 2) return 4.0;
+        if (ctx.allyLevel > ctx.foeLevel) return 2.0;
+      }
+      return 1.0;
     default:
-      return 1;
+      return 1.0;
   }
 }
 

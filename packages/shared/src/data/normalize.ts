@@ -8,6 +8,9 @@
  *   learnSet / evolutions / abilities: default empty
  */
 import type { ElementType, BaseStats, GrowthRate, Rarity } from './contracts.js';
+import { EVOLUTION_STONE_IDS } from '../formulas/evolution.js';
+
+const EVOLUTION_STONE_SET = new Set<string>(EVOLUTION_STONE_IDS);
 
 const VALID_GROWTH: GrowthRate[] = [
   'fast',
@@ -181,6 +184,8 @@ export interface NormalizedItem {
   maxStack: number;
   sellPrice: number;
   buyPrice: number;
+  /** Pocket 1..8 (fallback 6 = misc) — nhóm trong Bag. */
+  pocket: number;
   effect?: { stat?: string; amount?: number; effect?: string };
   iconUrl?: string;
 }
@@ -188,12 +193,19 @@ export interface NormalizedItem {
 export function normalizeItem(raw: unknown): NormalizedItem {
   const r = raw as Record<string, any>;
   const VALID_CATEGORIES = ['pokeball', 'medicine', 'berry', 'evolution', 'key', 'misc'];
+  const id = String(r.id ?? 'unknown');
   let category = VALID_CATEGORIES.includes(r.category) ? r.category : 'misc';
   // Infer pokeball from id
-  if (typeof r.id === 'string' && r.id.endsWith('ball') && category === 'misc')
+  if (id.endsWith('ball') && category === 'misc')
     category = 'pokeball';
+  // Data gốc để đá tiến hoá là `misc` → infer lại theo registry (Plan 45 §0.1)
+  if (EVOLUTION_STONE_SET.has(id)) category = 'evolution';
+  // Pocket 1..8, fallback 6 (misc)
+  const pocketNum = Number(r.pocket);
+  const pocket =
+    Number.isInteger(pocketNum) && pocketNum >= 1 && pocketNum <= 8 ? pocketNum : 6;
   return {
-    id: String(r.id ?? 'unknown'),
+    id,
     name: String(r.name ?? r.id ?? 'Unknown'),
     category,
     description: r.description !== undefined ? String(r.description) : undefined,
@@ -201,6 +213,7 @@ export function normalizeItem(raw: unknown): NormalizedItem {
     maxStack: Math.max(1, Number(r.maxStack ?? 99)),
     sellPrice: Math.max(0, Number(r.sellPrice ?? 0)),
     buyPrice: Math.max(0, Number(r.buyPrice ?? 0)),
+    pocket,
     effect: r.effect !== undefined ? r.effect : undefined,
     iconUrl: r.iconUrl !== undefined ? String(r.iconUrl) : undefined,
   };

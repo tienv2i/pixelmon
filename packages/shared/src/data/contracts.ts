@@ -162,6 +162,11 @@ export const ItemSchema = z.object({
   maxStack: z.number().int().default(99),
   sellPrice: z.number().int().default(0),
   buyPrice: z.number().int().default(0),
+  /**
+   * Pocket (1..8) — nhóm trong túi đồ (1=items, 2=medicine, 3=balls, 5=machines...).
+   * Data gốc có sẵn; fallback 6 (misc) khi thiếu.
+   */
+  pocket: z.number().int().min(1).max(8).default(6),
   effect: z
     .object({
       stat: z.string().optional(),
@@ -212,10 +217,22 @@ export type EncounterSet = z.infer<typeof EncounterSetSchema>;
 
 // ===== Trainers =====
 export const TrainerTemplateSchema = z.object({
-  trainerType: z.string().min(1),
+  id: z.string().optional(),
+  trainerClass: z.string().optional(),
+  trainerType: z.string().optional(),
   name: z.string().min(1),
+  version: z.number().optional(),
+  loseText: z.string().optional(),
   items: z.array(z.string()).default([]),
-  party: z.array(z.object({ species: z.string(), level: z.number().int() })).min(1),
+  party: z.array(
+    z.object({
+      species: z.string(),
+      level: z.number().int(),
+      moves: z.array(z.string()).optional(),
+      nickname: z.string().optional(),
+      heldItem: z.string().optional(),
+    }),
+  ).min(1),
 });
 export type TrainerTemplate = z.infer<typeof TrainerTemplateSchema>;
 
@@ -282,6 +299,7 @@ export const MapObjectSchema = z.discriminatedUnion('type', [
     npcId: z.string(),
     sprite: z.string().optional(),
     trainer: z.boolean().default(false),
+    trainerId: z.string().optional(),
     dialog: z.array(z.string()).default([]),
     team: z.array(z.string()).default([]),
   }),
@@ -335,3 +353,32 @@ export const ServerMapIndexEntrySchema = z.object({
   height: z.number().int(),
 });
 export type ServerMapIndexEntry = z.infer<typeof ServerMapIndexEntrySchema>;
+
+// ===== Town Map =====
+export const TownMapPointSchema = z.object({
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+  name: z.string().min(1),
+  poi: z.string().optional(),
+  mapId: z.string().optional(),
+  flyMap: z.number().optional(),
+  flyX: z.number().optional(),
+  flyY: z.number().optional(),
+  switch: z.number().optional(),
+  description: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  facilities: z.array(z.string()).default([]),
+});
+export type TownMapPoint = z.infer<typeof TownMapPointSchema>;
+
+export const TownMapRegionSchema = z.object({
+  regionId: z.number().int().default(0),
+  regionName: z.string().min(1),
+  image: z.string().min(1),
+  width: z.number().int().default(480),
+  height: z.number().int().default(320),
+  tileSize: z.number().int().default(16),
+  points: z.array(TownMapPointSchema),
+});
+export type TownMapRegion = z.infer<typeof TownMapRegionSchema>;
+

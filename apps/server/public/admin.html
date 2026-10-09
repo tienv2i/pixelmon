@@ -115,6 +115,10 @@
             <span class="nav-icon">🗺️</span>
             <span data-i18n="view.maps">Quản lý Maps</span>
           </button>
+          <button class="nav-item" data-view="items">
+            <span class="nav-icon">🎒</span>
+            <span data-i18n="view.items">Vật phẩm & Giao dịch</span>
+          </button>
         </nav>
 
         <div class="sidebar-foot">
@@ -749,6 +753,123 @@
                   </h4>
                   <div id="map-warps-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;"></div>
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ═══ ITEMS & TRADES (Plan 45 Phase 7) ═══ -->
+          <section class="view" id="view-items">
+            <div class="card" style="margin-bottom: 16px;">
+              <div class="panel-head">
+                <h2 class="panel-title" data-i18n="it.title">Vật phẩm & Giao dịch</h2>
+                <span class="dim" id="items-total">—</span>
+              </div>
+              <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+                <button class="btn btn-sm btn-primary items-nav-btn active" data-items-tab="inventory">🎒 Phân bố Túi đồ</button>
+                <button class="btn btn-sm btn-ghost items-nav-btn" data-items-tab="spenders">💰 Top Tiền tệ</button>
+                <button class="btn btn-sm btn-ghost items-nav-btn" data-items-tab="evolution">✨ Lịch sử Tiến hoá</button>
+                <button class="btn btn-sm btn-ghost items-nav-btn" data-items-tab="events">📜 Nhật ký Sự kiện</button>
+              </div>
+
+              <!-- Tab: Inventory distribution -->
+              <div class="items-tab-pane" id="items-pane-inventory">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px;">
+                  <div class="stat-item">Tổng ô đồ: <strong id="inv-rows">0</strong></div>
+                  <div class="stat-item">Tổng số lượng: <strong id="inv-qty">0</strong></div>
+                  <div class="stat-item">Loại item: <strong id="inv-distinct">0</strong></div>
+                  <div class="stat-item">Người chơi có đồ: <strong id="inv-owners">0</strong></div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                  <div>
+                    <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-dim);">Top theo số lượng</h4>
+                    <div class="table-wrap">
+                      <table id="inv-top-qty-table">
+                        <thead><tr><th>Item</th><th>Số lượng</th><th>Người có</th></tr></thead>
+                        <tbody></tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-dim);">Top theo số người sở hữu</h4>
+                    <div class="table-wrap">
+                      <table id="inv-top-owners-table">
+                        <thead><tr><th>Item</th><th>Người có</th><th>Số lượng</th></tr></thead>
+                        <tbody></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab: Top spenders -->
+              <div class="items-tab-pane hidden" id="items-pane-spenders">
+                <div class="table-wrap">
+                  <table id="spenders-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="it.colPlayer">Người chơi</th>
+                        <th data-i18n="it.colRole">Quyền</th>
+                        <th data-i18n="it.colMoney">Tiền</th>
+                        <th data-i18n="it.colLevel">Cấp</th>
+                        <th data-i18n="it.colMap">Map</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div class="empty hidden" id="spenders-empty" data-i18n="it.empty">Chưa có dữ liệu.</div>
+              </div>
+
+              <!-- Tab: Evolution history -->
+              <div class="items-tab-pane hidden" id="items-pane-evolution">
+                <div class="table-wrap">
+                  <table id="evolution-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="it.colTime">Thời gian</th>
+                        <th data-i18n="it.colOwner">Chủ nhân</th>
+                        <th data-i18n="it.colFrom">Từ</th>
+                        <th data-i18n="it.colTo">Thành</th>
+                        <th data-i18n="it.colMethod">Phương thức</th>
+                        <th data-i18n="it.colMod">Bởi</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div class="empty hidden" id="evolution-empty" data-i18n="it.empty">Chưa có dữ liệu.</div>
+              </div>
+
+              <!-- Tab: Event log -->
+              <div class="items-tab-pane hidden" id="items-pane-events">
+                <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;">
+                  <label style="font-size: 12px; color: var(--text-dim);">Loại:</label>
+                  <select id="events-kind-filter" class="input-search" style="width: 160px; flex-shrink: 0;">
+                    <option value="">Tất cả</option>
+                    <option value="xp_gain">xp_gain</option>
+                    <option value="level_up">level_up</option>
+                    <option value="evolve">evolve</option>
+                    <option value="item_used">item_used</option>
+                    <option value="trade">trade</option>
+                    <option value="catch">catch</option>
+                    <option value="money">money</option>
+                  </select>
+                  <button class="btn btn-sm" id="events-refresh-btn" data-i18n="btn.refresh">Làm mới</button>
+                </div>
+                <div class="table-wrap">
+                  <table id="events-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="it.colTime">Thời gian</th>
+                        <th data-i18n="it.colOwner">Người chơi</th>
+                        <th data-i18n="it.colKind">Loại</th>
+                        <th data-i18n="it.colDetail">Chi tiết</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div class="empty hidden" id="events-empty" data-i18n="it.empty">Chưa có dữ liệu.</div>
               </div>
             </div>
           </section>

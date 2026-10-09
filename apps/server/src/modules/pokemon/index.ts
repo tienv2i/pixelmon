@@ -348,3 +348,38 @@ export async function releasePokemon(req: AuthRequest, res: Response): Promise<v
     res.status(500).json({ ok: false, code: 'INTERNAL', message: String(err) });
   }
 }
+
+/** POST /api/pokemon/rename — Đổi tên / đặt biệt danh cho Pokémon */
+export async function renamePokemon(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ ok: false, code: 'UNAUTHORIZED' });
+      return;
+    }
+
+    const { pokemonId, nickname } = req.body;
+    if (!pokemonId) {
+      res.status(400).json({ ok: false, code: 'BAD_REQUEST', message: 'Missing pokemonId' });
+      return;
+    }
+
+    const cleanNick = String(nickname ?? '').trim().slice(0, 20);
+    const updateRes = await pool.query(
+      `UPDATE pokemon SET nickname = $1 WHERE id = $2 AND owner_id = $3 RETURNING id, nickname, species_id`,
+      [cleanNick || null, pokemonId, userId],
+    );
+
+    if (updateRes.rows.length === 0) {
+      res.status(404).json({ ok: false, code: 'NOT_FOUND', message: 'Pokemon not found' });
+      return;
+    }
+
+    res.json({ ok: true, pokemon: updateRes.rows[0] });
+  } catch (err) {
+    console.error('[pokemon:rename]', err);
+    res.status(500).json({ ok: false, code: 'INTERNAL', message: String(err) });
+  }
+}
+
+export * from './pokedex.js';

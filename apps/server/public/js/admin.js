@@ -55,6 +55,7 @@
     sprites: { titleKey: 'view.sprites', subKey: 'view.sprites.sub' },
     gamedata: { titleKey: 'view.gamedata', subKey: 'view.gamedata.sub' },
     maps: { titleKey: 'view.maps', subKey: 'view.maps.sub' },
+    items: { titleKey: 'view.items', subKey: 'view.items.sub' },
   };
 
   // ── Sprite editor state ──
@@ -281,6 +282,7 @@
     if (name === 'gamedata') loadGameData();
     if (name === 'maps') loadMaps();
     if (name === 'overview') loadOverview();
+    if (name === 'items') loadItems();
   }
 
   // ── Overview ──
@@ -349,8 +351,123 @@
       .catch(function () {});
   }
 
-  // ── Sprite helpers (dùng bởi bảng users + modal user) ──
-  /** Ô hiển thị sprite đã gán (thumb + tên), hoặc "mặc định" nếu chưa gán. */
+  // ── Items & Trades (Plan 45 Phase 7) ──────────────────────────────────
+  var itemsState = { tab: 'inventory' };
+
+  function loadItems() {
+    var active = document.querySelector('.items-nav-btn.active');
+    itemsState.tab = (active && active.dataset.itemsTab) || 'inventory';
+    renderItemsTab(itemsState.tab);
+  }
+
+  function renderItemsTab(tab) {
+    document.querySelectorAll('.items-nav-btn').forEach(function (b) {
+      var on = b.dataset.itemsTab === tab;
+      b.classList.toggle('active', on);
+      b.className = 'btn btn-sm items-nav-btn ' + (on ? 'btn-primary active' : 'btn-ghost');
+    });
+    document.querySelectorAll('.items-tab-pane').forEach(function (p) {
+      p.classList.toggle('hidden', p.id !== 'items-pane-' + tab);
+    });
+    itemsState.tab = tab;
+    if (tab === 'inventory') loadInventoryOverview();
+    else if (tab === 'spenders') loadTopSpenders();
+    else if (tab === 'evolution') loadEvolutionHistory();
+    else if (tab === 'events') loadEventLog();
+  }
+
+  function loadInventoryOverview() {
+    getJSON('/api/admin/items/overview')
+      .then(function (d) {
+        if (!d.ok) return;
+        var t = d.totals || {};
+        $('inv-rows').textContent = t.rows || 0;
+        $('inv-qty').textContent = t.total_qty || 0;
+        $('inv-distinct').textContent = t.distinct_items || 0;
+        $('inv-owners').textContent = t.owners || 0;
+        $('items-total').textContent = (t.rows || 0) + ' ô đồ';
+        fillTable('inv-top-qty-table', null, d.topByQty || [], function (r) {
+          return '<tr><td>' + esc(r.item_id) + '</td><td class="mono">' + r.qty + '</td><td class="dim">' + r.owners + '</td></tr>';
+        });
+        fillTable('inv-top-owners-table', null, d.topByOwners || [], function (r) {
+          return '<tr><td>' + esc(r.item_id) + '</td><td class="mono">' + r.owners + '</td><td class="dim">' + r.qty + '</td></tr>';
+        });
+      })
+      .catch(function () {});
+  }
+
+  function loadTopSpenders() {
+    getJSON('/api/admin/items/top-spenders?limit=20')
+      .then(function (d) {
+        var rows = d.players || [];
+        $('items-total').textContent = rows.length + ' người chơi';
+        fillTable('spenders-table', 'spenders-empty', rows, function (r) {
+          return (
+            '<tr><td>' + esc(r.displayName || r.username) + '</td>' +
+            '<td class="dim">' + esc(r.username) + '</td>' +
+            '<td>' + roleBadge(r.role) + '</td>' +
+            '<td class="mono" style="color:#fdcb6e;">$' + (r.money || 0).toLocaleString() + '</td>' +
+            '<td class="mono">' + (r.level || '—') + '</td>' +
+            '<td class="dim">' + esc(r.mapId || '—') + '</td></tr>'
+          );
+        });
+      })
+      .catch(function () {});
+  }
+
+  function loadEvolutionHistory() {
+    getJSON('/api/admin/evolution/history?limit=100')
+      .then(function (d) {
+        var rows = d.history || [];
+        $('items-total').textContent = rows.length + ' lần tiến hoá';
+        fillTable('evolution-table', 'evolution-empty', rows, function (r) {
+          var mod = r.moderatorName ? '<span style="color:#6c5ce7;">@' + esc(r.moderatorName) + '</span>' : '<span class="dim">system</span>';
+          var methodColor = r.method === 'force' || r.method === 'reverse' ? '#ff7675' : '#00cec9';
+          return (
+            '<tr><td class="dim">' + fmtDate(r.createdAt) + '</td>' +
+            '<td>' + esc(r.ownerName) + '</td>' +
+            '<td class="mono">' + esc(r.from) + '</td>' +
+            '<td class="mono" style="color:#55efc4;">' + esc(r.to) + '</td>' +
+            '<td><span class="badge" style="background:' + methodColor + '22;color:' + methodColor + ';">' + esc(r.method) + '</span></td>' +
+            '<td>' + mod + '</td></tr>'
+          );
+        });
+      })
+      .catch(function () {});
+  }
+
+  function loadEventLog() {
+    var kind = ($('events-kind-filter') || {}).value || '';
+    var url = '/api/admin/events?limit=200' + (kind ? '&kind=' + encodeURIComponent(kind) : '');
+    getJSON(url)
+      .then(function (d) {
+        var rows = d.events || [];
+        $('items-total').textContent = rows.length + ' sự kiện';
+        fillTable('events-table', 'events-empty', rows, function (r) {
+          var payload = '';
+          try {
+            var pl = typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload;
+            payload = Object.keys(pl || {})
+              .slice(0, 4)
+              .map(function (k) { return k + '=' + pl[k]; })
+              .join(', ');
+          } catch (e) { payload = ''; }
+          var kindColor = '#a0aec0';
+          if (r.kind === 'evolve') kindColor = '#55efc4';
+          else if (r.kind === 'money') kindColor = '#fdcb6e';
+          else if (r.kind === 'catch') kindColor = '#74b9ff';
+          else if (r.kind === 'level_up') kindColor = '#a29bfe';
+          return (
+            '<tr><td class="dim">' + fmtDate(r.createdAt) + '</td>' +
+            '<td>' + esc(r.ownerName || r.userId) + '</td>' +
+            '<td><span class="badge" style="background:' + kindColor + '22;color:' + kindColor + ';">' + esc(r.kind) + '</span></td>' +
+            '<td class="dim mono" style="font-size: 11px;">' + esc(payload) + '</td></tr>'
+          );
+        });
+      })
+      .catch(function () {});
+  }
+
   // ── Sprite helpers (dùng bởi bảng users + modal user) ──
   /** Ô hiển thị sprite đã gán (thumb + tên), hoặc "mặc định" nếu chưa gán. */
   function spriteCell(u) {
@@ -2214,6 +2331,23 @@
         if (tab) switchGdTab(tab);
       });
     });
+
+    // ── Items & Trades tabs (Plan 45 Phase 7) ──
+    document.querySelectorAll('.items-nav-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (this.dataset.itemsTab) renderItemsTab(this.dataset.itemsTab);
+      });
+    });
+    if ($('events-kind-filter')) {
+      $('events-kind-filter').addEventListener('change', function () {
+        if (itemsState.tab === 'events') loadEventLog();
+      });
+    }
+    if ($('events-refresh-btn')) {
+      $('events-refresh-btn').addEventListener('click', function () {
+        if (itemsState.tab === 'events') loadEventLog();
+      });
+    }
 
     var gdSpeciesTimer;
     if ($('gd-species-search')) {

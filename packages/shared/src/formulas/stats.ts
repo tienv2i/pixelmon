@@ -12,7 +12,7 @@ export interface NatureMod {
   decreases: keyof BaseStats; // except "hp"
 }
 
-const NATURES: { name: string; increases: keyof BaseStats; decreases: keyof BaseStats }[] = [
+export const NATURES: { name: string; increases: keyof BaseStats; decreases: keyof BaseStats }[] = [
   { name: 'hardy', increases: 'attack', decreases: 'defense' },
   { name: 'lonely', increases: 'attack', decreases: 'defense' },
   { name: 'brave', increases: 'attack', decreases: 'speed' },
@@ -44,6 +44,11 @@ const NATURE_MAP = new Map(NATURES.map((n) => [n.name, n]));
 
 export function getNatureMod(name: string): NatureMod {
   return NATURE_MAP.get(name) ?? { name: 'hardy', increases: 'attack', decreases: 'defense' };
+}
+
+export function getNatureByName(name: string): NatureMod | undefined {
+  const norm = name.trim().toLowerCase();
+  return NATURES.find((n) => n.name.toLowerCase() === norm);
 }
 
 export function rollNature(rng: () => number = Math.random): NatureMod {

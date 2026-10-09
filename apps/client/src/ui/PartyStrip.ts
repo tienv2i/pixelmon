@@ -30,6 +30,9 @@ export interface PartyMember {
   id?: string;
   species_id?: string;
   level?: number;
+  shiny?: boolean;
+  /** Item đang cầm trên Pokémon (Plan 45) — đánh dấu bằng dấu vát / viền cạnh trái. */
+  heldItem?: string | null;
   pokemonData?: any;
 }
 
@@ -193,6 +196,19 @@ export class PartyStrip extends UiModal {
       this.slotGraphics.lineStyle(1.5, m ? RARITY_COLORS[m.rarity] : C.border, m ? 1 : 0.4);
       this.slotGraphics.strokeRoundedRect(startX, sy, curSlotW, curSlotH, 5);
 
+      if (m && m.heldItem) {
+        // Đánh dấu có held item bằng dấu vát góc trên trái & viền cạnh trái (không che text)
+        this.slotGraphics.fillStyle(0xfdcb6e, 1);
+        this.slotGraphics.beginPath();
+        this.slotGraphics.moveTo(startX + 1, sy + 7);
+        this.slotGraphics.lineTo(startX + 7, sy + 1);
+        this.slotGraphics.lineTo(startX + 1, sy + 1);
+        this.slotGraphics.closePath();
+        this.slotGraphics.fillPath();
+
+        this.slotGraphics.fillRoundedRect(startX + 1, sy + 2, 3, curSlotH - 4, 1.5);
+      }
+
       if (!m) {
         // Dấu + ô trống
         const txt = this.scene.add
@@ -262,6 +278,21 @@ export class PartyStrip extends UiModal {
 
           this.slotGraphics.fillStyle(0x00cec9, 1);
           this.slotGraphics.fillRoundedRect(barX, barY, Math.max(2, barW * expRatio), barH, 1);
+
+          // Tiền tố S. cho Pokémon Shiny (mini mode)
+          const isShiny = Boolean(m.shiny || m.pokemonData?.shiny);
+          if (isShiny) {
+            const sBadge = this.scene.add
+              .text(startX + curSlotW - 4, sy + 3, 'S.', {
+                fontSize: '9px',
+                fontFamily: FONT.mono,
+                fontStyle: 'bold',
+                color: '#f1c40f',
+              })
+              .setOrigin(1, 0);
+            this.slotTexts.push(sBadge);
+            this.contentContainer.add(sBadge);
+          }
         } else {
           // ── CHẾ ĐỘ NORMAL: Cột trái Icon Pokémon, Cột phải Level + Máu HP ──
           if (this.scene.textures.exists(iconKey)) {
@@ -291,14 +322,17 @@ export class PartyStrip extends UiModal {
             });
           }
 
-          // 1. Text Level (dòng trên)
-          if (m.level) {
+          // 1. Text Level (dòng trên) — Thêm tiền tố S. cho Pokémon Shiny
+          if (m.level !== undefined) {
+            const isShiny = Boolean(m.shiny || m.pokemonData?.shiny);
+            const lvStr = isShiny ? `S. Lv.${m.level}` : `Lv.${m.level}`;
+            const lvColor = isShiny ? '#f1c40f' : '#fdcb6e';
             const lvTxt = this.scene.add
-              .text(startX + 36, sy + 6, `Lv.${m.level}`, {
-                fontSize: '10px',
+              .text(startX + 36, sy + 6, lvStr, {
+                fontSize: isShiny ? '9.5px' : '10px',
                 fontFamily: FONT.mono,
                 fontStyle: 'bold',
-                color: '#fdcb6e',
+                color: lvColor,
               })
               .setOrigin(0, 0);
             this.slotTexts.push(lvTxt);

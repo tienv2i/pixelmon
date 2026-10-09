@@ -100,6 +100,46 @@ export async function initDatabase(): Promise<void> {
       -- Gán sprite cho user: trỏ tới thư viện, xóa sprite → user tự quay về mặc định
       ALTER TABLE users ADD COLUMN IF NOT EXISTS sprite_id UUID REFERENCES sprite_catalog(id) ON DELETE SET NULL;
       ALTER TABLE sprite_catalog ADD COLUMN IF NOT EXISTS frame_count SMALLINT NOT NULL DEFAULT 12;
+
+      -- ── Plan 45: Items / Evolution / Trade (idempotent) ──
+      -- Cầm đồ trên Pokemon
+      ALTER TABLE pokemon ADD COLUMN IF NOT EXISTS held_item TEXT;
+      ALTER TABLE pokemon ADD COLUMN IF NOT EXISTS friendship SMALLINT NOT NULL DEFAULT 70;
+      ALTER TABLE pokemon ADD COLUMN IF NOT EXISTS poke_ball TEXT DEFAULT 'pokeball';
+
+      -- Log event (event feed + audit + anti-abuse)
+      CREATE TABLE IF NOT EXISTS pokemon_events (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        pokemon_id UUID,
+        kind TEXT NOT NULL,          -- xp_gain | level_up | evolve | item_used | trade | catch | money
+        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_pokemon_events_user ON pokemon_events(user_id, created_at DESC);
+
+      -- Lịch sử tiến hoá (từ đâu → đi đâu, method, ai ép)
+      CREATE TABLE IF NOT EXISTS pokemon_evolution_history (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        pokemon_id UUID NOT NULL,
+        user_id UUID NOT NULL,
+        from_species_id TEXT NOT NULL,
+        to_species_id TEXT NOT NULL,
+        method TEXT NOT NULL,        -- level | item | trade | force | reverse
+        moderator_id UUID,           -- ai ép (force/reverse)
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_pokemon_evo_hist_pokemon ON pokemon_evolution_history(pokemon_id, created_at DESC);
+
+      -- Pokédex (lưu tiến độ khám phá: seen, caught)
+      CREATE TABLE IF NOT EXISTS pokedex (
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        species_id VARCHAR(50) NOT NULL,
+        status VARCHAR(10) NOT NULL,
+        first_seen_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, species_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_pokedex_user_id ON pokedex(user_id);
     `);
 
     // ── Migration: cột role / language (DB cũ đã tạo trước các cột này) ──

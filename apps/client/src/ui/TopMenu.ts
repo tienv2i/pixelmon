@@ -23,6 +23,8 @@ const MENU_LABEL_KEYS = {
   pc: 'MENU_PC',
   map: 'MENU_MAP',
   gps: 'MENU_GPS',
+  store: 'MENU_STORE',
+  trade: 'MENU_TRADE',
   debug: 'MENU_DEBUG',
   settings: 'MENU_SETTINGS',
   help: 'MENU_HELP',
@@ -41,6 +43,8 @@ const ICONS: Array<MenuIconDef & { i18nKey: I18nKey }> = (
   [
     { key: 'pokedex', i18nKey: 'MENU_POKEDEX' },
     { key: 'bag', i18nKey: 'MENU_BAG' },
+    { key: 'store', i18nKey: 'MENU_STORE' },
+    { key: 'trade', i18nKey: 'MENU_TRADE' },
     { key: 'team', i18nKey: 'MENU_TEAM' },
     { key: 'pc', i18nKey: 'MENU_PC' },
     { key: 'map', i18nKey: 'MENU_MAP' },
@@ -94,6 +98,33 @@ function drawPixelIcon(
       gfx.fillRect(cx - 2 * p, cy - 2 * p, 4 * p, 4 * p); // túi trước
       gfx.fillStyle(0xecf0f1, 1);
       gfx.fillRect(cx - 1 * p, cy - 4 * p, 2 * p, 2 * p); // khóa bạc
+      break;
+    }
+    case 'store': {
+      // Cửa hàng: mái sọc đỏ + ô hàng
+      gfx.fillStyle(0xe74c3c, 1);
+      gfx.fillRect(cx - 6 * p, cy - 5 * p, 12 * p, 3 * p);
+      gfx.fillStyle(0xf5f6fa, 1);
+      gfx.fillRect(cx - 6 * p, cy - 5 * p, 3 * p, 3 * p);
+      gfx.fillRect(cx, cy - 5 * p, 3 * p, 3 * p);
+      gfx.fillStyle(0xf39c12, 1);
+      gfx.fillRect(cx - 5 * p, cy - 2 * p, 10 * p, 2 * p); // bản hiệu
+      gfx.fillStyle(0xdfe6e9, 1);
+      gfx.fillRect(cx - 5 * p, cy, 10 * p, 7 * p); // thân cửa hàng
+      gfx.fillStyle(0x74b9ff, 1);
+      gfx.fillRect(cx - 3 * p, cy + 2 * p, 3 * p, 5 * p); // cửa kính
+      gfx.fillStyle(0x636e72, 1);
+      gfx.fillRect(cx + 1 * p, cy + 3 * p, 3 * p, 4 * p); // cửa gỗ
+      break;
+    }
+    case 'trade': {
+      // Hai mũi tên giao dịch chéo
+      gfx.fillStyle(0x00cec9, 1);
+      gfx.fillRect(cx - 6 * p, cy - 4 * p, 9 * p, 2 * p);
+      gfx.fillRect(cx + 2 * p, cy - 6 * p, 2 * p, 4 * p);
+      gfx.fillStyle(0xfdcb6e, 1);
+      gfx.fillRect(cx - 3 * p, cy + 2 * p, 9 * p, 2 * p);
+      gfx.fillRect(cx - 4 * p, cy + 2 * p, 2 * p, 4 * p);
       break;
     }
     case 'team': {

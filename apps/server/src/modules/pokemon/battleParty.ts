@@ -48,6 +48,8 @@ export interface BattleMoveSlot {
   maxPp: number;
   currentPp: number;
   priority: number;
+  /** Mô tả chiêu (client hiện ở popup hover trong BattleModal). */
+  description?: string;
 }
 
 /** Row từ bảng `pokemon` (subset cần dùng). */
@@ -118,6 +120,7 @@ function normalizeMoves(raw: unknown): BattleMoveSlot[] {
           ? mv.currentPp
           : (def?.pp ?? (typeof mv.maxPp === 'number' ? mv.maxPp : 10)),
       priority: def?.priority ?? (typeof mv.priority === 'number' ? mv.priority : 0),
+      description: def?.description ?? (typeof mv.description === 'string' ? mv.description : ''),
     });
   }
   return out;

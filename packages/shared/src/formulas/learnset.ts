@@ -2,6 +2,7 @@
  * LearnSet + Evolution — helpers chọn move theo level, kiểm tra tiến hóa.
  */
 import type { Species, LearnSetEntry, Move } from '../data/contracts.js';
+import { resolveEvolution, type EvolutionContext } from './evolution.js';
 
 /**
  * Lấy 4 move cuối mà species biết ở level hiện tại (mainline: move mới thay cũ).
@@ -32,6 +33,9 @@ export function movesLearnedAt(species: Species, level: number): LearnSetEntry[]
 }
 
 // ===== Evolution =====
+// ⚠ Toàn bộ logic tiến hoá nằm ở `./evolution.ts` (SSOT, gộp mọi method).
+// Dưới đây chỉ giữ 2 wrapper tương thích cho code cũ.
+
 export interface EvolutionCheck {
   species: Species;
   targetId?: string;
@@ -39,61 +43,51 @@ export interface EvolutionCheck {
   method: string;
 }
 
-/** Kiểm tra species có thể tiến hóa theo level không. Chỉ check method "level". */
+/**
+ * Kiểm tra species có thể tiến hóa theo level không. Chỉ check method "level".
+ * @deprecated Dùng `resolveEvolution()` (formulas/evolution.ts) — hỗ trợ mọi method.
+ */
 export function checkLevelEvolution(
   species: Species,
   level: number,
 ): { canEvolve: boolean; targetId?: string } {
-  for (const evo of species.evolutions) {
-    if (evo.method === 'level' && evo.level !== undefined && level >= evo.level) {
-      return { canEvolve: true, targetId: evo.to };
-    }
-  }
+  const r = resolveEvolution(species, { level, skipMethod: 'none' });
+  if (r?.method === 'level') return { canEvolve: true, targetId: r.targetId };
   return { canEvolve: false };
 }
 
 /**
- * Tiến hóa pokemon (trả về species mới id + tên).
+ * Tiến hóa pokemon — trả về targetId + method nếu thoả điều kiện.
  * Caller cần update OwnedPokemon (speciesId, types, stats recalc).
+ *
+ * ⚠ Bản cũ của hàm này luôn `return null` (landmine) — đã thay bằng wrapper
+ * quanh `resolveEvolution()`.
+ *
+ * @param method - chỉ cho phép cân nhắc 1 method này (null = mọi method).
+ * @param param - ngữ cảnh tuỳ method: number (level) | string (item id).
  */
 export function evolveSpecies(
   species: Species,
   method: 'level' | 'item' | 'trade' | 'friendship' | 'move',
   param?: string | number,
-): Species | null {
-  for (const evo of species.evolutions) {
-    if (evo.method !== method) continue;
-    if (
-      method === 'level' &&
-      evo.level !== undefined &&
-      typeof param === 'number' &&
-      param >= evo.level
-    ) {
-      return null; // handled by checkLevelEvolution
-    }
-    if (method === 'item' && evo.item === param) return null; // caller resolve target species
-    if (method === 'trade' || method === 'friendship' || method === 'move') return null;
-  }
-  return null;
+): { targetId: string; method: string } | null {
+  const ctx: EvolutionContext = { level: typeof param === 'number' ? param : 0 };
+  if (method === 'level' && typeof param === 'number') ctx.level = param;
+  if (method === 'item' && typeof param === 'string') ctx.usedItemId = param;
+  if (method === 'trade') ctx.tradeWithNpc = true;
+
+  const r = resolveEvolution(species, { ...ctx, skipMethod: 'none' });
+  return r && r.method === method ? { targetId: r.targetId, method: r.method } : null;
 }
 
-/** Species tiến hóa được từ method (trả về targetId). */
+/** Species tiến hóa được từ method (trả về targetId).
+ * @deprecated Dùng `resolveEvolution()` / `evolutionTargetForMethod()` (formulas/evolution.ts).
+ */
 export function evolutionTargetId(
   species: Species,
   method: 'level' | 'item' | 'trade' | 'friendship' | 'move',
   param?: string | number,
 ): string | undefined {
-  for (const evo of species.evolutions) {
-    if (evo.method !== method) continue;
-    if (
-      method === 'level' &&
-      evo.level !== undefined &&
-      typeof param === 'number' &&
-      param >= evo.level
-    )
-      return evo.to;
-    if (method === 'item' && evo.item === param) return evo.to;
-    if (method === 'trade') return evo.to;
-  }
-  return undefined;
+  const r = evolveSpecies(species, method, param);
+  return r?.targetId;
 }

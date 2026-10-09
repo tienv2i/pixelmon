@@ -11,6 +11,8 @@ import {
   depositPokemon,
   withdrawPokemon,
   releasePokemon,
+  renamePokemon,
+  getPokedexHandler,
 } from './modules/pokemon/index.js';
 import {
   getAdminStatus,
@@ -35,6 +37,13 @@ import {
 } from './modules/admin/sprite.js';
 import { requireAuth, requireAdmin } from './middleware/auth.js';
 import { getUserInfo, updateUserInfo } from './modules/user/index.js';
+import { bagRouter } from './modules/items/bagApi.js';
+import {
+  getItemOverview,
+  listTopSpenders,
+  listEvolutionHistory,
+  listEventLog,
+} from './modules/admin/items.js';
 import {
   getGameDataSummary,
   listGameDataSpecies,
@@ -104,6 +113,12 @@ export function createApp(): Express {
   app.get('/api/admin/pokemon', requireAuth, requireAdmin, listAdminPokemon);
   app.get('/api/admin/players', requireAuth, requireAdmin, listAdminPlayers);
 
+  // ── Plan 45 Phase 7 — Items & Trades ──
+  app.get('/api/admin/items/overview', requireAuth, requireAdmin, getItemOverview);
+  app.get('/api/admin/items/top-spenders', requireAuth, requireAdmin, listTopSpenders);
+  app.get('/api/admin/evolution/history', requireAuth, requireAdmin, listEvolutionHistory);
+  app.get('/api/admin/events', requireAuth, requireAdmin, listEventLog);
+
   // ── Dữ liệu game (Essentials Game Data) ──
   app.get('/api/admin/gamedata/summary', requireAuth, requireAdmin, getGameDataSummary);
   app.get('/api/admin/gamedata/species', requireAuth, requireAdmin, listGameDataSpecies);
@@ -151,11 +166,16 @@ export function createApp(): Express {
   app.get('/api/players/:userId', requireAuth, getPlayer);
   app.get('/api/players', requireAuth, listOnlinePlayers);
   app.get('/api/pokemon', requireAuth, getPokemonList);
+  app.get('/api/pokemon/pokedex', requireAuth, getPokedexHandler);
   app.get('/api/pokemon/:userId', requireAuth, getPokemonList);
   app.post('/api/pokemon/swap', requireAuth, swapPokemon);
   app.post('/api/pokemon/deposit', requireAuth, depositPokemon);
   app.post('/api/pokemon/withdraw', requireAuth, withdrawPokemon);
   app.post('/api/pokemon/release', requireAuth, releasePokemon);
+  app.post('/api/pokemon/rename', requireAuth, renamePokemon);
+
+  // ── Túi đồ / Store / Event feed (Plan 45) ──
+  app.use('/api/inventory', bagRouter);
 
   // ── Serve admin.html (chỉ admin vào được — client-side check role) ──
   app.get('/admin', (_req, res) => {

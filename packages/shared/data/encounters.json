@@ -278,144 +278,137 @@
     "terrain": "Land",
     "spawns": [
       {
-        "species": "patrat",
-        "minLevel": 9,
+        "species": "pidgey",
+        "minLevel": 11,
         "maxLevel": 14,
-        "weight": 25,
+        "weight": 40,
         "rarity": "common"
       },
       {
-        "species": "lillipup",
-        "minLevel": 8,
-        "maxLevel": 11,
-        "weight": 25,
+        "species": "rattata",
+        "minLevel": 11,
+        "maxLevel": 14,
+        "weight": 40,
         "rarity": "common"
       },
       {
-        "species": "pikachu",
-        "minLevel": 9,
+        "species": "pidgey",
+        "minLevel": 11,
         "maxLevel": 13,
-        "weight": 25,
-        "rarity": "common"
+        "weight": 9,
+        "rarity": "uncommon"
       },
       {
-        "species": "minccino",
-        "minLevel": 9,
-        "maxLevel": 12,
-        "weight": 25,
-        "rarity": "common"
-      },
-      {
-        "species": "deerling",
-        "minLevel": 8,
-        "maxLevel": 12,
-        "weight": 25,
-        "rarity": "common"
-      },
-      {
-        "species": "pidove",
-        "minLevel": 9,
+        "species": "rattata",
+        "minLevel": 11,
         "maxLevel": 13,
-        "weight": 25,
-        "rarity": "common"
+        "weight": 9,
+        "rarity": "uncommon"
       },
       {
-        "species": "gothita",
-        "minLevel": 7,
-        "maxLevel": 11,
-        "weight": 25,
-        "rarity": "common"
+        "species": "pidgey",
+        "minLevel": 14,
+        "maxLevel": 14,
+        "weight": 1,
+        "rarity": "rare"
       },
       {
-        "species": "emolga",
-        "minLevel": 9,
-        "maxLevel": 12,
-        "weight": 25,
-        "rarity": "common"
+        "species": "rattata",
+        "minLevel": 14,
+        "maxLevel": 14,
+        "weight": 1,
+        "rarity": "rare"
       },
       {
-        "species": "axew",
-        "minLevel": 9,
-        "maxLevel": 9,
-        "weight": 25,
-        "rarity": "common"
-      },
-      {
-        "species": "axew",
+        "species": "rattata",
         "minLevel": 10,
-        "maxLevel": 11,
-        "weight": 25,
+        "maxLevel": 14,
+        "weight": 39,
         "rarity": "common"
       },
       {
-        "species": "mienfoo",
-        "minLevel": 8,
-        "maxLevel": 10,
-        "weight": 25,
-        "rarity": "common"
-      },
-      {
-        "species": "munna",
-        "minLevel": 13,
+        "species": "hoothoot",
+        "minLevel": 10,
         "maxLevel": 13,
-        "weight": 25,
+        "weight": 30,
         "rarity": "common"
+      },
+      {
+        "species": "spinarak",
+        "minLevel": 8,
+        "maxLevel": 12,
+        "weight": 20,
+        "rarity": "common"
+      },
+      {
+        "species": "hoothoot",
+        "minLevel": 10,
+        "maxLevel": 14,
+        "weight": 9,
+        "rarity": "uncommon"
+      },
+      {
+        "species": "hoothoot",
+        "minLevel": 14,
+        "maxLevel": 14,
+        "weight": 1,
+        "rarity": "rare"
+      },
+      {
+        "species": "rattata",
+        "minLevel": 15,
+        "maxLevel": 15,
+        "weight": 1,
+        "rarity": "rare"
       }
     ]
   },
   {
     "mapId": "lappet-town",
     "mapName": "Lappet Town",
-    "terrain": "Land",
+    "terrain": "Water",
     "spawns": [
       {
-        "species": "pidgey",
-        "minLevel": 2,
-        "maxLevel": 5,
-        "weight": 25,
+        "species": "tentacool",
+        "minLevel": 14,
+        "maxLevel": 19,
+        "weight": 60,
         "rarity": "common"
       },
       {
-        "species": "rattata",
-        "minLevel": 2,
-        "maxLevel": 5,
-        "weight": 25,
+        "species": "mantyke",
+        "minLevel": 15,
+        "maxLevel": 16,
+        "weight": 30,
         "rarity": "common"
       },
       {
-        "species": "caterpie",
-        "minLevel": 2,
-        "maxLevel": 4,
-        "weight": 20,
-        "rarity": "common"
-      },
-      {
-        "species": "weedle",
-        "minLevel": 2,
-        "maxLevel": 4,
-        "weight": 20,
-        "rarity": "common"
-      },
-      {
-        "species": "oddish",
-        "minLevel": 3,
-        "maxLevel": 5,
-        "weight": 15,
-        "rarity": "common"
-      },
-      {
-        "species": "zubat",
-        "minLevel": 3,
-        "maxLevel": 5,
-        "weight": 15,
+        "species": "remoraid",
+        "minLevel": 14,
+        "maxLevel": 16,
+        "weight": 10,
         "rarity": "uncommon"
       },
       {
-        "species": "pikachu",
-        "minLevel": 4,
-        "maxLevel": 6,
-        "weight": 5,
-        "rarity": "rare"
+        "species": "barboach",
+        "minLevel": 17,
+        "maxLevel": 18,
+        "weight": 60,
+        "rarity": "common"
+      },
+      {
+        "species": "krabby",
+        "minLevel": 15,
+        "maxLevel": 16,
+        "weight": 20,
+        "rarity": "common"
+      },
+      {
+        "species": "shellder",
+        "minLevel": 16,
+        "maxLevel": 19,
+        "weight": 20,
+        "rarity": "common"
       }
     ]
   }

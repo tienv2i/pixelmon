@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { C, FONT } from './theme';
 import { UiModal } from './UiModal';
 import { t, mkText, onLangChange, type I18nKey } from '../i18n';
+import { ColyseusManager } from '../network/ColyseusManager';
 
 export interface PokemonData {
   id: string;
@@ -31,6 +32,8 @@ export interface PokemonData {
   gender?: 'male' | 'female' | 'genderless';
   nature?: { name: string; increases: string; decreases: string };
   types?: string[];
+  /** Item đang cầm (Plan 45) — id, ví dụ `everstone`. */
+  held_item?: string | null;
 }
 
 const MODAL_W = 500;
@@ -58,7 +61,12 @@ const TYPE_COLORS: Record<string, number> = {
   shadow: 0x604e82,
 };
 
-type SummaryTab = 'info' | 'stats' | 'moves';
+type SummaryTab = 'info' | 'stats' | 'moves' | 'item';
+
+/** Chiều rộng 1 tab (4 tab cân đối trong modal 500px, lề trái-phải 18px). */
+const TAB_W = 110;
+const TAB_GAP = 8;
+const TAB_START_X = 8;
 
 const SERVER_ORIGIN: string = (() => {
   const url: string = (import.meta as any).env?.VITE_SERVER_URL ?? 'ws://localhost:2567';
@@ -98,6 +106,9 @@ export class PokemonSummaryModal extends UiModal {
   private tabContentContainer!: Phaser.GameObjects.Container;
   private unsubLang?: () => void;
 
+  /** Mở BagModal để đổi item (inject từ WorldScene — tab Vật phẩm). */
+  public onOpenBag?: (pkm: PokemonData) => void;
+
   constructor(scene: Phaser.Scene, onClose?: () => void) {
     super(scene, {
       title: t('SUMMARY_TITLE'),
@@ -106,8 +117,11 @@ export class PokemonSummaryModal extends UiModal {
       headerHeight: 34,
       showTitleBar: true,
       draggable: true,
-      docked: false,
-      lockUi: false,
+      docked: true,
+      dockOnOpen: true,
+      lockUi: true,
+      lockGameOnly: true,
+      overlay: true,
       depth: 250,
       showClose: true,
       showMinimize: true,
@@ -155,19 +169,17 @@ export class PokemonSummaryModal extends UiModal {
       { id: 'info', label: 'SUMMARY_TAB_INFO' },
       { id: 'stats', label: 'SUMMARY_TAB_STATS' },
       { id: 'moves', label: 'SUMMARY_TAB_MOVES' },
+      { id: 'item', label: 'SUMMARY_TAB_ITEM' },
     ];
 
-    const tabW = 146;
-    const startX = 22;
-
     tabs.forEach((t, i) => {
-      const tx = startX + i * (tabW + 8);
+      const tx = TAB_START_X + i * (TAB_W + TAB_GAP);
       const btn = mkText(this.scene, t.label, {
         fontSize: '11px',
         fontFamily: FONT.sans,
         fontStyle: 'bold',
         color: t.id === this.currentTab ? '#00cec9' : '#8c94b8',
-      }, tx + tabW / 2, 16)
+      }, tx + TAB_W / 2, 16)
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true });
 
@@ -187,19 +199,17 @@ export class PokemonSummaryModal extends UiModal {
     this.tabContentContainer.removeAll(true);
     this.tabGraphics.clear();
 
-    const tabs: SummaryTab[] = ['info', 'stats', 'moves'];
-    const tabW = 146;
-    const startX = 22;
+    const tabs: SummaryTab[] = ['info', 'stats', 'moves', 'item'];
 
     // Vẽ thanh tab header
     tabs.forEach((t, i) => {
-      const tx = startX + i * (tabW + 8);
+      const tx = TAB_START_X + i * (TAB_W + TAB_GAP);
       const isActive = t === this.currentTab;
 
       this.tabGraphics.fillStyle(isActive ? 0x2e355b : 0x1d213a, 1);
-      this.tabGraphics.fillRoundedRect(tx, 4, tabW, 24, 4);
+      this.tabGraphics.fillRoundedRect(tx, 4, TAB_W, 24, 4);
       this.tabGraphics.lineStyle(1.5, isActive ? 0x00cec9 : 0x2e355b, 1);
-      this.tabGraphics.strokeRoundedRect(tx, 4, tabW, 24, 4);
+      this.tabGraphics.strokeRoundedRect(tx, 4, TAB_W, 24, 4);
 
       if (this.tabButtons[i]) {
         this.tabButtons[i].setColor(isActive ? '#00cec9' : '#8c94b8');
@@ -214,6 +224,8 @@ export class PokemonSummaryModal extends UiModal {
       this.renderStatsTab();
     } else if (this.currentTab === 'moves') {
       this.renderMovesTab();
+    } else {
+      this.renderItemTab();
     }
   }
 
@@ -224,9 +236,9 @@ export class PokemonSummaryModal extends UiModal {
     this.tabContentContainer.add(g);
 
     // ── Khung trái: Avatar / Battler & Tiếng kêu ──
-    const lx = 18;
+    const lx = 8;
     const ly = 10;
-    const lw = 140;
+    const lw = 142;
     const lh = 264;
 
     g.fillStyle(0x191c33, 1);
@@ -336,9 +348,9 @@ export class PokemonSummaryModal extends UiModal {
     this.tabContentContainer.add(cryTxt);
 
     // ── Khung phải: Chi tiết thông số ──
-    const rx = 170;
+    const rx = 162;
     const ry = 10;
-    const rw = 312;
+    const rw = 310;
     const rh = 264;
 
     g.fillStyle(0x191c33, 1);
@@ -346,11 +358,13 @@ export class PokemonSummaryModal extends UiModal {
     g.lineStyle(1.5, 0x2e355b, 1);
     g.strokeRoundedRect(rx, ry, rw, rh, 6);
 
-    const titleTxt = this.scene.add.text(rx + 16, ry + 14, (pkm.nickname || pkm.species_id).toUpperCase(), {
+    const isShiny = Boolean(pkm.shiny);
+    const baseName = (pkm.nickname || pkm.species_id).toUpperCase();
+    const titleTxt = this.scene.add.text(rx + 16, ry + 14, (isShiny ? 'S. ' : '') + baseName, {
       fontSize: '15px',
       fontFamily: FONT.sans,
       fontStyle: 'bold',
-      color: '#ffffff',
+      color: isShiny ? '#f1c40f' : '#ffffff',
     });
     this.tabContentContainer.add(titleTxt);
 
@@ -419,7 +433,10 @@ export class PokemonSummaryModal extends UiModal {
     g.fillStyle(0x0984e3, 1);
     g.fillRoundedRect(rx + 16, ry + 134, (rw - 32) * expRatio, 6, 3);
 
-    // Thông tin cơ bản (gọn gàng, không giải thích rườm rà)
+    // Thông tin cơ bản
+    const heldName = pkm.held_item
+      ? pkm.held_item.toUpperCase().replace(/_/g, ' ')
+      : t('SUMMARY_HOLD_EMPTY');
     const infoDetails = [
       t('SUMMARY_SPECIES').replace('{id}', pkm.species_id.toUpperCase()),
       pkm.party_slot !== null && pkm.party_slot !== undefined
@@ -428,13 +445,14 @@ export class PokemonSummaryModal extends UiModal {
       pkm.status
         ? t('SUMMARY_STATUS_VALUE').replace('{status}', pkm.status.toUpperCase())
         : t('SUMMARY_STATUS_NORMAL'),
+      `${t('SUMMARY_TAB_HOLD')}: ${heldName}`,
     ];
 
     infoDetails.forEach((line, i) => {
-      const lineTxt = this.scene.add.text(rx + 16, ry + 158 + i * 22, line, {
+      const lineTxt = this.scene.add.text(rx + 16, ry + 154 + i * 22, line, {
         fontSize: '12px',
         fontFamily: FONT.sans,
-        color: '#cbd5e0',
+        color: i === 3 && pkm.held_item ? '#00cec9' : '#cbd5e0',
       });
       this.tabContentContainer.add(lineTxt);
     });
@@ -446,7 +464,7 @@ export class PokemonSummaryModal extends UiModal {
     const g = this.scene.add.graphics();
     this.tabContentContainer.add(g);
 
-    const bx = 18;
+    const bx = 8;
     const by = 10;
     const bw = 464;
     const bh = 264;
@@ -559,9 +577,9 @@ export class PokemonSummaryModal extends UiModal {
     for (let i = 0; i < 4; i++) {
       const col = i % 2;
       const row = Math.floor(i / 2);
-      const mx = 18 + col * 238;
+      const mx = 8 + col * 236;
       const my = 10 + row * 132;
-      const mw = 226;
+      const mw = 228;
       const mh = 120;
 
       const mv = moves[i];
@@ -647,6 +665,186 @@ export class PokemonSummaryModal extends UiModal {
       }, mx + 12, my + 90);
       ppTxt.setText(t('SUMMARY_PP').replace('{cur}', String(curPp)).replace('{max}', String(maxPp)));
       this.tabContentContainer.add(ppTxt);
+    }
+  }
+
+  /** TAB 4: VẬT PHẨM ĐANG CẦM (Plan 45 §6.2) — đeo/tháo item. */
+  private renderItemTab(): void {
+    const pkm = this.pokemon!;
+    const g = this.scene.add.graphics();
+    this.tabContentContainer.add(g);
+
+    const bx = 8;
+    const by = 10;
+    const bw = 464;
+    const bh = 264;
+
+    g.fillStyle(0x191c33, 1);
+    g.fillRoundedRect(bx, by, bw, bh, 6);
+    g.lineStyle(1.5, 0x2e355b, 1);
+    g.strokeRoundedRect(bx, by, bw, bh, 6);
+
+    const held = pkm.held_item ?? null;
+    const cardX = bx + 16;
+    const cardW = bw - 32;
+
+    if (!held) {
+      // Card thông báo chưa có item
+      const cardY = by + 24;
+      const cardH = 110;
+
+      g.fillStyle(0x14172a, 0.95);
+      g.fillRoundedRect(cardX, cardY, cardW, cardH, 6);
+      g.lineStyle(1, 0x2e355b, 0.9);
+      g.strokeRoundedRect(cardX, cardY, cardW, cardH, 6);
+
+      const emptyIcon = this.scene.add.text(cardX + cardW / 2, cardY + 34, '🎒', {
+        fontSize: '26px',
+      }).setOrigin(0.5);
+      this.tabContentContainer.add(emptyIcon);
+
+      const txt = mkText(this.scene, 'SUMMARY_HELD_NONE', {
+        fontSize: '12px',
+        fontFamily: FONT.sans,
+        color: '#8c94b8',
+        align: 'center',
+        lineSpacing: 4,
+      }, cardX + cardW / 2, cardY + 74).setOrigin(0.5);
+      this.tabContentContainer.add(txt);
+
+      // Nút mở túi đồ (toàn chiều rộng card)
+      const btnY = cardY + cardH + 20;
+      const btnH = 34;
+
+      const openBagBg = this.scene.add.graphics();
+      openBagBg.fillStyle(0x272b49, 1);
+      openBagBg.fillRoundedRect(cardX, btnY, cardW, btnH, 4);
+      openBagBg.lineStyle(1.5, 0x00cec9, 0.9);
+      openBagBg.strokeRoundedRect(cardX, btnY, cardW, btnH, 4);
+      this.tabContentContainer.add(openBagBg);
+
+      const openBagTxt = mkText(this.scene, 'SUMMARY_OPEN_BAG', {
+        fontSize: '12px',
+        fontFamily: FONT.sans,
+        fontStyle: 'bold',
+        color: '#00cec9',
+      }, cardX + cardW / 2, btnY + btnH / 2).setOrigin(0.5);
+      openBagTxt.setInteractive({ useHandCursor: true });
+      openBagTxt.on('pointerdown', () => this.onOpenBag?.(pkm));
+      this.tabContentContainer.add(openBagTxt);
+    } else {
+      // Khung thẻ item đang cầm
+      const cardY = by + 18;
+      const cardH = 114;
+
+      g.fillStyle(0x14172a, 0.95);
+      g.fillRoundedRect(cardX, cardY, cardW, cardH, 6);
+      g.lineStyle(1.5, 0x00cec9, 0.7);
+      g.strokeRoundedRect(cardX, cardY, cardW, cardH, 6);
+
+      // Icon item box
+      const iconBoxX = cardX + 16;
+      const iconBoxY = cardY + 18;
+      const iconBoxSize = 78;
+
+      g.fillStyle(0x272b49, 1);
+      g.fillRoundedRect(iconBoxX, iconBoxY, iconBoxSize, iconBoxSize, 4);
+      g.lineStyle(1, 0x3d446b, 1);
+      g.strokeRoundedRect(iconBoxX, iconBoxY, iconBoxSize, iconBoxSize, 4);
+
+      const iconKey = `item_icon_${held}`;
+      const iconUrl = `${SERVER_ORIGIN}/assets/icons/items/${held}.png`;
+      const iconImg = this.scene.add.image(iconBoxX + iconBoxSize / 2, iconBoxY + iconBoxSize / 2, `__MISSING:${held}`);
+      iconImg.setDisplaySize(48, 48);
+      this.tabContentContainer.add(iconImg);
+
+      if (this.scene.textures.exists(iconKey)) {
+        iconImg.setTexture(iconKey);
+        iconImg.setDisplaySize(48, 48);
+      } else {
+        const el = new Image();
+        el.crossOrigin = 'anonymous';
+        el.onload = () => {
+          if (!this.scene.textures.exists(iconKey)) this.scene.textures.addImage(iconKey, el);
+          if (iconImg.active) {
+            iconImg.setTexture(iconKey);
+            iconImg.setDisplaySize(48, 48);
+          }
+        };
+        el.src = iconUrl;
+      }
+
+      // Thông tin chi tiết item
+      const textX = cardX + 108;
+      const nameTxt = this.scene.add.text(textX, cardY + 24, held.toUpperCase().replace(/_/g, ' '), {
+        fontSize: '14px',
+        fontFamily: FONT.sans,
+        fontStyle: 'bold',
+        color: '#fdcb6e',
+      });
+      this.tabContentContainer.add(nameTxt);
+
+      const hintTxt = mkText(this.scene, 'SUMMARY_HELD_HINT', {
+        fontSize: '11px',
+        fontFamily: FONT.sans,
+        color: '#a0aec0',
+      }, textX, cardY + 50);
+      this.tabContentContainer.add(hintTxt);
+
+      const tagTxt = this.scene.add.text(textX, cardY + 74, `ID: ${held}`, {
+        fontSize: '10px',
+        fontFamily: FONT.mono,
+        color: '#718096',
+      });
+      this.tabContentContainer.add(tagTxt);
+
+      // 2 Nút hành động: THÁO ITEM & MỞ TÚI ĐỒ (chia đôi hàng ngang cân xứng)
+      const btnY = cardY + cardH + 18;
+      const btnH = 34;
+      const gap = 12;
+      const btnW = (cardW - gap) / 2;
+
+      // Nút 1: THÁO ITEM
+      const unholdX = cardX;
+      const unholdBtnBg = this.scene.add.graphics();
+      unholdBtnBg.fillStyle(0x272b49, 1);
+      unholdBtnBg.fillRoundedRect(unholdX, btnY, btnW, btnH, 4);
+      unholdBtnBg.lineStyle(1.5, 0xff7675, 0.9);
+      unholdBtnBg.strokeRoundedRect(unholdX, btnY, btnW, btnH, 4);
+      this.tabContentContainer.add(unholdBtnBg);
+
+      const unholdTxt = mkText(this.scene, 'SUMMARY_UNHOLD', {
+        fontSize: '11px',
+        fontFamily: FONT.sans,
+        fontStyle: 'bold',
+        color: '#ff7675',
+      }, unholdX + btnW / 2, btnY + btnH / 2)
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+      unholdTxt.on('pointerdown', () => {
+        ColyseusManager.getInstance().sendHoldItem(pkm.id, null);
+        this.close();
+      });
+      this.tabContentContainer.add(unholdTxt);
+
+      // Nút 2: MỞ TÚI ĐỒ ĐỔI ITEM
+      const openBagX = cardX + btnW + gap;
+      const openBagBg = this.scene.add.graphics();
+      openBagBg.fillStyle(0x272b49, 1);
+      openBagBg.fillRoundedRect(openBagX, btnY, btnW, btnH, 4);
+      openBagBg.lineStyle(1.5, 0x00cec9, 0.9);
+      openBagBg.strokeRoundedRect(openBagX, btnY, btnW, btnH, 4);
+      this.tabContentContainer.add(openBagBg);
+
+      const openBagTxt = mkText(this.scene, 'SUMMARY_OPEN_BAG', {
+        fontSize: '11px',
+        fontFamily: FONT.sans,
+        fontStyle: 'bold',
+        color: '#00cec9',
+      }, openBagX + btnW / 2, btnY + btnH / 2).setOrigin(0.5);
+      openBagTxt.setInteractive({ useHandCursor: true });
+      openBagTxt.on('pointerdown', () => this.onOpenBag?.(pkm));
+      this.tabContentContainer.add(openBagTxt);
     }
   }
 }

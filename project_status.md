@@ -585,7 +585,37 @@ trade flag do server quyết định · force/reverse chỉ moderator và có au
 
 ---
 
-### 🚀 Ưu tiên tiếp theo (Upcoming Plans)
+### 🛡️ Hardening EXP/EV/Evolve & Admin Security (2026-10-10)
+
+Audit read-only toàn bộ hệ EXP/EV/Evolve + admin đã phát hiện và **sửa** 8 lỗi:
+
+| # | Mức | Vấn đề | Cách sửa |
+| :---: | :--- | :--- | :--- |
+| 1 | 🔴 Cao | `fluctuating` dùng 1 polynomial sai → EXP **âm** ở L50 (≈ −50 558); 14 species spawn sai | Viết lại curve 3 tier canonical |
+| 2 | 🟠 TB | `erratic` tier 3/4 sai → 25 species lên level chậm | `n³·⌊(1911−10n)/3⌋/500` + `n³(160−n)/100` |
+| 3 | 🔴 Cao | `loadBattleParty` SELECT thiếu `ivs/evs/nature/held_item` → stat bị ghi đè sai vĩnh viễn khi lên level | Thêm cột + `heldItem` mapping |
+| 4 | 🔴 Cao | DB lưu `nature` là JSONB **object**, code đọc như string → `getNatureMod` luôn miss → tính stat theo `hardy` oan | `normalizeNature()` / `natureNameOf()` bóc `.name` |
+| 5 | 🔴 Cao | `movesAfterEvolve` lưu `string[]` trong khi reader chỉ nhận object → **Pokémon mất sạch moveset** sau tiến hoá | Trả `MoveSlot[]`, fallback move cũ khi learnset rỗng |
+| 6 | 🔴 Cao | `resolveEvolution` check `level` trước `item`: Eevee Lv16+ dùng Water Stone → **leafeon** (mất đá + sai loài) | Khi có `usedItemId` → ưu tiên `item` |
+| 7 | 🟠 TB | Lucky Egg trừ 1 item khỏi túi nhưng **không áp** multiplier → mất trắng | `grantExp` nhân theo held item; `exp_boost` trang bị thật |
+| 8 | 🔴 Cao | Admin XSS: username/sprite-name nằm trong `onclick` JS string (escape `'` **không đủ** vì HTML-decode trước khi JS chạy) | `data-*` + event delegation |
+
+**Xác minh #1/#2:** đối chiếu **100 level × 6 growth curve = 599/599** khớp bảng Bulbapedia (đã parse wikitext gốc để lấy đúng hệ số, tránh đọc sai công thức từ render LaTeX).
+
+**Xác minh #3/#4:** gọi thật `loadBattleParty()` trên DB → `natureName` là string đúng (`rash`/`timid`/…), `ivs/evs` đầy đủ, `moves=4`.
+
+**Xác minh #6:** Eevee Lv20 + Water Stone → **vaporeon** ✅ (trước: leafeon). Các path khác (level/friendship/move) không đổi.
+
+**Admin security:**
+- Chuyển users-table + sprites-table khỏi `onclick` inline sang `data-*` + event delegation (đọc dataset).
+- `esc()` bọc thêm `'`, escape field của warp (TMJ admin upload) trước khi vào `innerHTML`.
+- 7 chỗ `.catch(function(){})` → `loadFail()` (console.warn + hiện lỗi inline).
+- Thêm `middleware/security.ts`: rate-limit login **10 lần/15 phút/IP**, register **5 lần/giờ/IP** (429 + `Retry-After`); CSP + `X-Content-Type-Options` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy`.
+  - ⚠ `script-src` còn `'unsafe-inline'` vì admin.js dùng onclick attribute; siết `'self'` thuần cần refactor thêm — tách riêng.
+
+**Còn tồn đọng (không sửa lần này):** trainer EXP (`players.exp`) chưa implement · `friendship` không bao giờ tăng → `eevee→espeon` không reachable · `PartyStrip`/`PokemonSummaryModal` hiển thị EXP sai convention · `MAX_EV_TOTAL` chưa áp trong `gainEv` · `SpeciesSchema` thiếu `evYields`.
+
+---
 > ✅ **Đã hoàn thành:** PvP Battle (Plan 47) — xem Mục 9.
 
 1. **NPC & Hội thoại (Dialogue System):**

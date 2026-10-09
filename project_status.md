@@ -1,13 +1,104 @@
 # Project Status — Pixelmon (Pokémon MMORPG)
 
-> **Cập nhật lần cuối: 2026-10-03**
+> **Cập nhật lần cuối: 2026-10-09 17:46**
 >
 > **File này là Single Source of Truth (SSOT)** cho toàn bộ dự án — AI Agent và lập trình viên
 > đọc đây để nắm kiến trúc + trạng thái ngay tức thì. Lịch sử chi tiết từng plan đã nén vào **Mục 9**;
 > kế hoạch tiếp theo ở **Mục 10**.
 >
-> **Trạng thái hiện tại:** ✅ Typecheck 4/4 sạch · ✅ `build:map` 5/5 · ✅ Server+Client chạy (port 2567/5173).
-> **Tiếp theo:** **Plan 45** — Hệ thống Items, Evolution, Tiền tệ, Trade (chi tiết: `.plans/plan-45-items-evolution.md`).
+> **Trạng thái hiện tại:** ✅ Typecheck 4/4 sạch · ✅ `build` 3/3 · ✅ Server+Client chạy (port 2567/5173).
+> **Cải tiến & Sửa lỗi mới:**
+> - **Hệ Thống Pokédex Toàn Diện (Database + Server API + Client PokedexModal):**
+>   - Bảng cơ sở dữ liệu `pokedex` (PostgreSQL) lưu trữ tiến độ `seen` và `caught` cho từng người chơi.
+>   - Tự động ghi nhận `seen` khi chạm trán Pokémon đối thủ trong trận đấu và `caught` khi ném bóng bắt thành công hoặc sở hữu trong Party / PC Box.
+>   - Giao diện `PokedexModal` sang trọng 720×520 px: Header đèn sensor cyan phát sáng, thống kê tiến độ thời gian thực (X gặp / Y bắt / 898 loài), tìm kiếm tên/số Dex, lọc 3 tab (Tất cả / Đã gặp / Đã bắt), lọc 18 hệ nguyên tố, danh sách cuộn mượt mà, khung chi tiết loài với bệ battler sprite to rõ, nút phát tiếng kêu Cry (`SoundManager.playCry`), 6 thanh Base Stats đo lường màu sắc và chuỗi cây tiến hoá tương tác.
+> - **Maps Lớn — Hệ Thống Bản Đồ Vùng Essen (TownMapModal / World Map):**
+>   - Trích xuất dữ liệu địa lý toàn bộ vùng Essen vào `packages/shared/data/town_map.json` với 26 điểm địa danh và tuyến đường kết nối.
+>   - Giao diện `TownMapModal` 600×480 px: Bản đồ trung tâm 480×320 px, con trỏ Player nhấp nháy định vị vị trí hiện tại theo thời gian thực (`getTownMapCoords`), các điểm POI phân cấp với khung ngắm tương tác, tra cứu loài Pokémon hoang dã xuất hiện tại từng khu vực từ `encounters.json`.
+> - **Tinh Chỉnh Giao Diện Chuẩn Xác & Hợp Logic:**
+>   - Đồng bộ TopMenu: Nhấp biểu tượng Pokédex mở `PokedexModal`, nhấp Bản đồ mở `TownMapModal`, tự động cập nhật đèn viền active và đóng modal cũ khi mở modal mới.
+>   - Hệ thống phím tắt trực quan: `D` (Pokédex), `M` (Bản đồ thế giới), `B` (Túi đồ), `P` (Đội hình), `H` (Hướng dẫn), `ESC` (Đóng modal).
+>   - Âm thanh retro: Mở Pokédex phát `gui_pokedex_open`, mở Town Map phát `gui_menu_open`, đóng phát `gui_menu_close`.
+>   - Lệnh chat mới: `/pokedex` (`/dex`), `/map` (`/townmap`).
+> - **Rà Soát & Khắc Phục Lỗi Logic & Giao Diện Toàn Diện (Audit & Bug Fixes):**
+>   - **Khắc phục lỗi kích hoạt trận đấu Trainer**: Đồng bộ tên sự kiện giữa client (`start_trainer_battle`) và server (`trainer_battle` / `start_trainer_battle`), hỗ trợ tra cứu linh hoạt `trainerId`, `npcId`, hoặc `trainerName` trong `WorldRoom`.
+>   - **Trích xuất & hiển thị NPC chính xác trên toàn bộ 13 bản đồ**: Nâng cấp bộ chuyển đổi `convert_essentials_map.py` và `build-server-map.ts` tự động nhận diện các event nhân vật từ RMXP, gán đúng `type: "npc_spawn"`, trích xuất lời thoại gốc (loại bỏ escape codes), phân loại trainer và gán đúng sprite tương ứng (`brock`, `mom`, `oak`, `daisy`, `kurt`, `nurse`, `scientist`, `namerater`, `youngster`, `guide`, `citizen`). Đã khắc phục triệt để lỗi không có NPC nào xuất hiện trên map.
+>   - **Sửa lỗi hiển thị Battle Log trong trận Trainer**: Cập nhật `atkLabel` trong `BattleRoom.executeMove` hiển thị chuẩn danh tính huấn luyện viên đối thủ (`"Brock's Geodude used Tackle!"`) thay vì log nhầm `"The wild Geodude"`.
+>   - **Tối ưu SoundManager audio loading**: Lắng nghe sự kiện tải riêng biệt `filecomplete-audio-${key}`, kiểm tra trạng thái `load.isLoading()` tránh xung đột và cảnh báo loader chạy song song.
+> - **Hệ Thống Trainer NPC Battle & Phần Thưởng Chiến Thắng (Colyseus + Phaser 3):**
+>   - Đã đồng bộ và nạp 20 Trainers từ PBS Essentials (`packages/shared/data/trainers.json`): Brock, Camper Liam, Youngster Ben, Rocket Grunts, Rival Blue,...
+>   - Server `BattleRoom`: Tự động nhận diện trận đấu Trainer (`isTrainer: true`), khởi tạo đúng danh tính đối thủ (`foe.playerId = 'trainer'`), khóa quyền bắt bóng Poké Ball đối với Pokémon đã có chủ, thưởng tiền `rewardMoney` vào database người chơi và phát broadcast qua Presence khi hoàn thành.
+>   - World Server `WorldRoom`: Khởi tạo trận đấu Trainer qua `initiateTrainerBattle`, sinh đội hình chuẩn cấp độ và moveset từ template, đồng bộ danh sách `defeatedTrainers` và lắng nghe sự kiện `trainer_defeated`.
+> - **Khắc Phục Toàn Diện 100% Item Icons Còn Thiếu:**
+>   - Kiểm tra và liên kết toàn bộ 693 vật phẩm trong `packages/shared/data/items.json` với kho asset.
+>   - 106 đĩa TM/HM được gán tự động sang đĩa theo hệ chiêu thức tương ứng (`machine_<type>.png`, `machine_hm_<type>.png`).
+>   - 175 vật phẩm còn lại (đá tiến hoá, kẹo exp, hoá thạch, đĩa bộ nhớ, mật hoa...) được liên kết chính xác sang sprite hợp lệ (`shinystone.png`, `rarecandy.png`, v.v.). Tỷ lệ icon hợp lệ đạt **100% (693/693)**.
+> - **Hệ Thống NPC Cooldown & Quản Lý Trạng Thái Trainer Bị Đánh Bại:**
+>   - Quản lý trạng thái NPC thông minh trên `WorldScene`: lưu danh sách Trainer đã bị đánh bại vào `defeatedTrainers` (persist qua LocalStorage theo user) và ghi nhận thời gian cooldown tương tác (3s chống spam, 60s tái đấu).
+>   - Tương tác thông minh: Khi nói chuyện với NPC Trainer đã thắng, NPC sẽ phát thoại chúc mừng thay vì khiêu chiến lại.
+> - **Hệ Thống Lệnh Debug Mới Cho Trainer & NPC:**
+>   - `/trainer <id>`: Kích hoạt trực tiếp trận đấu với bất kỳ trainer nào (VD: `/trainer camper_liam`, `/trainer leader_brock_brock`).
+>   - `/npclist`: Quét và liệt kê chi tiết toàn bộ NPC trên bản đồ hiện tại kèm toạ độ, phân loại, trạng thái đã đánh bại và thời gian cooldown còn lại.
+>   - `/resetnpc [id|all]`: Xoá trạng thái đã đánh bại của một NPC hoặc toàn bộ NPC, đặt lại cooldown ngay lập tức.
+>   - `/cooldown <seconds>`: Điều chỉnh thời gian cooldown tương tác NPC trực tiếp trong runtime.
+> - **SoundManager Nền Tảng Cho Game Client (`apps/client/src/audio/SoundManager.ts`):**
+>   - Nạp các file âm thanh từ `packages/shared/assets/audio/`: BGM (`battle_trainer`, `battle_wild`, `battle_victory_trainer`, `title`...) và SE (`gui_menu_open`, `battle_throw`, `battle_ball_shake`, `battle_catch_click`, `battle_flee`...).
+>   - Tích hợp tự động vào `BattleModal` và `WorldScene` mang lại trải nghiệm âm thanh sống động.
+> - **Điều Chỉnh Hoàn Chỉnh Lớp Decoration & Overhead Theo RMXP Priorities:**
+>   - Đã tái cấu trúc bộ chuyển đổi `convert_essentials_map.py` và render `TiledMapLoader.ts` theo đúng kiến trúc RPG Maker XP:
+>     - **Ground (depth 10):** Tầng nền gạch, thảm cỏ cơ bản (`z=0`, priority 0).
+>     - **Decoration (depth 12):** Các vật thể trang trí trên mặt đất/sàn nhà vẽ **dưới nhân vật** (`priority == 0` từ `z=1` hoặc `z=2`): thảm sàn, bàn, ghế, tủ, hoa cỏ, rào chắn. Đã giải quyết triệt để lỗi chiếc ghế/bàn che mất mẹ hay NPC trong nhà, cũng như rào chắn bị đẩy nhầm lên lớp trên.
+>     - **Overhead (depth 30):** Các vật thể che trên đầu nhân vật (`priority > 0` từ `z=1` hoặc `z=2`): tán cây, mái nhà, đèn trần cao.
+>   - Chuyển đổi và đồng bộ lại toàn bộ 13 bản đồ (Region 1 + Cedolan City + Indoors), build lại `packages/shared/data/maps/server/` và `.tmj` đồng bộ 100%.
+> - **Import Hoàn Chỉnh Hệ Thống Nội Thất (Indoors) Cedolan City:**
+>   - Đã chuyển đổi và kết nối toàn bộ 6 bản đồ nội thất của đại thành phố Cedolan từ Essentials v21.1:
+>     - `cedolan-poke-center` (Map 009, 20×15): Pokémon Center trung tâm kèm Y tá Joy (`Nurse Joy`).
+>     - `cedolan-gym` (Map 010, 20×17): Nhà thi đấu Cedolan Gym kèm Gym Leader Brock.
+>     - `pokemon-institute` (Map 011, 20×15): Viện nghiên cứu Pokémon kèm nhà khoa học hoá thạch Carl (`Scientist Carl`).
+>     - `cedolan-condo` (Map 012, 20×15): Khu chung cư Cedolan Condo kèm chuyên gia đổi tên (`Name Rater`).
+>     - `game-corner` (Map 013, 20×32): Sòng bài Rocket Game Corner & khu đổi thưởng lớn.
+>     - `cedolan-dept-1f` (Map 014, 20×17): Tầng 1 Trung tâm Thương mại Cedolan Dept Store với 2 cửa đôi & thang máy.
+>   - Hệ thống warp 2 chiều tự động: Cửa ngoài thành phố Cedolan City bước vào trong nhà, và thảm cửa trong nhà bước ngược ra đúng mặt phố.
+>   - Đăng ký đầy đủ toàn bộ 13 bản đồ vào `MAPS` constant và `CollisionGrid` client/server, biên dịch sạch sẽ qua `pnpm run build:map`.
+> - **Mở rộng Bản đồ Vùng 1 — Import Kurt's House (Map 006) & Cedolan City (Map 007):**
+>   - Đã chuyển đổi hoàn chỉnh 2 bản đồ tiếp theo sau Route 1 từ Pokémon Essentials v21.1:
+>     - `kurts-house` (20×15): Căn nhà nội thất của thợ làm bóng Kurt, liên kết cửa tại `(11, 6)` trên Route 1 và cửa ra tại `(6, 8)` trong nhà; tích hợp NPC Kurt (`NPC 18`) với lời thoại chế tạo Poké Ball.
+>     - `cedolan-city` (60×43): Đô thị trung tâm sầm uất phía Bắc Route 1, kết nối 4 cổng warp 2 chiều `(18..21, 0)` trên Route 1 sang `(16..19, 42)` của Cedolan City; tích hợp các NPC tuần tra (Officer Jenny, Citizen).
+>   - Cập nhật tự động hệ thống warp 2 chiều giữa Route 1, Kurt's House và Cedolan City.
+>   - Đăng ký đầy đủ vào `MAPS` constant và `CollisionGrid` client/server, tự động biên dịch lại qua `pnpm run build:map`.
+> - **NPC Cốt truyện, Spawns & Hệ thống Hội thoại Retro (Region 1 / Essentials v21.1):**
+>   - Đã đồng bộ toàn bộ dữ liệu Encounter chính xác từ PBS Essentials v21.1 (`encounters.txt`) cho Vùng 1 (`route-1`, `lappet-town`).
+>   - Trích xuất và nạp sprite NPC gốc RMXP 32×48 chuẩn (`oak`, `mom`, `daisy`, `guide`, `youngster`).
+>   - Đặt NPC đúng vị trí cốt truyện Pokémon: Giáo sư Oak (Pokemon Lab), Mẹ (Player's House), Daisy (Daisy's House), Người hướng dẫn (Lappet Town), Youngster Joey (Route 1).
+>   - Tích hợp va chạm NPC: Nhân vật không thể đi xuyên qua NPC (`canEnterTile` chặn ô chứa NPC).
+>   - Hệ thống hội thoại `DialogueModal`: Hiệu ứng typewriter gõ từng chữ chân thực, avatar, hỗ trợ phím Space/Enter hoặc Click để nói chuyện (bấm trực tiếp lên NPC hoặc quay mặt vào NPC và bấm Space).
+> - Hoàn thiện trải nghiệm Túi đồ (`BagModal`), Dropdown phân loại và Cơ chế Trang bị / Sử dụng vật phẩm:
+>   - **Khắc phục triệt để lỗi Dropdown không chọn được:** Bổ sung lớp `backdropZone` chặn đóng menu khi click ra ngoài mà không cản trở tương tác danh sách phân loại; loại bỏ xung đột với `canvasClick`; đưa dropdown container lên layer trên cùng (`bringToTop`).
+>   - **Tinh chỉnh tỷ lệ & Padding đối xứng hoàn mỹ:**
+>     - Hàng trên: Ô Search (280px) và Dropdown (286px) cách nhau 10px, tổng chiều rộng khớp chuẩn 576px.
+>     - Cột trái: Lưới 5×5 (270×270px) + Thanh phân trang (270×28px), tổng chiều cao 306px.
+>     - Cột phải: Khung chi tiết (286×306px) cân xứng tuyệt đối với đáy cột bên trái.
+>   - **Cơ chế Dùng (USE) & Trang bị (HOLD) chuẩn chỉnh qua Mini Party Box (`PartySelectModal`):**
+>     - Bấm **USE**: Luôn mở Mini Party Box để người chơi chọn trực quan Pokémon muốn áp dụng; tự động lọc thông minh: đối với vật phẩm hồi sinh (`Revive`, `Max Revive`) cho phép chọn Pokémon đã ngất (`filterAlive: false`), các vật phẩm hồi máu/buff/tiến hoá chỉ chọn Pokémon còn sống (`filterAlive: true`).
+>     - Bấm **HOLD (EQUIP)**: Luôn mở Mini Party Box chọn bất kỳ Pokémon nào trong đội hình (`filterAlive: false`) kèm gợi ý `Gán vật phẩm cho Pokémon nào?`. Phía server xử lý swap item chuẩn xác qua DB transaction (thu hồi item cũ về túi, gắn item mới vào Pokémon) và realtime cập nhật lại giao diện túi đồ.
+> - Hỗ trợ vật phẩm hồi sinh (`Revive`, `Max Revive`) ngay trong trận chiến (`BattleRoom` & `BattleModal`):
+>   - Sửa lỗi server chặn cứng `Revive can only be used outside battle`: chuyển sang hồi sinh trực tiếp cho Pokémon được chọn trong đội (hồi 50% max HP với Revive, 100% với Max Revive, xoá trạng thái bất thường).
+>   - Phía Client: Tự động mở Mini Party Box (`PartySelectModal`) khi chọn Revive, kiểm tra điều kiện mục tiêu phải là Pokémon đã ngất (`currentHp <= 0`), ngăn chặn dùng nhầm lên Pokémon còn sống.
+>   - Bổ sung Revive vào danh mục `medicine` và hiển thị tóm tắt hiệu ứng chi tiết trong Battle Bag.
+> - Khắc phục triệt để lỗi cơ chế Pokémon fainted (ngất/gục) trong trận đấu (`BattleRoom`):
+>   - Bảo vệ chuyển đổi trạng thái (state machine): Ngăn chặn triệt để tình trạng race condition gọi `nextTurn()` đè mất phase `'switch'` khi Pokémon bị đánh bại trong mọi tình huống (sau lượt chiêu, đổi Pokémon, bỏ chạy, dùng vật phẩm, ném bóng).
+>   - Khởi tạo trận đấu thông minh: Tự động chọn Pokémon còn sống (`currentHp > 0`) đầu tiên trong đội hình thay vì mặc định vị trí 0, tránh tình trạng vào trận với Pokémon đã ngất.
+>   - Khóa thao tác khi fainted: Chặn gửi chiêu hoặc auto-chọn chiêu từ `turnTimer` khi Pokémon hiện tại đã gục; bắt buộc chuyển sang màn hình chọn đổi Pokémon.
+>   - Bảo vệ ngoài map (`WorldRoom`): Chặn kích hoạt wild encounter nếu toàn bộ Pokémon trong đội của người chơi đều đã ngất (`aliveCount === 0`).
+> - Tinh chỉnh giao diện Mini Party Box (`PartySelectModal`): mở rộng chiều ngang cân đối (264px slot, 292px modal), phân tầng thông tin rõ ràng (Tên + Giới tính + Lv bên trái, Badge trạng thái PAR/PSN/BRN/FRZ/SLP/FNT góc phải, thanh HP bar tách biệt với chỉ số máu HP/MaxHP).
+> - Căn giữa nút Huỷ (Cancel), tự động tính toán padding/offset hoàn toàn đối xứng, bổ sung hiệu ứng hover viền neon cyan hiện đại.
+> - Tái sử dụng `PartySelectModal` (mini party box) khi bấm vào vật phẩm hồi phục/chữa trạng thái trong Battle Bag: hiển thị popup chọn Pokémon cụ thể trong đội 6 con (kèm live HP, level, icon, trạng thái).
+> - Server & Client hỗ trợ `battle_item` với `targetIndex`: áp dụng hiệu ứng heal/cure_status chính xác cho Pokémon được chọn trong đội và đồng bộ cập nhật database.
+> - Giữ mở cửa sổ Bag trong Wild Battle khi ném bóng / dùng item để người chơi không phải bấm lại liên tục.
+> - Khoá hiển thị & thao tác các vật phẩm không được dùng trong PvP / PvE Trainer Battle (Poké Ball).
+> - Điều chỉnh nhịp độ trận đấu: Giãn cách 1100ms giữa 2 chiêu thức, hiệu ứng rung giật & chớp nhấp nháy 5 lần khi Pokémon nhận sát thương trước khi chiêu tiếp theo thi triển.
+> - Fix bắt Pokémon không lưu vào DB / PC Box do sai định dạng JSONB của cột `nature`.
+> **Tiếp theo:** **Plan 44g..44j, Plan 45 & Plan 47 (PvP) hoàn tất** — Xem Mục 10: Ưu tiên tiếp theo cho NPC & Hội thoại, Âm thanh BGM/SFX và PvP trade.
 
 ---
 
@@ -24,14 +115,14 @@
 | **Tileset** | Essentials 32×32 (Outdoor.png 16096px, Interior general, 37 autotiles) | ✅ |
 | **Server backend** | Express + Colyseus 0.15 + PostgreSQL 18 + Valkey/Redis | ✅ |
 | **Client** | Phaser 3.87 (CANVAS 2D pixel-art 60 FPS) + Vite 6 (vanilla TS) | ✅ |
-| **Admin Dashboard** | Users, Sprites, Game Data, Maps (interactive canvas preview) | ✅ |
-| **Đa ngôn ngữ (i18n)** | Song ngữ VI/EN, 285+ key, toggle 1-nút trong Settings | ✅ |
+| **Admin Dashboard** | Users, Sprites, Game Data, Maps (interactive canvas preview), Items & Trades | ✅ |
+| **Đa ngôn ngữ (i18n)** | Song ngữ VI/EN, 300+ key, toggle 1-nút trong Settings | ✅ |
 | **Di chuyển** | Tile-based + delta grid-step + input buffering + A* | ✅ |
 | **Warp & collision** | Server-authoritative, 8 warp khép kín, ledge 4 hướng, grass/surf, **passage 4 hướng (Plan 46)**, **Overhead walkable + render che trên player** | ✅ |
 | **Debug tools** | Tab `🛠 Debug` (Settings), overlay grid/collision/warp/passage, CLI, 4 widget | ✅ |
-| **Wild encounter + Battle** | `battle_init` token → `BattleModal` popup + `BattleRoom` combat thật | ✅ |
-| **Chat lệnh debug** | Ô nhập cố định trong ChatLog, route `/` → `handleDebugCommand`, `/tile` `/clear` `/debug …` | ✅ |
-| **Items / Evolution / Store** | Chưa có — **Plan 45** (xem Mục 10) | ⬜ |
+| **Wild encounter + Battle** | `battle_init` token → `BattleModal` popup + `BattleRoom` combat thật · **Hệ thống bắt Pokémon Gen 3–8/Essentials hoàn chỉnh + Battle Scene Retro-Modern Dark UI + Khung Bag trong trận có Search, Phân loại 4 tab & xem hiệu ứng** | ✅ |
+| **Chat lệnh debug** | Ô nhập cố định trong ChatLog, route `/` → `handleDebugCommand`, **`/spawn [tên|dex] [lv] [shiny] [key=val...]`**, `/tile` `/clear` `/debug …` | ✅ |
+| **Items / Evolution / Store** | Plan 45 — Phase 0–7 hoàn tất (Database, Inventory Service, StoreModal, Evolution, Trade NPC, Admin Dashboard) | ✅ |
 | **Xác thực** | JWT (Header + LocalStorage), role `player < moderator < admin` | ✅ |
 | **Lưu trạng thái** | PostgreSQL persistence (x, y, map_id, direction) realtime | ✅ |
 | **Typecheck** | `pnpm run typecheck` — 4/4 packages, 0 errors | ✅ |
@@ -48,6 +139,10 @@ pixelmon/
 ├── AGENTS.md                       # Quy tắc cốt lõi & Hướng dẫn AI Agent (ĐỌC TRƯỚC KHI CODE)
 ├── project_status.md               # Tài liệu này — SSOT trạng thái dự án
 ├── .plans/                         # Plan chi tiết (gitignored, local) — plan-45-*.md
+├── docs/                           # Tài liệu kỹ thuật, nghiên cứu và kế hoạch triển khai
+│   ├── plans/                      # Lưu trữ chi tiết các kế hoạch đã triển khai
+│   ├── sprite-import-guide.md      # Hướng dẫn import sprite
+│   └── tiled-workflow.md           # Quy trình thiết kế & build map với Tiled
 │
 ├── scripts/
 │   ├── pm.sh                       # Process manager (start/stop/restart/status/logs)
@@ -73,7 +168,7 @@ pixelmon/
 │       ├── index.ts                # Re-exports
 │       ├── types/                  # player, pokemon, stats, items, messages
 │       ├── constants/              # MAPS, TILE_SIZE=32, speeds, MOVE_COOLDOWN_MS
-│       ├── formulas/               # combat, stats, generator, encounter, learnset, mapruntime
+│       ├── formulas/               # combat, stats, generator, encounter, learnset, mapruntime, evolution, items |
 │       ├── schema/                 # Colyseus Schema: WorldState, PlayerState, BattleState
 │       └── data/                   # Zod contracts + normalize + loader (fs server-only)
 │
@@ -90,7 +185,11 @@ pixelmon/
 │           ├── admin/              # User CRUD, Sprites, Maps API, Game Data
 │           ├── user/               # User Info & Profile
 │           ├── pokemon/            # battleParty.ts (load party cho battle)
-│           ├── world/              # Colyseus WorldRoom (move, warp, encounter, chat, debug)
+│           ├── items/              # inventory.service.ts (± item trong transaction) + bagApi.ts (REST túi đồ)
+│           ├── store/              # store.service.ts (mua/bán, tiền trong transaction)
+│           ├── evolution/          # evolution.service.ts (tryEvolve/useStone/force/reverse/level/friendship/holdItem)
+│           ├── events/             # eventLog.ts (ghi pokemon_events: xp/level_up/evolve/item_used/trade/catch/money)
+│           ├── world/              # Colyseus WorldRoom (move, warp, encounter, chat, debug, item/store/trade/mod)
 │           └── battle/             # Colyseus BattleRoom + manager.ts (token)
 │
 └── apps/client/
@@ -119,7 +218,12 @@ pixelmon/
             ├── SettingsPanel.ts    # 4 tab + tab 🛠 Debug (moderator+)
             ├── PcBoxModal.ts       # PC Box
             ├── PokemonSummaryModal.ts # Bảng chỉ số Pokemon
-            ├── TopMenu.ts          # Toolbar (Bag, Dex, Team, Map, Settings, Debug)
+            ├── TopMenu.ts          # Toolbar (Bag, Dex, Team, Store, Trade, Settings, Debug)
+            ├── BagModal.ts         # 🎒 Túi đồ (Plan 45) — dùng/gán item, nhóm pocket
+            ├── StoreModal.ts       # 🏪 Cửa hàng buy/sell (Plan 45)
+            ├── TradeModal.ts       # 🤝 Giao dịch NPC (Plan 45)
+            ├── EvolveModal.ts      # ✨ Tiến hoá (Plan 45) — nhận message `evolved`
+            ├── PartySelectModal.ts # 📋 Mini party box — chọn Pokémon cho switch/dùng item/gán item
             └── Debug*.ts           # Console, TrackerWidget, InfoWidgets
 ```
 
@@ -189,6 +293,7 @@ pnpm run build:map <mapId>        # hoặc --all
 - **`TopMenu`** — Bag, Pokédex, Team, Map, Help, Settings, Debug (icon chip neon).
 - **`PlayerHud`** (góc trên trái) — Avatar, tên, Pokédollars 🪙, Coin 💎; mini mode 48×48.
 - **`PartyStrip`** (dọc trái) — 6 slot, icon 28×28, `Lv.x` + HP bar; mini mode 48px.
+- **`PartySelectModal`** (Plan 45) — mini party box dùng chung cho mọi tác vụ chọn Pokémon ngoài trận (dùng item, gán item, `/switch`). 6 slot: icon + Lv + HP bar + badge 🎒 held item.
 - **`InfoPanel`** (góc trên phải) — Poke Time (×6), Real Time, weather icon; mini mode.
 - **`ChatLog`** (góc dưới phải) — draggable + dock; **ô nhập chữ cố định** ở đáy (xem 4.4); nút ⤢ góc trên-trái + grip góc dưới-phải **kéo resize tự do mọi lúc** (không cần bật/tắt).
 - Responsive: viewport `< 800×600` → mini mode.
@@ -296,18 +401,35 @@ pokemon(id UUID PK, owner_id UUID → users, species_id, nickname,
         level INT DEFAULT 1, exp BIGINT DEFAULT 0,
         ivs/evs/stats JSONB, current_hp INT, moves JSONB, status TEXT,
         shiny BOOLEAN, caught_at, party_slot SMALLINT,  -- 0..5 = party, NULL = PC
-        nature TEXT, gender TEXT)
-        -- ⚠ Plan 45 sẽ thêm: held_item TEXT
+        nature TEXT, gender TEXT,
+        held_item TEXT,                    -- Plan 45: item đang cầm trên Pokémon
+        friendship SMALLINT DEFAULT 70)    -- Plan 45: friendship (evolution)
 
 -- sprite_catalog: thư viện sprite (12/16 frame chuẩn)
 sprite_catalog(id UUID PK, name UNIQUE, mode, sheet_url, source_url, frames JSONB,
                frame_w, frame_h, frame_count, created_by, timestamps)
 
--- inventory: TÚI ĐỒ (⚠ TỒN TẠI nhưng chưa module nào đọc/ghi — Plan 45)
+-- inventory: TÚI ĐỒ (Plan 45 — ĐÃ DÙNG, xem modules/items/inventory.service.ts)
 inventory(owner_id UUID → users, item_id TEXT, quantity INT, PRIMARY KEY(owner_id,item_id))
+
+-- Plan 45 — bảng mới (đã migrate idempotent):
+-- pokemon_events: nhật ký event (event feed + audit + chống gian lận)
+pokemon_events(id UUID PK DEFAULT gen_random_uuid(), user_id UUID, pokemon_id UUID,
+               kind TEXT,                    -- xp_gain|level_up|evolve|item_used|trade|catch|money
+               payload JSONB DEFAULT '{}', created_at TIMESTAMPTZ)
+
+-- pokemon_evolution_history: lịch sử tiến hoá (from → to, method, ai ép)
+pokemon_evolution_history(id UUID PK, pokemon_id UUID, user_id UUID,
+                          from_species_id TEXT, to_species_id TEXT, method TEXT,
+                          moderator_id UUID, created_at TIMESTAMPTZ)
+
+-- trade_sessions: session trade (giữ sẵn cho PvP — Phase 4b)
+trade_sessions(id UUID PK, a_user_id UUID, b_user_id UUID,
+               status TEXT DEFAULT 'pending', expires_at TIMESTAMPTZ, created_at TIMESTAMPTZ)
 ```
-> **Plan 45 sẽ thêm:** `pokemon.held_item` · `pokemon_events` (xp_gain/level_up/evolve/item_used/trade/money)
-> · `pokemon_evolution_history` (kèm `moderator_id`) · `trade_sessions`.
+
+> ✅ **Migration Plan 45 đã áp** (idempotent, chạy trong `initDatabase()`): thêm `pokemon.held_item`,
+> `pokemon.friendship` + 3 bảng `pokemon_events` · `pokemon_evolution_history` · `trade_sessions`.
 
 ### 6.2 Đồng bộ vị trí
 - `onJoin` → SELECT từ `players` (khớp room mới giữ, khác → spawn mặc định).
@@ -332,14 +454,16 @@ inventory(owner_id UUID → users, item_id TEXT, quantity INT, PRIMARY KEY(owner
 | Maps | `GET`/`PATCH` | `/api/admin/maps` · `GET /:id` | Admin |
 | | `POST` | `/api/admin/maps/import` · `/api/admin/maps/:id/regenerate` | Admin |
 | Game data | `GET` | `/api/admin/pokemon` · `/api/admin/players` | Admin |
+| Items | `GET` | `/api/inventory` (túi đồ đã enrich) · `/api/inventory/money` · `/api/inventory/events` (event feed) · `/api/inventory/store` (STORE_STOCK) | User |
+| Items Admin (P7) | `GET` | `/api/admin/items/overview` · `/api/admin/items/top-spenders` · `/api/admin/evolution/history` · `/api/admin/events` | Admin |
 | Static | `GET` | `/maps/tiled/*.tmj` (route Tiled-First) | Công khai |
 
 ### 7.2 Colyseus Rooms (`ws://localhost:2567`)
 | Room | Giới hạn | Message nhận | Trách nhiệm |
 | :--- | :---: | :--- | :--- |
-| **`world`** (1/map) | 50 | `move` · `teleport` · `change_map` · `chat` · `debug_spawn` | Validate bước, roll encounter, flush DB, broadcast chat |
-| **`battle`** | 2 | `battle_move` · `battle_switch` · `battle_run` · `battle_catch` · `battle_item` · `battle_forfeit` | Combat theo lượt, calcDamage, EXP + level-up, ghi DB |
-| Message nhận từ server | | `player_moved_map` · `move_rejected` · `battle_init` · `debug_msg` · `battle_need_switch` · `chat` | Client xử lý |
+| **`world`** (1/map) | 50 | `move` · `teleport` · `change_map` · `chat` · `debug_spawn` · **`use_item`** · **`hold_item`** · **`store_action`** · **`trade`** · **`mod_action`** | Validate bước, roll encounter, flush DB, broadcast chat, ±item/đổi tiền/tăng level/ép tiến hoá (Plan 45) |
+| **`battle`** | 2 | `battle_move` · `battle_switch` · `battle_run` · `battle_catch` · `battle_item` · `battle_forfeit` | Combat theo lượt, calcDamage, EXP + level-up + auto-evolve + eventLog, ghi DB |
+| Message nhận từ server | | `player_moved_map` · `move_rejected` · `battle_init` · `debug_msg` · `battle_need_switch` · `chat` · **`bag_update`** · **`evolved`** | Client xử lý |
 
 ---
 
@@ -394,41 +518,88 @@ inventory(owner_id UUID → users, item_id TEXT, quantity INT, PRIMARY KEY(owner
 | **46** | **Decoration mặc định BLOCKED + `passage` 4 hướng** — xoá `grass_zone` inject, `spawn_zone` chỉ đọc Ground; `flags` lên uint16 (bits 8–11 = `PASS_DOWN/LEFT/RIGHT/UP`); `isDirBlocked`/`canStep`/`isPassageAll` SSOT; server `validateStep` + client `canEnterTile(dir)` + `findPath` kiểm hướng; debug `/debug passage`, overlay dải tím; fix Vite cache `apps/client/node_modules/.vite` | ✅ |
 | **46b** | **Overhead mặc định WALKABLE + render che nhân vật** — heuristic tầng A: `Overhead != 0` không còn BLOCKED (chỉ `Decoration != 0` chặn); muốn chặn thì `passage=0x0f` trong Tiled. Render: `PlayerSprite` depth chuẩn hoá (sprite 20 / bóng 19 / tên 21) qua hằng `PLAYER_DEPTH`, Overhead vẫn depth 30 → che player; remote player cũng depth 20. Rebuild 5 map + restart | ✅ |
 | **44d** | **BattleModal layout 4 lớp rõ ràng, không chồng nhau** — Title / Opponent plate / Player plate / bottom row (khung text trái + khung hành động phải cùng 1 dòng); mọi mode menu (command/move/switch) render trong khung hành động; hằng layout `FIELD_*`/`BOTTOM_*`/`MSG_*`/`ACT_*`; `showEnd` căn theo field | ✅ |
+| **45** | **Items/Evolution/Tiền tệ/Trade** — Phase 0 foundation (ItemSchema+`pocket`, `formulas/evolution.ts` thay `evolveSpecies` hỏng, migration idempotent) · Phase 1 items (`inventory.service` transaction, `GET /api/inventory`, `resolveItemEffect` registry, dùng ngoài trận, **`battle_item` thật**) · Phase 2 store (buy/sell transaction, `PlayerState.money` sync HUD, `STORE_STOCK`, `StoreModal`) · Phase 3 evolution (`tryEvolve` recompute stats, hook sau level-up, `eventLog`, stone qua `use_item`) · Phase 5 modtools (`/forceevolve` `/reverseevolve` `/leveldown` `/levelup` `/forcefriend`, role check + audit log) · Phase 6 UI (`BagModal`/`StoreModal`/`TradeModal`/`EvolveModal`, +60 key VI/EN) | ✅ server + client core |
+| **45b** | **Fix double-render modal** — `UiModal` tạo sau `setupUiCamera()` không được add vào `getHudObjects()` → cả world camera lẫn UI camera render → 2 khung chồng nhau (chỉ click phần nhỏ). Fix: thêm 4 modal Plan 45 vào `getHudObjects()` + gỡ lệnh `registerHudObject()` no-op (chạy trước `uiCam` tồn tại). Kiểm chứng bằng `cameraFilter=1` + `cameras.main.renderList` không còn modal | ✅ |
+| **45c** | **`PartySelectModal`** — mini party box dùng chung chọn Pokémon ngoài trận (dùng item / gán item / `/switch`). `WorldScene.openPartySelect()` helper · `BagModal` dùng picker · lệnh `/switch <slot>` + `swapPartySlots()` | ✅ |
+| **45d** | **Phase 6 UI hoàn tất** — `StoreModal` nối endpoint `GET /api/inventory/store` (fix placeholder $0) · `PartyStrip` badge 🎒 held item (mini+normal) · `PokemonSummaryModal` tab thứ 4 **"Vật phẩm"** (đeo/tháo + nút Mở Túi đồ, `onOpenBag` callback) · `BattleModal` menu **BAG** (mode `bag`, fetch `fetchInventory` → `sendBattleItem`) — grid FIGHT/POKEMON/BAG/BALL/RUN, keyboard 3=BAG/4=BALL/5=RUN · `bag_update` → `loadPlayerPokemon()` sync held_item · i18n +8 key | ✅ |
+| **45e** | **Phase 7 Admin Dashboard — Items & Trades** — API mới: `GET /api/admin/items/overview` (phân bố túi đồ), `/items/top-spenders` (top tiền), `/evolution/history` (lịch sử tiến hoá + moderator), `/events` (event feed filter theo kind) · Tab "🎒 Vật phẩm & Giao dịch" với 4 sub-tab (phân bố / top tiền / lịch sử tiến hoá / nhật ký sự kiện) · i18n +20 key admin. Verify qua curl: 1406 ô đồ, 192k item, 693 loại, 6 người chơi có đồ | ✅ |
+| **45f** | **Battle: bỏ nút BALL riêng, gộp vào khung BAG** — grid lệnh còn 2×2 FIGHT/POKÉMON/BAG/RUN (keyboard 1–4); khung BAG liệt kê item trong battle, **ball xếp đầu** (nền tím, ném qua `battle_item` — server đã trừ item + validate ownership), có nút cuộn ▲▼ khi item nhiều, chặn đá tiến hoá/rare candy/lucky egg (server từ chối trong battle) · server `battle_catch` (legacy) nay gọi `handleBattleItem` → hết bug ném ball miễn phí · xoá `sendBattleCatch` + key i18n `BATTLE_BALL` | ✅ |
+| **44g** | **Nâng cấp lệnh `/spawn` ngắn gọn & chi tiết + dọn dẹp repo** — parser `parseSpawnCommand` linh hoạt (ngắn gọn: `/spawn pikachu 50 s`, chi tiết: `level=50 shiny=true nature=timid held=light-ball iv=31 moves=... hp=1`) · tìm kiếm thông minh `findSpecies` + gợi ý `suggestSpecies` · trợ giúp `/spawn help` · giữ nguyên thuộc tính custom khi bắt thành công · dọn dẹp các file rác mồ côi (`demo-daisys-house.tmj`, `scaffold_archive_sep30`, `temp/`, screenshot cũ), tổ chức file md vào `docs/` | ✅ |
+| **44h** | **Hoàn thiện tính năng Bắt Pokémon toàn diện** — Chuẩn hóa công thức bắt Gen 3–8/Essentials (sửa lỗi tỷ lệ 0 khi full HP) · Đầy đủ hệ số các loại Ball (Net/Dive/Nest/Repeat/Timer/Quick/Dusk/Fast/Level/Master...) · Cơ chế tính số lần lắc (0..3 shakes) + Critical Capture · Diễn hoạt ném bóng parabol, hút Pokémon, rơi nảy đất, lắc bóng $\pm 24^\circ$, hiệu ứng sao vàng (caught) hoặc bung bóng (break free) · Modal tổng kết chiến lợi phẩm kèm nút đổi biệt danh (nickname) tức thì · Lưu DB an toàn: chống trùng `party_slot`, lưu `poke_ball`, hiệu ứng Heal/Friend/Luxury Ball, ghi nhật ký `logCatch` | ✅ |
+| **45g** | **Tối ưu hiển thị Item Party & Tiền tố `S.` cho Shiny** — Thay thế emoji 🎒 đè tràn text bằng dấu vát góc trên bên trái (corner notch) và viền vàng hổ phách cạnh trái slot · Không che chữ Lv hay icon · Thêm tiền tố `S. ` ở phía trước tên và cấp độ cho Pokémon Shiny đồng bộ xuyên suốt `PartyStrip`, `PartySelectModal`, `PokemonSummaryModal`, `BattleModal` | ✅ |
+| **44j** | **Tối ưu giao diện khung dùng Item trong trận** — Tái cấu trúc khung BAG trong `BattleModal`: thanh tìm kiếm thời gian thực (Search bar) tìm theo tên / hiệu ứng (HTML input bám toạ độ, chống nuốt phím tắt battle khi gõ, nút ✕ xóa nhanh) · Phân loại 4 tab trực quan (Tất cả / Bóng 🔴 / Thuốc 🧪 / Buff ⚔️) kèm bộ đếm số lượng realtime · Thiết kế thẻ vật phẩm 34px chuyên nghiệp (icon sprite/emoji, tên, hiệu ứng tóm tắt song ngữ VI/EN `+50 HP`/`Tỉ lệ bắt ×2.0`, pill badge số lượng `×N`) · Phân trang 6 thẻ/trang + cuộn chuột (mouse wheel) · Empty state thông minh có nút "↺ Đặt lại bộ lọc" · +8 i18n key | ✅ |
 
-**Bug đã fix đáng chú ý (Plan 38–46):** terrain tag 2/10 bị gán nhầm ledge → grass · `resolveSpawnTile` (warp bị chia 32 → rơi góc trái) · Vite dep cache thiếu export → đen màn hình · `rebuildIndex` mất 4 map · battle render 2 khung · listener leak `onStateChange` · marker `/tile` hiện 2 ô (thiếu `uiCam.ignore`) · `is_terrain` trả sai do `grass_zone` inject · `passage=13` bị bỏ qua (walkable toàn phần).
+**Bug đã fix đáng chú ý (Plan 38–45c):** terrain tag 2/10 bị gán nhầm ledge → grass · `resolveSpawnTile` (warp bị chia 32 → rơi góc trái) · Vite dep cache thiếu export → đen màn hình · `rebuildIndex` mất 4 map · battle render 2 khung · listener leak `onStateChange` · marker `/tile` hiện 2 ô (thiếu `uiCam.ignore`) · `is_terrain` trả sai do `grass_zone` inject · `passage=13` bị bỏ qua (walkable toàn phần) · **modal Plan 45 render 2 khung chồng nhau** (thiếu `getHudObjects()`) · **script server treo** do import barrel `config/index.js` kéo Redis giữ event loop · **tràn khung preview Item** (`PokemonSummaryModal` tab Vật phẩm lòi khỏi modal 8px; `BagModal` & `StoreModal` preview tràn đáy 18px và tràn viền phải — tái cấu trúc layout 560×400 cân xứng 100%) · **tràn text ô Party do emoji item** (bỏ 🎒, chuyển sang corner notch + viền cạnh trái; hiển thị tiền tố `S.` chuẩn cho shiny) · **kẹt lượt đánh server** (`checkResolveTurn` kiểm tra `foe.selectedMove < 0` trong trận wild khiến chiêu thức người chơi không bao giờ kích hoạt lượt đánh; sửa thành chỉ kiểm tra `ally.selectedMove < 0` vì foe là AI) · **tương tác skill & item card** (tách zone cuộn chuột, luôn tạo interactive zone cho `moveRow` bất kể `info` đã nạp xong hay chưa).
 
 ---
 
 ## 10. Kế hoạch Tiếp theo (Roadmap)
 
-### 🎯 Ưu tiên hiện tại: **Plan 45 — Items, Evolution, Tiền tệ, Trade**
+### 🎯 Ưu tiên hiện tại: **Plan 45 — Items, Evolution, Tiền tệ, Trade** — ✅ **HOÀN THÀNH** (Phase 0–7)
 > **Chi tiết đầy đủ:** [`.plans/plan-45-items-evolution.md`](./.plans/plan-45-items-evolution.md) (gitignored, local)
 >
-> ✅ **Plan 46 (collision/spawn) đã hoàn thành 2026-10-03** — xem Mục 9.
+> ✅ **Plan 45 đã hoàn thành 2026-10-07** — Phase 0–7 xong. Xem Mục 9 (Plan 45/45b/45c/45d/45e).
 
 **Chẩn đoán đã verify:** `inventory` table tồn tại nhưng **không module nào dùng** · `Item.effect = None`
 (693 item) · đá tiến hoá là `category:'misc'` (**0 item `evolution`**) · `pocket` bị `ItemSchema` strip ·
 `evolveSpecies()` **hỏng (luôn `return null`)** · `players.money` có DEFAULT 5000 nhưng **không code ±** ·
 `pokemon.held_item` chưa có cột · không có bảng log event/evolution.
 
-| Phase | Nội dung | Kết quả |
+| Phase | Nội dung | Trạng thái |
 | :---: | :--- | :--- |
-| **0** | Foundation: `ItemSchema`+`pocket` · `formulas/evolution.ts` (`resolveEvolution()` thay `evolveSpecies` hỏng) · migration idempotent (`held_item`, `pokemon_events`, `pokemon_evolution_history`, `trade_sessions`) | ✅ mở khóa mọi phase sau |
-| **1** | **Items**: `inventory.service` (transaction) · `GET /api/inventory` · cầm đồ · `resolveItemEffect()` registry (heal/revive/cure/buff/catch_ball/evo_stone) · dùng ngoài trận · **`battle_item` thật** (tốn lượt) | Bag hoạt động |
-| **2** | **Store + tiền**: buy/sell transaction · sync `PlayerState.money` → HUD realtime · `STORE_STOCK` · `StoreModal` | Vòng mua-bán |
-| **3** | **Evolution**: `tryEvolve()` recompute stats · hook sau mọi level-up · **`eventLog.grantXp`** (xp/level → event) · stone qua `use_item` | Tiến hoá + tracking |
-| **4** | **Trade giả lập**: NPC trade (server tự set flag, client không gửi) → kích hoạt `method:'trade'` (18 species) · `TradeModal` | Trade-evo |
-| **5** | **Công cụ moderator**: `/forceevolve` · `/reverseevolve` · `/leveldown` · `/levelup` · `/forcefriend` (role check + log `moderator_id`) | Admin test mọi case |
-| **6** | **UI/i18n**: `BagModal` · `StoreModal` · `TradeModal` · `EvolveModal` · Summary tab cầm đồ · PartyStrip icon held item · +60 key VI/EN | Polish |
-| **7** | *(tuỳ chọn)* Admin dashboard: inventory distribution, event feed, evolution history | Mở rộng |
+| **0** | Foundation: `ItemSchema`+`pocket` · `formulas/evolution.ts` (`resolveEvolution()` thay `evolveSpecies` hỏng) · migration idempotent (`held_item`, `friendship`, `pokemon_events`, `pokemon_evolution_history`, `trade_sessions`) | ✅ |
+| **1** | **Items**: `inventory.service` (transaction) · `GET /api/inventory` · cầm đồ · `resolveItemEffect()` registry (heal/revive/cure/restore_pp/buff/catch_ball/evo_stone/exp_boost/level_up) · dùng ngoài trận · **`battle_item` thật** (tốn lượt) | ✅ |
+| **2** | **Store + tiền**: buy/sell transaction (SELECT FOR UPDATE) · sync `PlayerState.money` → HUD realtime · `STORE_STOCK` · `StoreModal` + `GET /api/inventory/store` | ✅ |
+| **3** | **Evolution**: `tryEvolve()` recompute stats/moves · hook sau mọi level-up (world + battle) · `eventLog` (xp/level/evolve) · stone qua `use_item` · everstone chặn level/friendship | ✅ |
+| **4** | **Trade giả lập**: NPC trade (server tự set cờ, client không gửi) → kích hoạt `method:'trade'` (18 species) · `TradeModal` · **PvP trade (Phase 4b) chưa** | ✅ v1 |
+| **5** | **Công cụ moderator**: `/forceevolve` · `/reverseevolve` · `/leveldown` · `/levelup` · `/forcefriend` (role check + log `moderator_id`) | ✅ |
+| **6** | **UI/i18n**: `BagModal` · `StoreModal` · `TradeModal` · `EvolveModal` · `PartySelectModal` · tab Vật phẩm Summary · badge 🎒 PartyStrip · menu BAG BattleModal · `StoreModal` nối endpoint · i18n +8 key | ✅ |
+| **7** | **Admin dashboard** tab "Items & Trades": inventory distribution · top tiền · lịch sử tiến hoá (kèm moderator) · event log (filter kind) — API `GET /api/admin/items/overview` · `/items/top-spenders` · `/evolution/history` · `/events` | ✅ |
 
 **Thứ tự đề xuất:** 0 → 1 → 2 → 3 → 5 → 4 → 6 → (7)
 **Chống gian lận đã tính:** server luôn join `owner_id = session.userId` cho mọi read/write item ·
 mọi ± tiền trong transaction (SELECT FOR UPDATE) · `levelDown` recompute stats + clamp HP ·
 trade flag do server quyết định · force/reverse chỉ moderator và có audit log.
 
-### Các mục sau Plan 45
-1. **NPC & Hội thoại** — spawn NPC từ data sự kiện map, Dialogue Box phong cách RPG (Space/Enter/click).
-2. **Battle còn lại** — PvP, status effects (brn/par/poison đầy đủ), SoundManager BGM.
-3. **Event feed UI** — tab hiển thị `pokemon_events` gần nhất trong Summary.
-4. **Hoàn thiện dữ liệu Tiled** — vẽ `spawn_zone=1` cho vùng cỏ ở `lappet-town` (đang có bảng encounter 7 loài nhưng **0 ô GRASS**); thêm `passage` / `ledge_dir` cho các ô cần chặn hướng (hiện mới có 2 ô ở route-1).
+**Script dev mới (Plan 45):**
+- `pnpm --filter server exec tsx src/scripts/seed-inventory.ts <username>` — seed túi đồ cơ bản (idempotent).
+- `pnpm --filter server exec tsx src/scripts/grant-demo-items.ts [username...]` — grant **toàn bộ 693 item** (100 mỗi loại, ball **1000**); mặc định `admin` + `tienv2i`.
+- `pnpm --filter server exec tsx src/scripts/verify-demo-items.ts [username]` — kiểm tra số lượng.
+- ⚠ **Script server phải import `pool` từ `../config/database.js`** (KHÔNG dùng barrel `config/index.js`) — barrel kéo `redis.ts` connect → giữ event loop → process treo. Kết thúc script bằng `process.exit(0)`.
+
+### 🎯 Trạng thái hoàn thành: **Plan 44g..44j, Plan 45 & Plan 47 (PvP)** — ✅ **HOÀN THÀNH**
+>
+> ✅ **Plan 44g:** Lệnh `/spawn` linh hoạt ngắn gọn/chi tiết + Dọn dẹp repo.
+> ✅ **Plan 44h:** Hệ thống Bắt Pokémon toàn diện (công thức Gen 3–8/Essentials, mọi loại ball, shakes, critical capture, diễn hoạt parabol & lắc bóng, modal đổi nickname, DB an toàn).
+> ✅ **Plan 44i:** Tối ưu hoá Battle Scene (Retro-Modern Dark UI dịu mắt, anti-glare, bệ đứng Pokémon chính hãng, team ball indicators, 4 action buttons tông tối thanh lịch).
+> ✅ **Plan 44j:** Tối ưu giao diện khung sử dụng Item trong trận (Search realtime, 4 tabs phân loại, thẻ item hiệu ứng + số lượng, cuộn chuột, chống nuốt phím tắt).
+> ✅ **Plan 45:** Items, Evolution, Tiền tệ, Trade, Admin Items (Phase 0–7 hoàn tất).
+> ✅ **Plan 47 — PvP Battle (Đấu người chơi thực):**
+>    - **Luật PvP:** không dùng Poké Ball, không bỏ chạy (chỉ được **đầu hàng**), không nhận EXP; người thắng nhận thưởng **₽200**.
+>    - Điều kiện thách đấu: **level cap ≤ 30** và chênh lệch level giữa 2 bên **≤ 10**; map phải bật cờ `pvp: true` (hiện `route-1`).
+>    - Thách đấu qua lệnh chat **`/battle <username>`** hoặc click chuột vào người chơi cùng map (popup xác nhận 2 chiều, TTL + cooldown phía server).
+>    - Lượt đánh **đồng thời (simultaneous-turn)** — mỗi client nhận seat riêng (`ally`/`foe`) qua message `battle_seat`, server resolve cả 2 lượt cùng lúc.
+>    - Fix mất quyền điều khiển nhân vật: `PokedexModal` isOpen bug, `BattleModal` room lifecycle (onLeave/onError safety net), `startBattle` watchdog + ESC; `UiModal` tách overlay dimming khỏi input blocker (`lockGameOnly`) để modal không nuốt HUD.
+>
+> ✅ **Fix điều khiển (session 2026-10-10):** hết khoá cứng nhân vật sau khi mở modal / vào trận — xem `f9938830 fix(ui): keep player control when opening overlay modals`.
+
+---
+
+### 🚀 Ưu tiên tiếp theo (Upcoming Plans)
+> ✅ **Đã hoàn thành:** PvP Battle (Plan 47) — xem Mục 9.
+
+1. **NPC & Hội thoại (Dialogue System):**
+   - Spawn NPC từ event data map hoặc server database.
+   - Dialogue Box phong cách RPG retro (hỗ trợ phân trang lời thoại, avatar NPC, phím Space/Enter/click chuột).
+   - Trainer NPC challenge (đấu huấn luyện viên tự động khi bước vào tầm nhìn).
+2. **Âm thanh & Âm nhạc (Audio System):**
+   - SoundManager BGM cho từng khu vực bản đồ (Lappet Town, Route 1, Pokémon Center...).
+   - Nhạc nền trận đấu chiến đấu hoang dã & huấn luyện viên.
+   - SFX hiệu ứng âm thanh (va chạm chiêu thức, ném bóng, lên level, fainted).
+3. ~~**PvP Battle (Đấu người chơi thực qua Colyseus):**~~ — ✅ **ĐÃ HOÀN THÀNH (Plan 47)**:
+   - ~~Thách đấu người chơi khác trên bản đồ (`/battle username` hoặc click chuột).~~
+   - ~~Đồng bộ lượt đánh 2 chiều giữa 2 client.~~
+   - Phần mở rộng còn lại: **PvP trade (Phase 4b)**, ranking/Elo, lưu lịch sử trận.
+4. **Hoàn thiện dữ liệu Tiled & Mở rộng Thế giới:**
+   - Vẽ `spawn_zone=1` cho vùng cỏ `lappet-town`.
+   - Kết nối Route 2, Viridian City / Viridian Forest và các hang động tiếp theo.

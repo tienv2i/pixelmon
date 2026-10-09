@@ -62,7 +62,6 @@ function loadTextureImage(scene: Phaser.Scene, key: string, url: string): Promis
 export class BagModal extends UiModal {
   private items: InventoryItem[] = [];
   private selected: InventoryItem | null = null;
-  private selectedPokemon: PokemonData | null = null;
   private party: PokemonData[] = [];
 
   private gfx!: Phaser.GameObjects.Graphics;
@@ -217,9 +216,6 @@ export class BagModal extends UiModal {
 
   setParty(party: PokemonData[]): void {
     this.party = party;
-    if (this.selectedPokemon && !party.some((p) => p.id === this.selectedPokemon?.id)) {
-      this.selectedPokemon = null;
-    }
   }
 
   /** Danh sách pocket hợp lệ: 0 là Display All, 1..8 là từng nhóm */
@@ -903,123 +899,9 @@ export class BagModal extends UiModal {
       nextContentY = effY + effBoxH + 8;
     }
 
-    // 4. Chọn Pokémon mục tiêu (nếu item dùng được ngoài trận)
+    // 4. Không còn card chọn target — USE/HOLD tự mở PartySelect khi cần.
     const needTarget = this.isUsableOutsideBattle(item.itemId);
-    let actionY: number;
-
-    if (needTarget) {
-      const targetCardY = nextContentY;
-      const targetCardH = 48;
-      this.gfx.fillStyle(0x161a2f, 0.95);
-      this.gfx.fillRoundedRect(rx + 12, targetCardY, rw - 24, targetCardH, 4);
-      this.gfx.lineStyle(1.5, this.selectedPokemon ? 0x00cec9 : 0x2d365a, 0.9);
-      this.gfx.strokeRoundedRect(rx + 12, targetCardY, rw - 24, targetCardH, 4);
-
-      const lbl = mkText(this.scene, 'BAG_TARGET', {
-        fontSize: '9.5px',
-        fontFamily: FONT.sans,
-        fontStyle: 'bold',
-        color: '#00cec9',
-      }, rx + 18, targetCardY + 6);
-      this.detail.add(lbl);
-
-      if (this.selectedPokemon) {
-        const pkmIconKey = `pkm_icon_${this.selectedPokemon.species_id}`;
-        const pkmIconUrl = `/assets/icons/pokemon/${this.selectedPokemon.species_id}.png`;
-        const pImg = this.scene.add.image(rx + 28, targetCardY + 30, this.scene.textures.exists(pkmIconKey) ? pkmIconKey : `__MISSING:${this.selectedPokemon.species_id}`);
-        pImg.setDisplaySize(24, 24);
-        this.detail.add(pImg);
-
-        if (!this.scene.textures.exists(pkmIconKey)) {
-          loadTextureImage(this.scene, pkmIconKey, pkmIconUrl).then((ok) => {
-            if (ok && pImg.active) {
-              pImg.setTexture(pkmIconKey);
-              pImg.setDisplaySize(24, 24);
-            }
-          });
-        }
-
-        const nameStr = `${this.selectedPokemon.nickname || this.selectedPokemon.species_id} Lv.${this.selectedPokemon.level}`;
-        const selTxt = this.scene.add.text(rx + 46, targetCardY + 22, nameStr, {
-          fontSize: '10px',
-          fontFamily: FONT.sans,
-          fontStyle: 'bold',
-          color: '#ffffff',
-        });
-        this.detail.add(selTxt);
-
-        const curHp = this.selectedPokemon.current_hp ?? 0;
-        const maxHp = this.selectedPokemon.stats?.hp ?? 10;
-        const ratio = Phaser.Math.Clamp(curHp / maxHp, 0, 1);
-        const hpColor = ratio > 0.5 ? 0x00b894 : ratio > 0.2 ? 0xfdcb6e : 0xff7675;
-        this.gfx.fillStyle(0x0c0f1c, 1);
-        this.gfx.fillRoundedRect(rx + 46, targetCardY + 36, 75, 4, 1);
-        if (ratio > 0) {
-          this.gfx.fillStyle(hpColor, 1);
-          this.gfx.fillRoundedRect(rx + 46, targetCardY + 36, Math.max(3, Math.round(75 * ratio)), 4, 1);
-        }
-
-        const hpTxt = this.scene.add.text(rx + 126, targetCardY + 38, `${curHp}/${maxHp}`, {
-          fontSize: '8.5px',
-          fontFamily: FONT.mono,
-          color: '#8c98ba',
-        }).setOrigin(0, 0.5);
-        this.detail.add(hpTxt);
-      } else {
-        const noTargetTxt = this.scene.add.text(
-          rx + 18,
-          targetCardY + 24,
-          t('BAG_NO_TARGET'),
-          { fontSize: '10px', fontFamily: FONT.sans, color: '#63708e' },
-        );
-        this.detail.add(noTargetTxt);
-      }
-
-      // Nút mở PartySelectModal (CHỌN POKÉMON)
-      const pickW = 72;
-      const pickH = 24;
-      const pickX = rx + rw - 12 - pickW - 6;
-      const pickY = targetCardY + 12;
-      const pickG = this.scene.add.graphics();
-      const drawPickBtn = (hover = false) => {
-        pickG.clear();
-        pickG.fillStyle(hover ? 0x223c4a : 0x1b2c3a, 1);
-        pickG.fillRoundedRect(pickX, pickY, pickW, pickH, 4);
-        pickG.lineStyle(1.5, hover ? 0x00cec9 : 0x17b3af, 1);
-        pickG.strokeRoundedRect(pickX, pickY, pickW, pickH, 4);
-      };
-      drawPickBtn(false);
-      this.detail.add(pickG);
-
-      const pickTxt = mkText(this.scene, 'BAG_PICK', {
-        fontSize: '8.5px',
-        fontFamily: FONT.sans,
-        fontStyle: 'bold',
-        color: '#00cec9',
-      }, pickX + pickW / 2, pickY + pickH / 2).setOrigin(0.5);
-      this.detail.add(pickTxt);
-
-      const pickZone = this.scene.add
-        .zone(pickX + pickW / 2, pickY + pickH / 2, pickW, pickH)
-        .setInteractive({ useHandCursor: true });
-      pickZone.on('pointerover', () => {
-        drawPickBtn(true);
-        pickTxt.setColor('#ffffff');
-      });
-      pickZone.on('pointerout', () => {
-        drawPickBtn(false);
-        pickTxt.setColor('#00cec9');
-      });
-      pickZone.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
-        ptr.event?.stopPropagation();
-        this.openPartySelect(item, 'pick');
-      });
-      this.detail.add(pickZone);
-
-      actionY = targetCardY + targetCardH + 10;
-    } else {
-      actionY = nextContentY + 8;
-    }
+    const actionY: number = nextContentY + 8;
 
     // 5. Hai nút hành động: SỬ DỤNG (USE) & CẦM (HOLD)
     const btnW = rw - 24;
@@ -1075,16 +957,11 @@ export class BagModal extends UiModal {
       }
     };
 
-    // Nút SỬ DỤNG (USE) — đã chọn target ở card (nút CHỌN) thì dùng luôn,
-    // khỏi mở PartySelect lần nữa (trước đây USE luôn mở picker dù đã pick).
+    // Nút SỬ DỤNG (USE) — cần target thì mở PartySelect chọn + dùng luôn.
     mkActionBtn(t('BAG_BTN_USE'), 0x00cec9, 0x183742, true, actionY, () => {
       if (!this.onUse) return;
       if (!needTarget) {
         this.onUse(item.itemId, '');
-        return;
-      }
-      if (this.selectedPokemon) {
-        this.onUse(item.itemId, this.selectedPokemon.id);
         return;
       }
       this.openPartySelect(item, 'use');
@@ -1098,7 +975,7 @@ export class BagModal extends UiModal {
   }
 
   /** Mở PartySelectModal để chọn Pokémon mục tiêu cho item này. */
-  private openPartySelect(item: InventoryItem, action: 'use' | 'hold' | 'pick'): void {
+  private openPartySelect(item: InventoryItem, action: 'use' | 'hold'): void {
     if (!this.onPickTarget) return;
 
     const effect = resolveItemEffect(item.itemId);
@@ -1106,20 +983,13 @@ export class BagModal extends UiModal {
     // Các item hồi máu, chữa trạng thái, buff, evo stone... -> chỉ chọn Pokémon còn sống
     const filterAlive = action === 'hold' ? false : effect?.kind === 'revive' ? false : true;
 
-    const hint =
-      action === 'hold'
-        ? t('PARTY_SELECT_HOLD')
-        : action === 'use'
-        ? t('PARTY_SELECT_USE')
-        : t('PARTY_SELECT_HINT');
+    const hint = action === 'hold' ? t('PARTY_SELECT_HOLD') : t('PARTY_SELECT_USE');
 
     this.onPickTarget({
       title: t('PARTY_SELECT_TITLE'),
       hint,
       filterAlive,
       onSelect: (pokemon) => {
-        this.selectedPokemon = pokemon;
-        this.render();
         if (action === 'use') {
           this.onUse?.(item.itemId, pokemon.id);
         } else if (action === 'hold') {

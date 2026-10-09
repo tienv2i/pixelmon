@@ -32,13 +32,24 @@ import { ConfirmModal } from '../ui/ConfirmModal';
 import { HelpModal } from '../ui/HelpModal';
 import { PcBoxModal } from '../ui/PcBoxModal';
 import { PokemonSummaryModal, type PokemonData } from '../ui/PokemonSummaryModal';
+import { PokedexModal } from '../ui/PokedexModal';
+import { TownMapModal } from '../ui/TownMapModal';
+import { BagModal } from '../ui/BagModal';
+import { StoreModal } from '../ui/StoreModal';
+import { TradeModal } from '../ui/TradeModal';
+import { EvolveModal } from '../ui/EvolveModal';
+import { PartySelectModal } from '../ui/PartySelectModal';
+import { DialogueModal } from '../ui/DialogueModal';
+import { loadNpcSpriteSheet } from '../entities/NpcSpriteLoader';
 import { BattleModal } from '../ui/BattleModal';
 import { TopMenu } from '../ui/TopMenu';
 import { InfoPanel } from '../ui/InfoPanel';
 import { UiZoomManager } from '../ui/UiZoomManager';
+import type { UiModal } from '../ui/UiModal';
 import { FONT } from '../ui/theme';
 import { t } from '../i18n';
 import { TEX } from './BootScene';
+import { SoundManager } from '../audio/SoundManager';
 
 /** Bật để thấy FPS + toạ độ. */
 const DEBUG = false;
@@ -150,7 +161,45 @@ export class WorldScene extends Phaser.Scene {
   private battleModal?: BattleModal;
   /** Đang chờ mở modal (chống `battle_init` gọi 2 lần tạo 2 modal). */
   private battleStarting = false;
+  // ── Plan 47: trạng thái trận PvP hiện tại ──
+  private pvpIsPvp = false;
+  /** `roomId` của BattleRoom — chỉ có khi mình là bên FOE (vào bằng joinById). */
+  private pvpRoomId = '';
+  private pvpSeat: 'ally' | 'foe' = 'ally';
+  private pvpFoeName = '';
+  private pvpAllyName = '';
+  private pvpRewardMoney = 0;
+  /**
+   * Đang mở hộp thoại "chấp nhận thách PvP" (phía người nhận lời thách).
+   *
+   * Quan trọng: `confirmModal` nằm trong `isBlockingUiOpen()` → mở là mất
+   * quyền điều khiển nhân vật. Lời thách có thể bị huỷ từ phía server
+   * (hết hạn / người thách offline / lỗi tạo phòng) mà người chơi không bấm
+   * được nút → phải tự đóng modal để trả lại quyền di chuyển.
+   */
+  private pvpChallengePromptOpen = false;
   private pokemonSummaryModal!: PokemonSummaryModal;
+  private pokedexModal!: PokedexModal;
+  private townMapModal!: TownMapModal;
+  // ── Plan 45: Túi đồ / Store / Trade / Tiến hoá ──
+  private bagModal!: BagModal;
+  private storeModal!: StoreModal;
+  private tradeModal!: TradeModal;
+  private evolveModal!: EvolveModal;
+  /** Mini party box — chọn Pokémon cho switch / dùng item / gán item ngoài trận. */
+  private partySelectModal!: PartySelectModal;
+  /** Hộp thoại cốt truyện NPC. */
+  private dialogueModal!: DialogueModal;
+  /** Danh sách ID các huấn luyện viên đã bị đánh bại. */
+  private defeatedTrainers = new Set<string>();
+  /** Cooldown giữa các lần tương tác / rematch với từng NPC (timestamp ms). */
+  private npcCooldowns = new Map<string, number>();
+  /** Thời gian cooldown mặc định cho tương tác NPC (ms). */
+  private npcCooldownDuration = 3000;
+  /** Trainer ID đang diễn ra trận đấu (để ghi nhận khi thắng). */
+  private currentBattleTrainerId?: string;
+  /** Danh sách sprites NPC đang render trên map hiện tại. */
+  private npcSprites: Phaser.GameObjects.Sprite[] = [];
   private debugModal!: DebugModal;
   private debugConsole!: DebugConsole;
   private debugTrackerWidget!: DebugTrackerWidget;
@@ -402,6 +451,13 @@ export class WorldScene extends Phaser.Scene {
     // Remote players & server messages
     this.bindWorldRoomEvents();
 
+    // Nạp NPC cho bản đồ ban đầu
+    await this.spawnNpcsForCurrentMap();
+
+    // Nạp trạng thái trainer đã đánh bại + khởi tạo SoundManager
+    this.loadDefeatedTrainers();
+    SoundManager.getInstance(this);
+
     // ⚠️ BỎ global click → random battle. Trước đây `pointerdown` bắn 30% mỗi cú click
     // bất kỳ (chạm UI, click trống, click button...) → cửa sổ battle hiện ra "tự nhiên".
     // Battle giờ chỉ mở qua: bấm trực tiếp lên nhân vật, hoặc gặp grass encounter thật.
@@ -421,6 +477,138 @@ export class WorldScene extends Phaser.Scene {
     remote.onMessage('battle_init', (data) => this.onBattleInit(data));
     // Server phản hồi lệnh debug `/spawn` (đã qua kiểm tra role).
     remote.onMessage('debug_msg', (data) => this.onDebugMsg(data));
+    // Server broadcast túi đồ (Plan 45 §1.2) → refresh BagModal nếu đang mở.
+    remote.onMessage('bag_update', (data) => this.onBagUpdate(data));
+    // Server thông báo tiến hoá (Plan 45 §3.2) → hiện EvolveModal.
+    remote.onMessage('evolved', (data) => this.onEvolved(data));
+
+    // ── Plan 47: PvP challenge ──
+    remote.onMessage('pvp_challenge_incoming', (data) => this.onPvpChallengeIncoming(data));
+    remote.onMessage('pvp_challenge_sent', (data) => this.onPvpChallengeSent(data));
+    remote.onMessage('pvp_result', (data) => this.onPvpResult(data));
+    remote.onMessage('pvp_cancelled', (data) => this.onPvpCancelled(data));
+  }
+
+  /** Nhận `bag_update` từ server → refresh BagModal. */
+  private onBagUpdate(data: any): void {
+    const items = Array.isArray(data?.items) ? data.items : [];
+    this.bagModal.setItems(items);
+    // Đồng bộ money từ server (store_action).
+    void ColyseusManager.getInstance().fetchMoney().then((m) => {
+      this.mockMoney = m;
+      this.hud?.update({ money: m });
+    });
+    // Đồng bộ lại held_item trên PartyStrip / Summary (đeo/tháo item).
+    void this.loadPlayerPokemon();
+  }
+
+  /** Nhận `evolved` từ server → hiện EvolveModal. */
+  private onEvolved(data: any): void {
+    const pokemonId = String(data?.pokemonId ?? '');
+    const from = String(data?.from ?? '');
+    const to = String(data?.to ?? '');
+    if (!pokemonId || !from || !to) return;
+    this.evolveModal.showEvolved(pokemonId, from, to);
+  }
+
+  // ── Plan 47: PvP challenge UI ────────────────────────────────────────────
+
+  /** Đối thủ gửi lời thách đấu → hiện ConfirmModal đồng ý/từ chối. */
+  private onPvpChallengeIncoming(data: any): void {
+    const fromName = String(data?.fromName ?? 'Người chơi');
+    this.chatLog?.addSystemLine(
+      `[PvP] ${fromName} muốn thách đấu bạn!`,
+      '#f39c12',
+    );
+    // Đang có modal khoá UI (đánh nhau, đang xem túi…) → tự động từ chối.
+    if (this.isBlockingUiOpen() || this.battleStarting) {
+      ColyseusManager.getInstance().sendPvpResponse(false);
+      return;
+    }
+    this.closeAllTopDialogs();
+    this.pvpChallengePromptOpen = true;
+    this.confirmModal.show({
+      title: '⚔ THÁCH ĐẤU PVP',
+      message: `${fromName} muốn thách đấu bạn! Chấp nhận?`,
+      confirmText: 'Chấp nhận',
+      cancelText: 'Từ chối',
+      confirmColor: 0x2980b9,
+      onConfirm: () => {
+        this.pvpChallengePromptOpen = false;
+        ColyseusManager.getInstance().sendPvpResponse(true);
+      },
+      onCancel: () => {
+        this.pvpChallengePromptOpen = false;
+        ColyseusManager.getInstance().sendPvpResponse(false);
+      },
+    });
+  }
+
+  /** Đã gửi lời thách → báo trong chat. */
+  private onPvpChallengeSent(data: any): void {
+    const toName = String(data?.toName ?? '');
+    this.chatLog?.addSystemLine(
+      `[PvP] Đã gửi lời thách đấu tới ${toName}. Đang chờ phản hồi...`,
+      '#7bed9f',
+    );
+  }
+
+  /** Server từ chối lời thách (lý do cụ thể). */
+  private onPvpResult(data: any): void {
+    if (data?.ok === false && data?.message) {
+      this.chatLog?.addSystemLine(`[PvP] ${data.message}`, '#e74c3c');
+    }
+  }
+
+  /** Lời thách bị huỷ (hết hạn / từ chối / đối thủ offline / lỗi phòng). */
+  private onPvpCancelled(data: any): void {
+    const reason = String(data?.reason ?? '');
+    const msg =
+      reason === 'declined'
+        ? 'Đối thủ đã từ chối thách đấu.'
+        : reason === 'expired'
+        ? 'Lời thách đấu đã hết hạn.'
+        : reason === 'offline'
+        ? 'Đối thủ đã rời khỏi trò chơi.'
+        : reason === 'failed'
+        ? 'Không tạo được phòng PvP, vui lòng thử lại.'
+        : reason === 'in_battle'
+        ? 'Một trong hai đang trong trận đấu.'
+        : reason === 'no_team'
+        ? 'Cần ít nhất 1 Pokémon còn sống.'
+        : 'Lời thách đấu đã bị huỷ.';
+    this.chatLog?.addSystemLine(`[PvP] ${msg}`, '#e67e22');
+    // Hộp thoại "chấp nhận thách đấu" vẫn mở (người chơi chưa kịp bấm) →
+    // nếu không đóng, `isBlockingUiOpen()` luôn true và nhân vật đứng im vĩnh viễn.
+    if (this.pvpChallengePromptOpen) {
+      this.pvpChallengePromptOpen = false;
+      this.confirmModal.close();
+    }
+  }
+
+  /**
+   * Click vào người chơi khác → hỏi xác nhận rồi gửi lời thách PvP.
+   * Chỉ dùng `targetSessionId`; server tự kiểm tra map PvP / level / đang bận.
+   */
+  private promptPvpChallenge(targetSessionId: string, targetName: string): void {
+    if (this.isBlockingUiOpen() || this.battleStarting) return;
+
+    // Map không bật PvP → không mở hộp thoại (nếu không mỗi lần click người chơi
+    // lại hiện modal khoá UI rồi bị server từ chối, khiến "mất quyền điều khiển").
+    if (!MAPS[this.currentMapId]?.pvp) {
+      this.chatLog?.addSystemLine('[PvP] Khu vực này không cho phép PvP.', '#e74c3c');
+      return;
+    }
+
+    this.closeAllTopDialogs();
+    this.confirmModal.show({
+      title: '⚔ THÁCH ĐẤU PVP',
+      message: `Gửi lời thách đấu tới ${targetName}?`,
+      confirmText: 'Thách đấu',
+      cancelText: 'Huỷ',
+      confirmColor: 0x2980b9,
+      onConfirm: () => ColyseusManager.getInstance().sendPvpChallenge(undefined, targetSessionId),
+    });
   }
 
   /** Server trả kết quả lệnh debug (`/spawn`) → hiện vào khung chat. */
@@ -431,12 +619,35 @@ export class WorldScene extends Phaser.Scene {
     this.chatLog?.addSystemLine(msg, color);
   }
 
-  /** Server đã roll encounter → dừng di chuyển, vào battle room bằng token. */
+  /** Server đã roll encounter hoặc kích hoạt trainer battle → dừng di chuyển, vào battle room bằng token. */
   private onBattleInit(data: any): void {
     const token = data?.token;
     if (!token) return;
-    this.reportEncounter(data);
-    this.startBattle(token, data?.foe, data?.ally);
+    // Reset PvP trước để trận wild/trainer kế không kế thừa state cũ.
+    this.pvpIsPvp = false;
+    this.pvpRoomId = '';
+    this.pvpSeat = 'ally';
+    this.pvpFoeName = '';
+    this.pvpAllyName = '';
+    this.pvpRewardMoney = 0;
+    const isTrainer = Boolean(data?.isTrainer);
+    const trainerName = data?.trainerName || data?.trainerId;
+    if (trainerName && !this.currentBattleTrainerId) {
+      this.currentBattleTrainerId = String(data?.trainerId || trainerName);
+    }
+    if (!isTrainer && !data?.isPvp) {
+      this.reportEncounter(data);
+    }
+    // PvP: foe nhận `roomId` để joinById; ally (bên thách) không có roomId → create.
+    if (data?.isPvp) {
+      this.pvpIsPvp = true;
+      this.pvpFoeName = String(data?.foeName ?? '');
+      this.pvpAllyName = String(data?.allyName ?? '');
+      this.pvpRewardMoney = Number(data?.rewardMoney ?? 0);
+      if (data?.roomId) this.pvpRoomId = String(data.roomId);
+      if (data?.seat) this.pvpSeat = data.seat;
+    }
+    this.startBattle(token, data?.foe, data?.ally, isTrainer, trainerName, data);
   }
 
   /**
@@ -612,10 +823,25 @@ export class WorldScene extends Phaser.Scene {
     this.events.on('battle_ended', () => this.onBattleEnded());
   }
 
-  /** Kết thúc trận wild → đóng modal, mở khoá di chuyển + đồng bộ party từ API. */
-  private onBattleEnded(): void {
+  /** Kết thúc trận đấu → đóng modal, mở khoá di chuyển, cập nhật trainer và đồng bộ party từ API. */
+  private onBattleEnded(result?: string): void {
+    if (this.currentBattleTrainerId && (result === 'win' || result === 'caught')) {
+      this.defeatedTrainers.add(this.currentBattleTrainerId);
+      this.saveDefeatedTrainers();
+      // Rematch cooldown 60s
+      this.npcCooldowns.set(this.currentBattleTrainerId, Date.now() + 60000);
+      this.chatLog?.addSystemLine(`[Huấn luyện viên] Bạn đã đánh bại HLV ${this.currentBattleTrainerId}!`, '#2ecc71');
+    }
+    this.currentBattleTrainerId = undefined;
     this.battleModal = undefined;
     this.battleStarting = false;
+    // Reset trạng thái PvP để trận wild/trainer kế tiếp không bị kế thừa.
+    this.pvpIsPvp = false;
+    this.pvpRoomId = '';
+    this.pvpSeat = 'ally';
+    this.pvpFoeName = '';
+    this.pvpAllyName = '';
+    this.pvpRewardMoney = 0;
     this.canMove = true;
     this.cancelAutoMove();
     void this.loadPlayerPokemon();
@@ -647,6 +873,20 @@ export class WorldScene extends Phaser.Scene {
       ...(this.pcBoxModal ? this.pcBoxModal.getGameObjects() : []),
       ...(this.battleModal ? this.battleModal.getGameObjects() : []),
       ...(this.pokemonSummaryModal ? this.pokemonSummaryModal.getGameObjects() : []),
+      ...(this.pokedexModal ? this.pokedexModal.getGameObjects() : []),
+      ...(this.townMapModal ? this.townMapModal.getGameObjects() : []),
+      // ── Plan 45: Túi đồ / Store / Trade / Tiến hoá ──
+      // Nằm trong getHudObjects() để setupUiCamera() ignore giúp.
+      // Lý do: các modal này được tạo trong createHud() — chạy TRƯỚC
+      // setupUiCamera() — nên registerHudObject() lúc khởi tạo là no-op
+      // (this.uiCam chưa có). Không khai báo ở đây → cả world camera và
+      // UI camera đều render → hiện 2 khung modal chồng lên nhau.
+      ...(this.bagModal ? this.bagModal.getGameObjects() : []),
+      ...(this.storeModal ? this.storeModal.getGameObjects() : []),
+      ...(this.tradeModal ? this.tradeModal.getGameObjects() : []),
+      ...(this.evolveModal ? this.evolveModal.getGameObjects() : []),
+      ...(this.partySelectModal ? this.partySelectModal.getGameObjects() : []),
+      ...(this.dialogueModal ? this.dialogueModal.getGameObjects() : []),
       ...(this.debugModal ? this.debugModal.getGameObjects() : []),
       ...(this.debugConsole ? this.debugConsole.getGameObjects() : []),
       ...(this.debugTrackerWidget ? this.debugTrackerWidget.getGameObjects() : []),
@@ -689,6 +929,10 @@ export class WorldScene extends Phaser.Scene {
 
     for (const rp of this.remotePlayers) {
       objs.push(rp[1], ...rp[1].getChildObjects());
+    }
+
+    if (this.npcSprites.length > 0) {
+      objs.push(...this.npcSprites);
     }
     return objs;
   }
@@ -742,39 +986,81 @@ export class WorldScene extends Phaser.Scene {
       this.cursors.up.on('down', cancelMove);
       this.cursors.down.on('down', cancelMove);
 
-      // Esc → mở/đóng settings panel
-      this.input.keyboard.on('keydown-ESC', () => this.settingsPanel?.toggle());
-      // M → toggle minimap (bên cạnh icon GPS)
-      this.input.keyboard.on('keydown-M', () => {
-        this.minimap.toggle();
-        this.topMenu?.setActive(this.minimap.isVisible() ? 'gps' : '');
-        this.settingsPanel?.setHudCheckbox('minimap', this.minimap.isVisible());
-      });
-      // H → ẩn/hiện bảng hướng dẫn
-      this.input.keyboard.on('keydown-H', () => {
-        this.helpModal?.toggle();
-        this.topMenu?.setActive(this.helpModal?.isOpen() ? 'help' : '');
-      });
-      // B → mở/đóng PC Box
-      this.input.keyboard.on('keydown-B', () => {
-        this.pcBoxModal?.toggle();
-        this.topMenu?.setActive(this.pcBoxModal?.isOpen() ? 'pc' : '');
-        if (this.pcBoxModal?.isOpen()) {
-          this.loadPlayerPokemon();
+      // Esc → đóng modal top nếu đang mở, hoặc mở/đóng settings panel
+      this.input.keyboard.on('keydown-ESC', () => {
+        // Ứng cứu: battle modal kẹt (chết kết nối / server đóng phòng mà
+        // `finish()` không chạy) → ESC ép kết thúc để trả quyền điều khiển.
+        if (this.battleModal?.isOpen() && !this.battleModal.isEnded()) {
+          this.battleModal.forceClose();
+          return;
+        }
+        if (this.isAnyTopDialogOpen()) {
+          this.closeAllTopDialogs();
+          this.syncTopMenuActive();
+        } else {
+          this.toggleTopDialog('settings');
         }
       });
-      // P → mở/đóng Party
-      this.input.keyboard.on('keydown-P', () => {
-        this.partyStrip?.toggle();
-        this.topMenu?.setActive(this.partyStrip?.isOpen() ? 'team' : '');
-        this.settingsPanel?.setHudCheckbox('party', this.partyStrip?.isOpen());
-        if (this.partyStrip?.isOpen()) {
-          this.loadPlayerPokemon();
+      this.setupKeyboardInput();
+      // Space → tương tác với NPC ở ô trước mặt nếu không có modal chặn
+      this.input.keyboard.on('keydown-SPACE', () => {
+        if (this.isBlockingUiOpen() || this.dialogueModal.isOpen()) return;
+        if (this.chatLog?.isInputFocused()) return;
+
+        const v = WorldScene.dirToVector(this.player.getDirection());
+        const facingCol = Math.floor(this.player.x / TILE_SIZE) + v.dx;
+        const facingRow = Math.floor(this.player.y / TILE_SIZE) + v.dy;
+        const targetNpc = this.collision.getNpcSpawns().find((n) => n.x === facingCol && n.y === facingRow);
+        if (targetNpc) {
+          this.interactWithNpc(targetNpc);
         }
       });
     }
 
     this.setupPointerInput();
+  }
+
+  /**
+   * Gắn phím tắt trực quan:
+   * - D: Bật/tắt Pokédex (PokedexModal)
+   * - M: Bật/tắt Bản đồ thế giới (TownMapModal)
+   * - B: Bật/tắt Túi đồ (BagModal)
+   * - P: Bật/tắt Đội hình (PartyStrip)
+   * - H: Bật/tắt Hướng dẫn (HelpModal)
+   */
+  private setupKeyboardInput(): void {
+    if (!this.input.keyboard) return;
+
+    // K / D → Bật/tắt Pokédex (PokedexModal)
+    this.input.keyboard.on('keydown-K', () => {
+      if (this.chatLog?.isInputFocused()) return;
+      this.openPokedex();
+    });
+    // M → Bật/tắt Bản đồ thế giới (TownMapModal)
+    this.input.keyboard.on('keydown-M', () => {
+      if (this.chatLog?.isInputFocused()) return;
+      this.openTownMap();
+    });
+    // B → Bật/tắt Túi đồ (BagModal)
+    this.input.keyboard.on('keydown-B', () => {
+      if (this.chatLog?.isInputFocused()) return;
+      this.toggleTopDialog('bag');
+    });
+    // H → mở/đóng bảng hướng dẫn
+    this.input.keyboard.on('keydown-H', () => {
+      if (this.chatLog?.isInputFocused()) return;
+      this.toggleTopDialog('help');
+    });
+    // P → mở/đóng Party
+    this.input.keyboard.on('keydown-P', () => {
+      if (this.chatLog?.isInputFocused()) return;
+      this.partyStrip?.toggle();
+      this.topMenu?.setActive(this.partyStrip?.isOpen() ? 'team' : '');
+      this.settingsPanel?.setHudCheckbox('party', this.partyStrip?.isOpen());
+      if (this.partyStrip?.isOpen()) {
+        this.loadPlayerPokemon();
+      }
+    });
   }
 
   /**
@@ -800,7 +1086,17 @@ export class WorldScene extends Phaser.Scene {
    */
   private isBlockingUiOpen(): boolean {
     return Boolean(
-      this.settingsPanel?.isOpen() ||
+      this.pokedexModal?.isOpen() ||
+        this.townMapModal?.isOpen() ||
+        this.bagModal?.isOpen() ||
+        this.storeModal?.isOpen() ||
+        this.tradeModal?.isOpen() ||
+        this.pcBoxModal?.isOpen() ||
+        this.settingsPanel?.isOpen() ||
+        this.helpModal?.isOpen() ||
+        this.debugModal?.isOpen() ||
+        this.pokemonSummaryModal?.isOpen() ||
+        this.partySelectModal?.isOpen() ||
         this.confirmModal?.isOpen() ||
         this.battleModal?.isOpen() ||
         this.topMenu?.isToolsModalOpen(),
@@ -1248,7 +1544,7 @@ export class WorldScene extends Phaser.Scene {
         );
       },
       onLogout: () => this.confirmLogout(),
-      onClose: () => undefined,
+      onClose: () => this.syncTopMenuActive(),
     });
     this.settingsPanel.setUiZoomManager(this.uiZoom);
 
@@ -1295,7 +1591,7 @@ export class WorldScene extends Phaser.Scene {
         this.speedMultiplier = mult;
       },
       onClose: () => {
-        this.topMenu?.setActive('');
+        this.syncTopMenuActive();
       },
     });
     this.debugModal.setUiZoomManager(this.uiZoom);
@@ -1386,6 +1682,10 @@ export class WorldScene extends Phaser.Scene {
     // Confirm Modal — hộp thoại xác nhận đăng xuất
     this.confirmModal = new ConfirmModal(this);
 
+    // Dialogue Modal — hộp thoại hội thoại cốt truyện Pokémon
+    this.dialogueModal = new DialogueModal(this);
+    this.dialogueModal.setUiZoomManager(this.uiZoom);
+
     // TopMenu — dãy icon nhỏ neo giữa cạnh trên
     this.topMenu = new TopMenu(this, (key) => this.onTopMenuIcon(key));
     this.topMenu.setUiZoomManager(this.uiZoom);
@@ -1398,20 +1698,67 @@ export class WorldScene extends Phaser.Scene {
 
     // HelpModal — bảng hướng dẫn điều khiển dạng popup modal chuẩn
     this.helpModal = new HelpModal(this, () => {
-      this.topMenu?.setActive('');
+      this.syncTopMenuActive();
     });
     this.helpModal.setUiZoomManager(this.uiZoom);
 
     // PokemonSummaryModal — bảng thông tin chi tiết từng Pokémon
     this.pokemonSummaryModal = new PokemonSummaryModal(this);
     this.pokemonSummaryModal.setUiZoomManager(this.uiZoom);
+    // Tab "Vật phẩm" → mở BagModal để đổi item đang cầm.
+    this.pokemonSummaryModal.onOpenBag = () => {
+      this.toggleTopDialog('bag');
+    };
+
+    // ── Plan 45: Túi đồ / Store / Trade / Tiến hoá ──
+    // PartySelectModal — mini party box dùng chung cho mọi tác vụ chọn Pokémon
+    // (dùng item, gán item, switch, trade).
+    // onSelect/onCancel được gán động mỗi lần mở qua openPartySelect().
+    this.partySelectModal = new PartySelectModal(this, {
+      title: t('PARTY_SELECT_TITLE'),
+      party: this.playerPokemonParty,
+    });
+
+    this.pokedexModal = new PokedexModal(this, () => this.syncTopMenuActive());
+    this.pokedexModal.setUiZoomManager(this.uiZoom);
+
+    this.townMapModal = new TownMapModal(this, () => this.syncTopMenuActive());
+    this.townMapModal.setUiZoomManager(this.uiZoom);
+
+    this.bagModal = new BagModal(this, {
+      party: this.playerPokemonParty,
+      onUse: (itemId, pokemonId) => {
+        ColyseusManager.getInstance().sendUseItem(itemId, pokemonId);
+      },
+      onHold: (itemId, pokemonId) => {
+        ColyseusManager.getInstance().sendHoldItem(pokemonId, itemId);
+      },
+      // Dùng/gán item → mở mini party box để chọn Pokémon mục tiêu.
+      onPickTarget: (opts) => this.openPartySelect(opts),
+      onClose: () => this.syncTopMenuActive(),
+    });
+    this.bagModal.setUiZoomManager(this.uiZoom);
+
+    this.storeModal = new StoreModal(this, () => this.syncTopMenuActive());
+    this.storeModal.setUiZoomManager(this.uiZoom);
+
+    this.tradeModal = new TradeModal(this, () => this.syncTopMenuActive());
+    this.tradeModal.setUiZoomManager(this.uiZoom);
+
+    this.evolveModal = new EvolveModal(this);
+    this.evolveModal.setUiZoomManager(this.uiZoom);
+
+    // Lưu ý: KHÔNG gọi registerHudObject() ở đây — createHud() chạy TRƯỚC
+    // setupUiCamera() nên this.uiCam chưa tồn tại (lệnh sẽ no-op).
+    // 4 modal này đã được khai báo trong getHudObjects() để setupUiCamera()
+    // ignore giúp (tránh world + UI camera render trùng → 2 khung chồng nhau).
 
     // PcBoxModal — hộp lưu trữ Pokémon (PC Box)
     this.pcBoxModal = new PcBoxModal(
       this,
       this.pokemonSummaryModal,
       (newParty) => this.onPartyUpdated(newParty),
-      () => this.topMenu?.setActive(''),
+      () => this.syncTopMenuActive(),
     );
     this.pcBoxModal.setUiZoomManager(this.uiZoom);
 
@@ -1536,14 +1883,19 @@ export class WorldScene extends Phaser.Scene {
       const pkm = this.playerPokemonParty[i];
       if (pkm) {
         const maxHp = pkm.stats?.hp || 100;
+        const isShiny = Boolean(pkm.shiny);
+        const baseName = pkm.nickname || pkm.species_id;
+        const displayName = isShiny ? `S. ${baseName}` : baseName;
         members.push({
           id: pkm.id,
-          name: pkm.nickname || pkm.species_id,
+          name: displayName,
           species_id: pkm.species_id,
           level: pkm.level,
           hp: pkm.current_hp ?? maxHp,
           maxHp,
-          rarity: pkm.shiny ? 'legendary' : 'common',
+          rarity: isShiny ? 'legendary' : 'common',
+          shiny: isShiny,
+          heldItem: (pkm as PokemonData & { held_item?: string | null }).held_item ?? null,
           pokemonData: pkm,
         });
       } else {
@@ -1703,6 +2055,149 @@ export class WorldScene extends Phaser.Scene {
     this.chatLog.setVisible(on);
   }
 
+  /**
+   * Mở `PartySelectModal` (mini party box) để chọn 1 Pokémon trong đội.
+   * Dùng chung cho: dùng item, gán item, switch, trade…
+   * `opts.onSelect` được gán động rồi mở modal.
+   */
+  private openPartySelect(opts: {
+    title: string;
+    hint?: string;
+    filterAlive?: boolean;
+    onSelect: (pokemon: PokemonData, index: number) => void;
+  }): void {
+    const modal = this.partySelectModal;
+    modal.setTitle(opts.title);
+    modal.setParty(this.playerPokemonParty);
+    modal.setFilterAlive(opts.filterAlive ?? false);
+    modal.setHint(opts.hint ?? t('PARTY_SELECT_HINT'));
+    modal.onSelect = opts.onSelect;
+    modal.onCancel = () => undefined;
+    modal.show();
+  }
+
+  /**
+   * Danh sách các key của hộp thoại ở hàng top.
+   * Mỗi thời điểm chỉ mở duy nhất MỘT hộp thoại trong nhóm này.
+   */
+  private readonly TOP_DIALOG_KEYS = [
+    'pokedex',
+    'map',
+    'bag',
+    'store',
+    'trade',
+    'pc',
+    'settings',
+    'help',
+    'debug',
+  ] as const;
+
+  public getTopDialog(key: string): UiModal | undefined {
+    switch (key) {
+      case 'pokedex':
+        return this.pokedexModal;
+      case 'map':
+        return this.townMapModal;
+      case 'bag':
+        return this.bagModal;
+      case 'store':
+        return this.storeModal;
+      case 'trade':
+        return this.tradeModal;
+      case 'pc':
+        return this.pcBoxModal;
+      case 'settings':
+        return this.settingsPanel;
+      case 'help':
+        return this.helpModal;
+      case 'debug':
+        return this.debugModal;
+      default:
+        return undefined;
+    }
+  }
+
+  /** Kiểm tra xem có bất kỳ hộp thoại hàng top nào đang mở hay không */
+  public isAnyTopDialogOpen(): boolean {
+    return this.TOP_DIALOG_KEYS.some((k) => this.getTopDialog(k)?.isOpen());
+  }
+
+  /** Đóng tất cả các hộp thoại ở hàng top (ngoại trừ exceptKey nếu chỉ định) */
+  public closeAllTopDialogs(exceptKey?: string): void {
+    for (const k of this.TOP_DIALOG_KEYS) {
+      if (k === exceptKey) continue;
+      const modal = this.getTopDialog(k);
+      if (modal && modal.isOpen()) {
+        modal.close();
+      }
+    }
+    if (this.topMenu?.isToolsModalOpen()) {
+      this.topMenu.closeToolsModal();
+    }
+  }
+
+  /** Đồng bộ icon active trên TopMenu theo hộp thoại hàng top đang mở (nếu có) */
+  public syncTopMenuActive(): void {
+    for (const k of this.TOP_DIALOG_KEYS) {
+      const modal = this.getTopDialog(k);
+      if (modal && modal.isOpen()) {
+        this.topMenu?.setActive(k);
+        return;
+      }
+    }
+    this.topMenu?.setActive('');
+  }
+
+  /**
+   * Bật/tắt hộp thoại hàng top:
+   * Mỗi lần chỉ mở một khung: nếu đã mở thì đóng lại, nếu khung khác đang mở thì đóng khung cũ và mở khung mới.
+   */
+  public toggleTopDialog(key: string): void {
+    const targetModal = this.getTopDialog(key);
+    if (!targetModal) return;
+
+    if (key === 'debug' && !ColyseusManager.getInstance().hasDebugAccess()) {
+      this.chatLog?.addLine(t('WS_NEED_MOD'));
+      return;
+    }
+
+    if (targetModal.isOpen()) {
+      targetModal.close();
+      SoundManager.getInstance(this).playSe('gui_menu_close');
+      this.syncTopMenuActive();
+      return;
+    }
+
+    // Đóng toàn bộ các hộp thoại top khác trước khi mở khung mới
+    this.closeAllTopDialogs(key);
+
+    // Chuẩn bị dữ liệu trước khi mở
+    if (key === 'pc') {
+      this.loadPlayerPokemon();
+    } else if (key === 'trade') {
+      this.tradeModal.setParty(this.playerPokemonParty);
+    } else if (key === 'map') {
+      this.townMapModal.setCurrentMapId(this.currentMapId);
+    }
+
+    targetModal.show();
+    this.topMenu?.setActive(key);
+
+    if (key === 'pokedex') {
+      SoundManager.getInstance(this).playSe('gui_pokedex_open');
+    } else if (key === 'map') {
+      SoundManager.getInstance(this).playSe('gui_menu_open');
+    }
+  }
+
+  public openPokedex(): void {
+    this.toggleTopDialog('pokedex');
+  }
+
+  public openTownMap(): void {
+    this.toggleTopDialog('map');
+  }
+
   private onTopMenuIcon(key: string): void {
     switch (key) {
       case 'gps': {
@@ -1712,20 +2207,6 @@ export class WorldScene extends Phaser.Scene {
         this.layoutRightColumn();
         break;
       }
-      case 'debug':
-        this.openDebugTab();
-        break;
-      case 'settings':
-        this.settingsPanel.toggle();
-        break;
-      case 'help': {
-        this.helpModal.toggle();
-        this.topMenu?.setActive(this.helpModal.isOpen() ? 'help' : '');
-        break;
-      }
-      case 'logout':
-        this.confirmLogout();
-        break;
       case 'team': {
         this.partyStrip.toggle();
         this.topMenu?.setActive(this.partyStrip.isOpen() ? 'team' : '');
@@ -1735,17 +2216,24 @@ export class WorldScene extends Phaser.Scene {
         }
         break;
       }
-      case 'pc': {
-        this.pcBoxModal.toggle();
-        this.topMenu?.setActive(this.pcBoxModal.isOpen() ? 'pc' : '');
-        if (this.pcBoxModal.isOpen()) {
-          this.loadPlayerPokemon();
-        }
-        break;
-      }
       case 'pokedex':
-      case 'bag':
+        this.openPokedex();
+        break;
       case 'map':
+        this.openTownMap();
+        break;
+      case 'debug':
+      case 'settings':
+      case 'help':
+      case 'pc':
+      case 'bag':
+      case 'store':
+      case 'trade':
+        this.toggleTopDialog(key);
+        break;
+      case 'logout':
+        this.confirmLogout();
+        break;
       default:
         // Các icon khác hiện chỉ là nút bấm — chưa cần popup.
         this.chatLog?.addLine(`[${key}] chưa implement`);
@@ -1754,6 +2242,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private confirmLogout(): void {
+    this.closeAllTopDialogs();
     this.confirmModal.show({
       title: t('WS_LOGOUT_TITLE'),
       message: t('WS_LOGOUT_MSG'),
@@ -1838,6 +2327,13 @@ export class WorldScene extends Phaser.Scene {
         // nếu không nó bị render bởi cả 2 camera → nhân đôi + sai vị trí khi zoom.
         this.registerWorldObject(rp, ...rp.getChildObjects());
 
+        // Plan 47: click trái vào người chơi khác → mở hộp thoại thách đấu PvP.
+        rp.setInteractive({ useHandCursor: true });
+        rp.on('pointerdown', (p: Phaser.Input.Pointer) => {
+          if (p.button !== 0) return;
+          this.promptPvpChallenge(sessionId, ps.displayName);
+        });
+
         // Nếu server trả sprite được gán → load sheet thay thế (async)
         if (ps.spriteUrl) {
           const key = `remote_sprite_${sessionId}`;
@@ -1894,7 +2390,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * Bắt đầu trận wild encounter (Plan 44 Phase 0/3b).
+   * Bắt đầu trận (wild encounter hoặc PvP).
    *
    * Server roll encounter ở `handleMove` rồi gửi `battle_init {token, foe, ally}`.
    * Client mở **BattleModal popup** (không launch scene riêng):
@@ -1902,34 +2398,92 @@ export class WorldScene extends Phaser.Scene {
    *   2. Tạo BattleModal (lockUi) và join battle room bằng token.
    *   3. Khi modal đóng → `battle_ended` → mở lại input + refresh party.
    */
-  private startBattle(token: string, foe: unknown, ally: unknown): void {
+  private startBattle(
+    token: string,
+    foe: unknown,
+    ally: unknown,
+    isTrainer?: boolean,
+    trainerName?: string,
+    rawInit?: any,
+  ): void {
     // Guard: nhiều `battle_init` liên tiếp (hoặc async race) → chỉ mở 1 modal.
     if (this.battleStarting || this.battleModal) return;
     this.battleStarting = true;
     this.canMove = false;
     this.cancelAutoMove();
+
+    /**
+     * Mở khoá điều khiển khi không mở được battle (join fail / exception).
+     * Bắt buộc phải có: mọi nhánh lỗi phải trả `canMove = true` + `battleStarting
+     * = false`, nếu không người chơi đứng im vĩnh viễn.
+     */
+    const releaseControls = (result: string): void => {
+      this.battleStarting = false;
+      this.battleModal = undefined;
+      this.onBattleEnded(result);
+    };
+
     const network = ColyseusManager.getInstance();
-    void network.joinBattle(token).then(() => {
-      void BattleModal.loadTextures(this, { token, foe: foe as any, ally: (ally ?? []) as any }).then(
-        () => {
+
+    // Watchdog: nếu `joinBattle`/`create` treo (server không phản hồi — không
+    // resolve cũng không reject) thì `.catch` ở dưới KHÔNG chạy. Sau 15s vẫn
+    // `battleStarting` mà chưa có modal → trả quyền điều khiển.
+    this.time.delayedCall(15_000, () => {
+      if (this.battleStarting && !this.battleModal) {
+        console.warn('[battle] startBattle watchdog — releasing stuck controls');
+        releaseControls('error');
+      }
+    });
+
+    // PvP: bên foe dùng joinById (room do bên thách tạo), bên thách dùng create.
+    const joinPromise = this.pvpIsPvp && this.pvpRoomId
+      ? network.joinBattleById(this.pvpRoomId, token)
+      : network.joinBattle(token);
+
+    joinPromise
+      .then(() => {
+        if (!network.battle) {
+          // Join thất bại (token hết hạn / phòng full / mất mạng) → huỷ mở modal.
+          releaseControls('error');
+          return;
+        }
+        const init = {
+          token,
+          foe: foe as any,
+          ally: (ally ?? []) as any,
+          isTrainer,
+          trainerName,
+          isPvp: this.pvpIsPvp || undefined,
+          foeName: this.pvpFoeName || undefined,
+        };
+        return BattleModal.loadTextures(this, init as any).then(() => {
           if (!this.scene.isActive()) {
-            this.battleStarting = false;
+            releaseControls('error');
             return;
           }
           this.battleModal = new BattleModal(
             this,
-            { token, foe: foe as any, ally: (ally ?? []) as any },
-            () => this.onBattleEnded(),
+            init as any,
+            (result) => this.onBattleEnded(result),
             () => this.chatLog?.addSystemLine(t('BATTLE_RUN_SAFETY'), '#7bed9f'),
           );
+          // Gán seat sớm để BattleModal vẽ đúng góc nhìn ngay từ frame đầu.
+          this.battleModal.onSeatAssigned = (seat) => {
+            this.pvpSeat = seat;
+          };
           this.battleModal.setUiZoomManager(this.uiZoom);
           this.battleStarting = false;
           // Modal tạo SAU setupUiCamera() → phải đăng ký world.ignore(),
           // nếu không cả 2 camera render → hiện 2 khung chồng nhau.
           this.registerHudObject(...this.battleModal.getGameObjects());
-        },
-      );
-    });
+        });
+      })
+      .catch((err) => {
+        // Bất kỳ exception nào (join / load texture / constructor modal) → trả
+        // quyền điều khiển thay vì để `canMove=false` treo vĩnh viễn.
+        console.error('[battle] startBattle failed:', err);
+        releaseControls('error');
+      });
   }
 
   /**
@@ -2079,6 +2633,9 @@ export class WorldScene extends Phaser.Scene {
       if (safe && col === safe.x && row === safe.y) return true;
     }
     if (dir && this.collision.isDirBlocked(col, row, dir)) return false;
+    // NPC chặn đường đi (không thể đi xuyên qua NPC)
+    const npcs = this.collision.getNpcSpawns();
+    if (npcs.some((npc) => npc.x === col && npc.y === row)) return false;
     return this.collision.isWalkable(col, row, { canSurf: this.surfing });
   }
 
@@ -2182,6 +2739,172 @@ export class WorldScene extends Phaser.Scene {
     if (data.direction) this.player.setDirection(data.direction);
   }
 
+  /** Lấy key lưu trữ trạng thái trainer theo user. */
+  private getTrainerStorageKey(): string {
+    const net = ColyseusManager.getInstance();
+    const user = net.name || net.id || 'guest';
+    return `pixelmon_defeated_trainers_${user}`;
+  }
+
+  /** Nạp danh sách ID các trainer đã bị đánh bại từ localStorage. */
+  private loadDefeatedTrainers(): void {
+    try {
+      const key = this.getTrainerStorageKey();
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          this.defeatedTrainers = new Set(arr);
+        }
+      }
+    } catch (e) {
+      console.warn('[world] failed to load defeated trainers', e);
+    }
+  }
+
+  /** Lưu danh sách ID các trainer đã bị đánh bại vào localStorage. */
+  private saveDefeatedTrainers(): void {
+    try {
+      const key = this.getTrainerStorageKey();
+      localStorage.setItem(key, JSON.stringify(Array.from(this.defeatedTrainers)));
+    } catch (e) {
+      console.warn('[world] failed to save defeated trainers', e);
+    }
+  }
+
+  /** Kiểm tra xem NPC có phải là huấn luyện viên đối thủ không. */
+  private isTrainerNpc(npc: import('@pixelmon/shared').MapObjectNpc): boolean {
+    if (npc.trainer) return true;
+    const id = (npc.npcId || '').toLowerCase();
+    if (id.startsWith('trainer') || id.startsWith('gym') || id.startsWith('leader') || id.startsWith('route')) return true;
+    if (id.includes('trainer') || id.includes('leader') || id.includes('gym')) return true;
+    return false;
+  }
+
+  /**
+   * Tương tác trò chuyện với NPC.
+   */
+  public interactWithNpc(npc: import('@pixelmon/shared').MapObjectNpc): void {
+    const now = Date.now();
+    const cdUntil = this.npcCooldowns.get(npc.npcId);
+    if (cdUntil && now < cdUntil) {
+      const remainSec = Math.ceil((cdUntil - now) / 1000);
+      this.chatLog?.addSystemLine(`[NPC] Đang bận... Vui lòng thử lại sau ${remainSec}s.`, '#f39c12');
+      return;
+    }
+
+    // Set cooldown tương tác chống spam
+    this.npcCooldowns.set(npc.npcId, now + this.npcCooldownDuration);
+
+    // Âm thanh mở hội thoại
+    SoundManager.getInstance(this).playSe('gui_menu_open');
+
+    // Tự động quay mặt player về phía NPC nếu đang đứng cạnh
+    const playerCol = Math.floor(this.player.x / TILE_SIZE);
+    const playerRow = Math.floor(this.player.y / TILE_SIZE);
+    const dx = npc.x - playerCol;
+    const dy = npc.y - playerRow;
+    if (Math.abs(dx) + Math.abs(dy) === 1) {
+      if (dx === 1) this.player.setDirection('right');
+      else if (dx === -1) this.player.setDirection('left');
+      else if (dy === 1) this.player.setDirection('down');
+      else if (dy === -1) this.player.setDirection('up');
+    }
+
+    const isTrainer = this.isTrainerNpc(npc);
+
+    if (isTrainer) {
+      const speaker = npc.name || npc.npcId || 'Huấn luyện viên';
+      if (this.defeatedTrainers.has(npc.npcId)) {
+        // Huấn luyện viên đã bị đánh bại: thoại thắng cuộc / tái đấu
+        const victoryLines = [
+          'Cậu quả là một huấn luyện viên xuất sắc!',
+          'Các Pokémon của cậu phối hợp thật tuyệt vời. Hẹn gặp lại trong trận tái đấu sau!',
+        ];
+        this.dialogueModal.startDialogue({
+          speakerName: speaker,
+          dialogueLines: victoryLines,
+        });
+      } else {
+        // Huấn luyện viên chưa bị đánh bại: Đọc câu thoại thách đấu từ dialog
+        const rawDialog = npc.dialog;
+        const challengeLines = Array.isArray(rawDialog) && rawDialog.length > 0
+          ? rawDialog
+          : (typeof rawDialog === 'string' && rawDialog ? [rawDialog] : ['Tôi là huấn luyện viên ở đây! Hãy đấu một trận nào!']);
+
+        this.dialogueModal.startDialogue({
+          speakerName: speaker,
+          dialogueLines: challengeLines,
+          onComplete: () => {
+            this.currentBattleTrainerId = npc.npcId;
+            const remote = ColyseusManager.getInstance().world;
+            if (remote) {
+              const trainerId = (npc as any).trainerId || npc.name || npc.npcId;
+              remote.send('start_trainer_battle', {
+                trainerId,
+                npcId: npc.npcId,
+                trainerName: npc.name || npc.npcId,
+              });
+            }
+          },
+        });
+      }
+    } else {
+      // NPC dân làng / chỉ dẫn
+      const rawDialog = npc.dialog;
+      const lines = Array.isArray(rawDialog)
+        ? rawDialog
+        : (typeof rawDialog === 'string' && rawDialog ? [rawDialog] : ['...']);
+
+      this.dialogueModal.startDialogue({
+        speakerName: npc.name || npc.npcId || 'NPC',
+        dialogueLines: lines,
+      });
+    }
+  }
+
+  /**
+   * Tạo / nạp các NPC trên map hiện tại.
+   */
+  private async spawnNpcsForCurrentMap(): Promise<void> {
+    // 1. Dọn dẹp NPC cũ
+    for (const sprite of this.npcSprites) {
+      sprite.destroy();
+    }
+    this.npcSprites = [];
+
+    // 2. Lấy danh sách NPC từ map hiện tại
+    const npcs = this.collision.getNpcSpawns();
+    if (!npcs || npcs.length === 0) return;
+
+    for (const npc of npcs) {
+      const spriteName = npc.sprite || 'guide';
+      const texKey = `npc_${spriteName}`;
+      const url = `/sprites/npcs/${spriteName}.png`;
+
+      await loadNpcSpriteSheet(this, texKey, url);
+
+      // Đặt toạ độ giữa ô (tile 32x32), origin (0.5, 32/48) để chân NPC chạm đúng mép dưới ô
+      const px = npc.x * TILE_SIZE + TILE_SIZE / 2;
+      const py = npc.y * TILE_SIZE + TILE_SIZE / 2;
+
+      const sprite = this.add.sprite(px, py, texKey, '0_0');
+      sprite.setOrigin(0.5, 32 / 48);
+      sprite.setDepth(PLAYER_DEPTH);
+      sprite.setInteractive({ useHandCursor: true });
+
+      sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        // Chỉ nhận chuột trái
+        if (pointer.button !== 0) return;
+        pointer.event?.stopPropagation();
+        this.interactWithNpc(npc);
+      });
+
+      this.npcSprites.push(sprite);
+      this.registerWorldObject(sprite);
+    }
+  }
+
   // ── 5. Update ───────────────────────────────────────────────────────────
 
   /**
@@ -2208,7 +2931,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
-    if (!this.cursors || !this.canMove) return;
+    if (!this.cursors || !this.canMove || this.isBlockingUiOpen()) return;
 
     const left = this.cursors.left.isDown || !!this.wasd?.A?.isDown;
     const right = this.cursors.right.isDown || !!this.wasd?.D?.isDown;
@@ -2414,12 +3137,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** Mở/đóng modal Debug (chỉ hoạt động khi user đủ quyền). */
   public toggleDebugModal(): void {
-    if (!ColyseusManager.getInstance().hasDebugAccess()) {
-      this.chatLog?.addLine(t('WS_NEED_MOD'));
-      return;
-    }
-    this.debugModal.toggle();
-    this.topMenu?.setActive(this.debugModal.isOpen() ? 'debug' : '');
+    this.toggleTopDialog('debug');
   }
 
   /** Alias cho toggleDebugModal (dùng cho phím tắt F3/F2/TopMenu) */
@@ -2965,6 +3683,9 @@ export class WorldScene extends Phaser.Scene {
       // Gửi toạ độ đã snap (không phải spawnX/spawnY gốc) → server không ghi đè.
       ColyseusManager.getInstance().sendTeleport(landed.x, landed.y, this.player?.getDirection());
 
+      // 7. Nạp NPC cho map mới
+      await this.spawnNpcsForCurrentMap();
+
       this.debugConsole?.addLog(`Đã chuyển sang map "${meta?.name ?? mapId}"!`, '#55efc4');
     } catch (err: any) {
       console.error(`[debug] switchMap error:`, err);
@@ -2985,6 +3706,13 @@ export class WorldScene extends Phaser.Scene {
     const net = ColyseusManager.getInstance();
 
     if (!text.startsWith('/')) {
+      net.sendChat(text);
+      return;
+    }
+
+    // `/battle <tên>` — lệnh PvP cho MỌI người chơi (server tự validate).
+    // Gửi thẳng lên server; KHÔNG đi qua nhánh lệnh debug (chỉ mod mới có).
+    if (/^\/battle(\s|$)/i.test(text)) {
       net.sendChat(text);
       return;
     }
@@ -3012,6 +3740,10 @@ export class WorldScene extends Phaser.Scene {
       return [
         t('WS_HELP_HEADER'),
         t('WS_HELP_HELP'),
+        '• /battle <tên> — Thách đấu PvP người chơi khác (chỉ ở map PvP)',
+        '• /pokedex hoặc /dex — Mở Pokédex (Phím D)',
+        '• /map hoặc /townmap — Mở Bản đồ vùng Essen (Phím M)',
+        '• Phím tắt: [D] Pokédex | [M] Town Map | [B] Túi đồ | [P] Đội hình | [H] Trợ giúp',
         t('WS_HELP_MAP'),
         t('WS_HELP_POS'),
         t('WS_HELP_TILE'),
@@ -3024,43 +3756,196 @@ export class WorldScene extends Phaser.Scene {
         t('WS_CMD_DEBUG_GRID'),
         t('WS_HELP_CLEAR'),
         t('WS_HELP_SPAWN'),
+        t('WS_HELP_FORCEEVOLVE'),
+        t('WS_HELP_REVERSEEVOLVE'),
+        t('WS_HELP_LEVELDOWN'),
+        t('WS_HELP_LEVELUP'),
+        t('WS_HELP_FORCEFRIEND'),
+        t('WS_HELP_TRADE'),
+        t('WS_HELP_SWITCH'),
+        '• /trainer <id> — Kích hoạt trận đấu trainer test',
+        '• /resetnpc [id|all] — Reset trạng thái/cooldown NPC',
+        '• /npclist — Liệt kê tất cả NPC trên map kèm toạ độ và trạng thái',
+        '• /cooldown <seconds> — Điều chỉnh thời gian cooldown NPC',
       ].join('\n');
     }
 
-    // `/spawn [dexNum]` — gọi cửa sổ battle với 1 Pokémon wild (server-authoritative).
-    if (action === '/spawn') {
-      const arg = parts[1];
-      let dexNum: number | undefined;
-      if (arg !== undefined && arg.toLowerCase() !== 'random') {
-        const n = parseInt(arg, 10);
-        if (!Number.isInteger(n) || n < 1 || n > 1025) {
-          return t('WS_HELP_SPAWN_USAGE');
-        }
-        dexNum = n;
-      } else if (arg === undefined) {
-        // Bỏ trống → server tự random (trong encounter table của map).
-        dexNum = undefined;
-      } else {
-        // `/spawn random` → ép server random.
-        dexNum = undefined;
+    // `/trainer <id>` — Kích hoạt trận đấu trainer test (gửi message debug_trainer lên server)
+    if (action === '/trainer') {
+      const trainerId = parts[1];
+      if (!trainerId) return 'Sử dụng: /trainer <id> (kích hoạt trận đấu trainer test)';
+      this.currentBattleTrainerId = trainerId;
+      const remote = ColyseusManager.getInstance().world;
+      if (remote) {
+        remote.send('debug_trainer', { trainerId });
       }
-      ColyseusManager.getInstance().sendDebugSpawn(dexNum);
-      return dexNum !== undefined
-        ? `[debug] Đang gọi /spawn ${dexNum}...`
-        : `${t('WS_HELP_NO_ARGS')}`;
+      return `[debug] Đã gửi yêu cầu đấu trainer test: ${trainerId}`;
     }
 
-    if (action === '/map') {
-      const meta = MAPS[this.currentMapId];
-      const tmj = TILED_MAPS[this.currentMapId];
-      const objGroup = tmj?.layers?.find((l: any) => l.type === 'objectgroup');
-      const warpsCount = objGroup?.objects?.length ?? 0;
-      return [
-        `Bản đồ: ${meta?.name ?? this.currentMapId} (${this.currentMapId})`,
-        `Kích thước: ${Math.round(this.mapWidth / TILE_SIZE)}×${Math.round(this.mapHeight / TILE_SIZE)} tiles (${this.mapWidth}×${this.mapHeight}px)`,
-        `Số lớp: ${this.tiledLayers.length || 1} | Điểm warp: ${warpsCount}`,
-        `Tileset: ${this.currentMapId.includes('house') || this.currentMapId.includes('lab') ? 'Interior general.png' : 'Outside.png'}`,
-      ].join('\n');
+    // `/resetnpc [id|all]` — Xoá npcId khỏi this.defeatedTrainers và reset cooldown
+    if (action === '/resetnpc') {
+      const target = parts[1] || 'all';
+      if (target === 'all') {
+        const count = this.defeatedTrainers.size;
+        this.defeatedTrainers.clear();
+        this.npcCooldowns.clear();
+        this.saveDefeatedTrainers();
+        return `[debug] Đã reset toàn bộ NPC (${count} trainer đã đánh bại, toàn bộ cooldown đã xoá).`;
+      } else {
+        const removed = this.defeatedTrainers.delete(target);
+        this.npcCooldowns.delete(target);
+        this.saveDefeatedTrainers();
+        return `[debug] Đã reset NPC '${target}' (trạng thái: ${removed ? 'đã xoá khỏi danh sách thắng' : 'chưa từng đánh bại'}, cooldown: đã xoá).`;
+      }
+    }
+
+    // `/npclist` — Liệt kê tất cả NPC trên map kèm toạ độ và trạng thái (Đã đấu / Chưa đấu / Cooldown)
+    if (action === '/npclist') {
+      const npcs = this.collision.getNpcSpawns();
+      if (!npcs || npcs.length === 0) {
+        return `[debug] Bản đồ ${this.collision.mapId} không có NPC nào.`;
+      }
+      const now = Date.now();
+      const lines = [`=== DANH SÁCH NPC TRÊN BẢN ĐỒ (${this.collision.mapId}) ===`];
+      for (const npc of npcs) {
+        const id = npc.npcId;
+        const name = npc.name || id;
+        const isTrainer = this.isTrainerNpc(npc);
+        const defeatedStr = isTrainer ? (this.defeatedTrainers.has(id) ? 'Đã đấu' : 'Chưa đấu') : 'NPC thường';
+        const cdUntil = this.npcCooldowns.get(id);
+        const cdRemain = cdUntil && cdUntil > now ? `${Math.ceil((cdUntil - now) / 1000)}s` : 'Sẵn sàng';
+        lines.push(`• [${id}] ${name} (${npc.x}, ${npc.y}) | Loại: ${isTrainer ? 'Trainer' : 'Dân làng'} | Trạng thái: ${defeatedStr} | Cooldown: ${cdRemain}`);
+      }
+      return lines.join('\n');
+    }
+
+    // `/cooldown <seconds>` — Điều chỉnh thời gian cooldown NPC
+    if (action === '/cooldown') {
+      const secStr = parts[1];
+      const sec = parseFloat(secStr ?? '');
+      if (isNaN(sec) || sec < 0) {
+        return `Sử dụng: /cooldown <seconds> (Hiện tại: ${this.npcCooldownDuration / 1000}s)`;
+      }
+      this.npcCooldownDuration = Math.round(sec * 1000);
+      return `[debug] Đã cập nhật thời gian cooldown tương tác NPC: ${sec}s`;
+    }
+
+    // ── Plan 45 §5.1: Công cụ moderator ──
+    if (action === '/forceevolve') {
+      const slot = parseInt(parts[1] ?? '', 10);
+      if (!Number.isInteger(slot) || slot < 0 || slot > 5) return t('WS_HELP_FORCEEVOLVE');
+      ColyseusManager.getInstance().sendModAction('forceevolve', [String(slot), parts[2] ?? '']);
+      return `[debug] /forceevolve ${slot} ${parts[2] ?? ''}`;
+    }
+    if (action === '/reverseevolve') {
+      const slot = parseInt(parts[1] ?? '', 10);
+      if (!Number.isInteger(slot) || slot < 0 || slot > 5) return t('WS_HELP_REVERSEEVOLVE');
+      ColyseusManager.getInstance().sendModAction('reverseevolve', [String(slot), parts[2] ?? '1', parts[3] ?? '']);
+      return `[debug] /reverseevolve ${slot}`;
+    }
+    if (action === '/leveldown') {
+      const slot = parseInt(parts[1] ?? '', 10);
+      const delta = parseInt(parts[2] ?? '1', 10);
+      if (!Number.isInteger(slot) || !Number.isInteger(delta)) return t('WS_HELP_LEVELDOWN');
+      ColyseusManager.getInstance().sendModAction('leveldown', [String(slot), String(delta)]);
+      return `[debug] /leveldown ${slot} ${delta}`;
+    }
+    if (action === '/levelup') {
+      const slot = parseInt(parts[1] ?? '', 10);
+      const delta = parseInt(parts[2] ?? '1', 10);
+      if (!Number.isInteger(slot) || !Number.isInteger(delta)) return t('WS_HELP_LEVELUP');
+      ColyseusManager.getInstance().sendModAction('levelup', [String(slot), String(delta)]);
+      return `[debug] /levelup ${slot} ${delta}`;
+    }
+    if (action === '/forcefriend') {
+      const slot = parseInt(parts[1] ?? '', 10);
+      const value = parseInt(parts[2] ?? '160', 10);
+      if (!Number.isInteger(slot) || !Number.isInteger(value)) return t('WS_HELP_FORCEFRIEND');
+      ColyseusManager.getInstance().sendModAction('forcefriend', [String(slot), String(value)]);
+      return `[debug] /forcefriend ${slot} ${value}`;
+    }
+    if (action === '/trade') {
+      const slot = parseInt(parts[1] ?? '', 10);
+      if (!Number.isInteger(slot) || slot < 0 || slot > 5) return t('WS_HELP_TRADE');
+      // Lấy pokemonId từ party slot.
+      const party = this.playerPokemonParty;
+      const pkm = party[slot];
+      if (!pkm) return `[debug] /trade — slot ${slot} trống.`;
+      ColyseusManager.getInstance().sendTrade(pkm.id);
+      return `[debug] /trade ${pkm.nickname || pkm.species_id}`;
+    }
+    // `/switch <slot>` — mở mini party box để chọn Pokémon hoán đổi vị trí.
+    if (action === '/switch') {
+      const slot = parseInt(parts[1] ?? '', 10);
+      if (!Number.isInteger(slot) || slot < 0 || slot > 5) return t('WS_HELP_SWITCH');
+      const src = this.playerPokemonParty[slot];
+      if (!src) return `[debug] /switch — slot ${slot} trống.`;
+      this.openPartySelect({
+        title: t('PARTY_SELECT_SWITCH'),
+        hint: t('PARTY_SELECT_HINT'),
+        onSelect: async (target) => {
+          if (target.id === src.id) return;
+          const ok = await ColyseusManager.getInstance().swapPartySlots(src.id, target.id);
+          this.chatLog?.addSystemLine(
+            ok ? t('WS_SWITCH_DONE') : t('WS_SWITCH_FAIL'),
+            ok ? '#7bed9f' : '#ff7675',
+          );
+          if (ok) void this.loadPlayerPokemon();
+        },
+      });
+      return `[debug] /switch ${src.nickname || src.species_id} ↔ ?`;
+    }
+
+    // `/spawn` — gọi cửa sổ battle với Pokémon wild (hỗ trợ cả ngắn gọn lẫn chi tiết).
+    if (action === '/spawn') {
+      const args = parts.slice(1).join(' ').trim();
+      const lower = args.toLowerCase();
+      if (lower === 'help' || lower === '?' || lower === '-h' || lower === '--help') {
+        return [
+          '=== LỆNH /SPAWN (TRIỆU HỒI POKÉMON HOANG) ===',
+          '• Ngắn gọn: /spawn <tên|dex> [level] [shiny]',
+          '  VD: /spawn pikachu | /spawn 25 50 | /spawn mew 100 s',
+          '• Chi tiết (Key=Value):',
+          '  level=<1-100> | lv=<n>   (Cấp độ)',
+          '  shiny=<true|false> | s   (Sắc khác / Shiny)',
+          '  nature=<tên>             (adamant, timid, modest, jolly...)',
+          '  gender=<m|f|none>        (Giới tính)',
+          '  held=<item_id>           (Vật phẩm mang theo: light-ball, leftovers...)',
+          '  iv=<0-31|max|min>        (Chỉ số IVs)',
+          '  moves=<m1,m2...>         (Chiêu thức: vd moves=psychic,surf)',
+          '  hp=<1..max>              (Máu ban đầu: vd hp=1 test bắt)',
+          '• Ví dụ mẫu:',
+          '  /spawn pikachu 50 shiny nature=timid held=light-ball',
+          '  /spawn 150 lv=70 iv=31 moves=psychic,aurasphere hp=1',
+        ].join('\n');
+      }
+
+      ColyseusManager.getInstance().sendDebugSpawn(args || undefined);
+      return args
+        ? `[debug] Đang triệu hồi: /spawn ${args}...`
+        : `[debug] Đang triệu hồi Pokémon ngẫu nhiên theo bản đồ...`;
+    }
+
+    if (action === '/pokedex' || action === '/dex') {
+      this.openPokedex();
+      return '[UI] Đã mở Pokédex.';
+    }
+
+    if (action === '/townmap' || action === '/map') {
+      if (parts[1] === 'info' || parts[1] === 'debug') {
+        const meta = MAPS[this.currentMapId];
+        const tmj = TILED_MAPS[this.currentMapId];
+        const objGroup = tmj?.layers?.find((l: any) => l.type === 'objectgroup');
+        const warpsCount = objGroup?.objects?.length ?? 0;
+        return [
+          `Bản đồ: ${meta?.name ?? this.currentMapId} (${this.currentMapId})`,
+          `Kích thước: ${Math.round(this.mapWidth / TILE_SIZE)}×${Math.round(this.mapHeight / TILE_SIZE)} tiles (${this.mapWidth}×${this.mapHeight}px)`,
+          `Số lớp: ${this.tiledLayers.length || 1} | Điểm warp: ${warpsCount}`,
+          `Tileset: ${this.currentMapId.includes('house') || this.currentMapId.includes('lab') ? 'Interior general.png' : 'Outside.png'}`,
+        ].join('\n');
+      }
+      this.openTownMap();
+      return '[UI] Đã mở Bản đồ vùng Essen (Town Map).';
     }
 
     if (action === '/pos') {

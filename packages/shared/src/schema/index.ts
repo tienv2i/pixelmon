@@ -21,6 +21,7 @@ export class BattlePokemon extends Schema {
   @type('uint16') spDefense: number = 0;
   @type('uint16') speed: number = 0;
   @type('string') status: string = ''; // "", "brn", "par", etc.
+  @type('boolean') shiny: boolean = false;
   /** Move id theo thứ tự nút trong menu. */
   @type(['string']) moves: string[] = [];
   /** PP hiện tại, song song với `moves`. */
@@ -94,6 +95,25 @@ export class BattleState extends Schema {
   @type('uint32') expGained: number = 0;
   /** speciesId nếu bắt được Pokémon hoang. */
   @type('string') caughtSpeciesId: string = '';
+
+  // ── PvP (2 người chơi thật) ──────────────────────────────────────────────
+  /**
+   * Session id (WorldRoom) của 2 bên — cả 2 client thấy chung.
+   *
+   * Side (`ally`/`foe`) mà 1 client đang đứng KHÔNG nằm trong state (state là
+   * shared, cả 2 client thấy giống nhau) mà server gửi riêng qua message
+   * `battle_seat` khi client join BattleRoom.
+   */
+  @type('string') allySessionId: string = '';
+  @type('string') foeSessionId: string = '';
+  /** Tên hiển thị của bên `ally` (trainer name hoặc username khi PvP). */
+  @type('string') allyName: string = '';
+  @type('string') foeName: string = '';
+  /** userId DB của 2 bên (chỉ PvP) — dùng khi kết thúc để ghi kết quả. */
+  @type('string') allyUserId: string = '';
+  @type('string') foeUserId: string = '';
+  /** Tiền thưởng cho người thắng (0 = không thưởng). */
+  @type('uint32') rewardMoney: number = 0;
 }
 
 // ===== World State =====

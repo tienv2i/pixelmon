@@ -40,6 +40,19 @@ export interface UserSprite {
   previewUrl128?: string;
 }
 
+/** 1 ô trong túi đồ (đã enrich từ server). */
+export interface InventoryItem {
+  itemId: string;
+  quantity: number;
+  name: string;
+  category: string;
+  pocket: number;
+  buyPrice: number;
+  sellPrice: number;
+  iconUrl?: string;
+  description?: string;
+}
+
 export class ColyseusManager {
   private static instance: ColyseusManager;
   private client: Client;
@@ -340,10 +353,52 @@ export class ColyseusManager {
     if (!this.worldRoom) return;
     try {
       this.battleRoom = await this.client.create<BattleState>('battle', { token });
+      this.battleSide = 'ally';
+      this.bindBattleSeat();
       console.log('[network] joined battle room');
     } catch (err) {
       console.warn('[network] battle join failed:', err);
     }
+  }
+
+  /**
+   * Vào phòng PvP bằng `roomId` do server chỉ định (bên bị thách).
+   *
+   * Bên thách `create` phòng trước; server publish roomId cho bên foe qua
+   * `pvp_battle_ready`. Bên foe dùng `joinById` để vào ĐÚNG phòng đó.
+   */
+  async joinBattleById(roomId: string, token: string): Promise<void> {
+    try {
+      this.battleRoom = await this.client.joinById<BattleState>(roomId, { token });
+      this.battleSide = 'foe';
+      this.bindBattleSeat();
+      console.log('[network] joined pvp battle room', roomId);
+    } catch (err) {
+      console.warn('[network] pvp battle join failed:', err);
+    }
+  }
+
+  /**
+   * Vai của mình trong phòng battle (`ally` | `foe`).
+   *
+   * Server gửi `battle_seat` lúc onJoin — client dùng để xác định perspective
+   * render (PvP: 1 trong 2 client đứng bên `foe`).
+   */
+  private battleSide: 'ally' | 'foe' = 'ally';
+  private seatListener?: (data: any) => void;
+
+  get battleSeat(): 'ally' | 'foe' {
+    return this.battleSide;
+  }
+
+  /** Lắng nghe `battle_seat` từ BattleRoom (để cập nhật perspective). */
+  private bindBattleSeat(): void {
+    const room = this.battleRoom;
+    if (!room) return;
+    this.seatListener = (data: any) => {
+      if (data?.side === 'foe' || data?.side === 'ally') this.battleSide = data.side;
+    };
+    room.onMessage('battle_seat', this.seatListener);
   }
 
   sendMove(x: number, y: number, direction: string, noclip?: boolean): void {
@@ -381,9 +436,141 @@ export class ColyseusManager {
     this.worldRoom?.send('chat', { message });
   }
 
-  /** Debug: yêu cầu server mở trận wild với dexNum cụ thể (bỏ trống = random). */
-  sendDebugSpawn(dexNum?: number): void {
-    this.worldRoom?.send('debug_spawn', { dexNum });
+  // ── Plan 45: Items / Store / Evolution / Trade / Mod ─────────────────────
+
+  /** Fetch túi đồ đã enrich từ server (best-effort). */
+  async fetchInventory(): Promise<InventoryItem[]> {
+    if (!this.authToken) return [];
+    try {
+      const res = await fetch(`${HTTP_URL}/api/inventory`, {
+        headers: { Authorization: `Bearer ${this.authToken}` },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data?.items) ? (data.items as InventoryItem[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Fetch danh sách hàng bán của Store (best-effort). */
+  async fetchStoreStock(): Promise<InventoryItem[]> {
+    if (!this.authToken) return [];
+    try {
+      const res = await fetch(`${HTTP_URL}/api/inventory/store`, {
+        headers: { Authorization: `Bearer ${this.authToken}` },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data?.items) ? (data.items as InventoryItem[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Fetch số dư tiền (best-effort). */
+  async fetchMoney(): Promise<number> {
+    if (!this.authToken) return 0;
+    try {
+      const res = await fetch(`${HTTP_URL}/api/inventory/money`, {
+        headers: { Authorization: `Bearer ${this.authToken}` },
+      });
+      if (!res.ok) return 0;
+      const data = await res.json();
+      return Number(data?.money ?? 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  /** Fetch tiến độ Pokédex (seen, caught, totalSpecies). */
+  async fetchPokedexProgress(): Promise<{ seen: string[]; caught: string[]; totalSpecies: number }> {
+    if (!this.authToken) return { seen: [], caught: [], totalSpecies: 898 };
+    try {
+      const res = await fetch(`${HTTP_URL}/api/pokemon/pokedex`, {
+        headers: { Authorization: `Bearer ${this.authToken}` },
+      });
+      if (!res.ok) return { seen: [], caught: [], totalSpecies: 898 };
+      const data = await res.json();
+      return {
+        seen: Array.isArray(data?.seen) ? data.seen : [],
+        caught: Array.isArray(data?.caught) ? data.caught : [],
+        totalSpecies: Number(data?.totalSpecies || 898),
+      };
+    } catch {
+      return { seen: [], caught: [], totalSpecies: 898 };
+    }
+  }
+
+  /** Dùng item ngoài battle (server tự validate ownership + effect). */
+  sendUseItem(itemId: string, pokemonId?: string): void {
+    this.worldRoom?.send('use_item', { itemId, pokemonId });
+  }
+
+  /** Đeo / tháo item (`itemId = null` để tháo). */
+  sendHoldItem(pokemonId: string, itemId: string | null): void {
+    this.worldRoom?.send('hold_item', { pokemonId, itemId });
+  }
+
+  /** Mua / bán item trong Store. */
+  sendStoreAction(action: 'buy' | 'sell', itemId: string, qty: number): void {
+    this.worldRoom?.send('store_action', { action, itemId, qty });
+  }
+
+  /** Trade với NPC hữu nghị (server tự set flag `tradeWithNpc`). */
+  sendTrade(pokemonId: string): void {
+    this.worldRoom?.send('trade', { pokemonId });
+  }
+
+  /**
+   * Gửi lời thách PvP tới người chơi khác trong cùng map.
+   *
+   * @param target - tên hiển thị (displayName) hoặc userId.
+   * @param targetSessionId - ưu tiên sessionId khi thách bằng click chuột.
+   */
+  sendPvpChallenge(target?: string, targetSessionId?: string): void {
+    this.worldRoom?.send('pvp_challenge', { target, targetSessionId });
+  }
+
+  /** Phản hồi lời mời PvP (đồng ý / từ chối). */
+  sendPvpResponse(accept: boolean): void {
+    this.worldRoom?.send('pvp_response', { accept });
+  }
+
+  /**
+   * Hoán đổi vị trí 2 Pokémon trong party (dùng cho tác vụ "switch" ngoài trận).
+   * `targetId` = null → chuyển vào PC Box (party_slot = null).
+   */
+  async swapPartySlots(sourceId: string, targetId: string | null): Promise<boolean> {
+    if (!this.authToken) return false;
+    try {
+      const res = await fetch(`${HTTP_URL}/api/pokemon/swap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.authToken}` },
+        body: JSON.stringify({ sourceId, targetId }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Công cụ moderator (server luôn re-check role). */
+  sendModAction(action: string, args: string[] = []): void {
+    this.worldRoom?.send('mod_action', { action, args });
+  }
+
+  /** Debug: yêu cầu server mở trận wild (hỗ trợ dexNum, tên loài, level, shiny, hoặc chuỗi raw). */
+  sendDebugSpawn(arg?: number | string | Record<string, unknown>): void {
+    if (typeof arg === 'number') {
+      this.worldRoom?.send('debug_spawn', { dexNum: arg });
+    } else if (typeof arg === 'string') {
+      this.worldRoom?.send('debug_spawn', { raw: arg });
+    } else if (arg && typeof arg === 'object') {
+      this.worldRoom?.send('debug_spawn', arg);
+    } else {
+      this.worldRoom?.send('debug_spawn', {});
+    }
   }
 
   sendBattleMove(moveIndex: number): void {
@@ -398,12 +585,31 @@ export class ColyseusManager {
     this.battleRoom?.send('battle_run', {});
   }
 
-  sendBattleCatch(ballId: string): void {
-    this.battleRoom?.send('battle_catch', { ballId });
-  }
-
   sendBattleForfeit(): void {
     this.battleRoom?.send('battle_forfeit', {});
+  }
+
+  /** Dùng item trong battle (server tốn lượt + validate ownership). */
+  sendBattleItem(itemId: string, targetIndex?: number): void {
+    this.battleRoom?.send('battle_item', { itemId, targetIndex });
+  }
+
+  /** Đổi biệt danh cho Pokémon vừa bắt hoặc trong đội hình */
+  async renamePokemon(pokemonId: string, nickname: string): Promise<boolean> {
+    if (!this.authToken || !pokemonId) return false;
+    try {
+      const res = await fetch(`${HTTP_URL}/api/pokemon/rename`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.authToken}`,
+        },
+        body: JSON.stringify({ pokemonId, nickname }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   /** Rời battle room (đã kết thúc hoặc bỏ cuộc). */

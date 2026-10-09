@@ -3079,6 +3079,9 @@ export class WorldScene extends Phaser.Scene {
    * `updateInfo` không bao giờ chạy → tab info trắng tinh.
    */
   private refreshDebugPanels(): void {
+    // create() là async (await load asset) → các frame đầu player/cursors chưa
+    // có. Guard ở đây vì refresh chạy TRƯỚC guard `!this.cursors` của update().
+    if (!this.player || !this.cursors) return;
     // Cập nhật thông số thời gian thực vào DebugModal (nếu đang mở)
     if (this.debugModal?.isOpen()) {
       const mapMeta = MAPS[this.currentMapId];

@@ -138,9 +138,14 @@ export type MapObjectItemBall = Extract<MapObject, { type: 'item_ball' }>;
 export type MapObjectBattle = Extract<MapObject, { type: 'battle_trigger' }>;
 
 export function getWarpAt(map: ServerMap, x: number, y: number): MapObjectWarp | undefined {
-  return map.objects.find(
-    (o: MapObject): o is MapObjectWarp => o.type === 'warp' && o.x === x && o.y === y,
-  );
+  const tw = map.tileWidth || 32;
+  const th = map.tileHeight || 32;
+  return map.objects.find((o: MapObject): o is MapObjectWarp => {
+    if (o.type !== 'warp') return false;
+    const spanX = Math.max(1, Math.round((o.width || tw) / tw));
+    const spanY = Math.max(1, Math.round((o.height || th) / th));
+    return x >= o.x && x < o.x + spanX && y >= o.y && y < o.y + spanY;
+  });
 }
 
 /** Tất cả warp trong map. */

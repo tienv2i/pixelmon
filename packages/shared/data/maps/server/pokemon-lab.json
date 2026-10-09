@@ -1,7 +1,7 @@
 {
   "mapId": "pokemon-lab",
-  "name": "Pokemon Lab",
-  "description": "Pokemon Lab ported from Pokémon Essentials.",
+  "name": "Pokémon Lab",
+  "description": "Pokémon Lab ported from Pokémon Essentials.",
   "mapType": "interior",
   "music": "pokemon-lab",
   "weather": "sunny",
@@ -325,8 +325,20 @@
       "width": 32,
       "height": 32,
       "visible": true,
-      "type": "event",
-      "properties": []
+      "type": "npc_spawn",
+      "npcId": "professor",
+      "sprite": "oak",
+      "dialog": [
+        "Oak: You should battle with your Pokémon to make",
+        "it strong.",
+        "Oak: If you register me in your Pokégear, you can",
+        "call me any time to rate your Pokédex completion.",
+        "Oak: Please let me know how you get on!",
+        "Oak: Oh, okay. Let me know if you change your",
+        "mind."
+      ],
+      "team": [],
+      "trainer": false
     },
     {
       "id": 2,
@@ -437,8 +449,24 @@
       "width": 32,
       "height": 32,
       "visible": true,
-      "type": "event",
-      "properties": []
+      "type": "npc_spawn",
+      "npcId": "dex_access",
+      "sprite": "scientist",
+      "dialog": [
+        "I can control your Pokédex access. What do you",
+        "want me to do?",
+        "What about it?",
+        "The Kanto Dex was unlocked.",
+        "The Kanto Dex was locked.",
+        "What about it?",
+        "The Johto Dex was unlocked.",
+        "The Johto Dex was locked.",
+        "What about it?",
+        "The National Dex was unlocked.",
+        "The National Dex was locked."
+      ],
+      "team": [],
+      "trainer": true
     }
   ],
   "encounters": [],

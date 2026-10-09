@@ -321,17 +321,17 @@
       "data": [
         0,
         0,
-        1147,
-        1148,
         0,
-        1329,
+        0,
+        0,
+        0,
         1108,
         1109,
         0,
         1057,
         0,
-        1121,
-        1122,
+        0,
+        0,
         0,
         0,
         0,
@@ -404,10 +404,10 @@
         0,
         0,
         793,
-        794,
-        794,
-        794,
-        794,
+        1291,
+        1700,
+        1702,
+        1292,
         795,
         0,
         0,
@@ -424,10 +424,10 @@
         0,
         0,
         793,
-        794,
-        794,
-        794,
-        794,
+        1291,
+        1708,
+        1710,
+        1292,
         795,
         0,
         0,
@@ -459,7 +459,6 @@
         0,
         0,
         0,
-        1387,
         0,
         0,
         0,
@@ -471,7 +470,8 @@
         0,
         0,
         0,
-        1387,
+        0,
+        0,
         0,
         0,
         0,
@@ -634,12 +634,17 @@
       "data": [
         0,
         0,
+        1147,
+        1148,
         0,
+        1329,
         0,
         0,
         0,
         0,
         0,
+        1121,
+        1122,
         0,
         0,
         0,
@@ -717,10 +722,6 @@
         0,
         0,
         0,
-        1291,
-        1700,
-        1702,
-        1292,
         0,
         0,
         0,
@@ -737,10 +738,6 @@
         0,
         0,
         0,
-        1291,
-        1708,
-        1710,
-        1292,
         0,
         0,
         0,
@@ -775,6 +772,7 @@
         0,
         0,
         0,
+        1387,
         0,
         0,
         0,
@@ -785,6 +783,8 @@
         0,
         0,
         0,
+        0,
+        1387,
         0,
         0,
         0,
@@ -983,16 +983,36 @@
           "name": "Daisy",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "npc_spawn",
           "visible": true,
           "width": 32,
           "x": 160,
           "y": 128,
           "properties": [
             {
+              "name": "npcId",
+              "type": "string",
+              "value": "daisy"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "daisy"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
               "name": "originalId",
               "type": "int",
               "value": 2
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Daisy: Hi, N!\nDaisy: Would you like me to groom one of your\nPok\u00e9mon?\nDaisy: Which Pok\u00e9mon do you want me to groom?\nDaisy: Oh, okay then.\nDaisy: There!  looks a lot happier and prettier\nnow!\nDaisy: Oh, okay then."
             }
           ]
         },
@@ -1002,16 +1022,36 @@
           "name": "Dr Footstep",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "npc_spawn",
           "visible": true,
           "width": 32,
           "x": 32,
           "y": 128,
           "properties": [
             {
+              "name": "npcId",
+              "type": "string",
+              "value": "dr_footstep"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
               "name": "originalId",
               "type": "int",
               "value": 3
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Dr. Footstep: Hi! I rate the footprints of Pok\u00e9mon!\nDr. Footstep: Can I rate your Pok\u00e9mon for you?\nDr. Footstep: Which Pok\u00e9mon do you want me to\nrate?\nDr. Footstep: Maybe next time, then.\nDr. Footstep: By any chance, you... Are you a very\nstrict person? I feel that your  really doesn't like\nyou...\nDr. Footstep: Hmmm... Your  may not like you\nvery much.\nDr. Footstep: The relationship is neither good nor\nbad... Your  looks neutral.\nDr. Footstep: Your  is a little friendly to you...\nThat's what I'm getting.\nDr. Footstep: Your  is friendly to you. It must be\nhappy with you.\nDr. Footstep: Your  is quite friendly to you! You\nmust be a kind person!\nDr. Footstep: Your  is super friendly to you! I'm\na bit jealous!\nDr. Footstep: I shall reward your  with a ribbon!\nN received the Footprint Ribbon.\nN put the Footprint Ribbon on .\nDr. Footstep: Maybe next time, then."
             }
           ]
         },
@@ -1021,16 +1061,36 @@
           "name": "Effort ribbon giver",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "npc_spawn",
           "visible": true,
           "width": 32,
           "x": 64,
           "y": 128,
           "properties": [
             {
+              "name": "npcId",
+              "type": "string",
+              "value": "effort_ribbon_giver"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
               "name": "originalId",
               "type": "int",
               "value": 4
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Oh?Your ...\nOh! Your , that Effort Ribbon looks good on it!\nWent for it stupendously!\nAs its reward, please give it this Effort Ribbon.\nN received the Effort Ribbon.\nN put the Effort Ribbon on .\nYou have to go for it a little harder.\nIf you do, I'll give your Pok\u00e9mon something nice."
             }
           ]
         },
@@ -1040,16 +1100,36 @@
           "name": "Contest ribbon giver",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "npc_spawn",
           "visible": true,
           "width": 32,
           "x": 96,
           "y": 128,
           "properties": [
             {
+              "name": "npcId",
+              "type": "string",
+              "value": "contest_ribbon_giver"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "youngster"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": true
+            },
+            {
               "name": "originalId",
               "type": "int",
               "value": 5
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Hi! I'm the Contest Lady!\nI give out contest ribbons. Do you want one?\nSorry, your  already has the highest ranked\nCool Ribbon.\nN received the .\nN put the  on .\nThat's your choice."
             }
           ]
         },
@@ -1059,16 +1139,36 @@
           "name": "Stats judge",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "npc_spawn",
           "visible": true,
           "width": 32,
           "x": 256,
           "y": 128,
           "properties": [
             {
+              "name": "npcId",
+              "type": "string",
+              "value": "stats_judge"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
               "name": "originalId",
               "type": "int",
               "value": 6
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "If you'd like, I could judge the intriguing potential of\nyour Pok\u00e9mon.\nWhich Pok\u00e9mon would you like me to judge?\n...Oh? You don't need me to judge. I get it.\nI see, I see...\nThis Pok\u00e9mon's potential is outstanding overall.\nThis Pok\u00e9mon's potential is relatively superior\noverall.\nThis Pok\u00e9mon's potential is above average overall.\nThis Pok\u00e9mon's potential is decent overall.\nThat's my determination, and it's final.\nIncidentally, I would say the best potential lies in its\nstat.\nAnd its Attack stat is also good.\nI see, its Defense stat is also good.\nWell, its Speed stat is also good.\nIts Special Attack stat is equally good.\nIts Special Defense stat is good as well.\nIt can't be better in that regard. That's how I judged\nit.\nIt's fantastic in that regard. That's how I judged it.\nIt's very good in that regard. That's how I judged it.\nIt's rather decent in that regard. That's how I judged\nit.\n...Oh? You don't need me to judge. I get it."
             }
           ]
         }

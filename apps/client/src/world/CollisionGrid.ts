@@ -28,6 +28,30 @@ import pokemonLabJson from '@pixelmon/shared/data/maps/server/pokemon-lab.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — TS6059
 import daisysHouseJson from '@pixelmon/shared/data/maps/server/daisys-house.json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — TS6059
+import kurtsHouseJson from '@pixelmon/shared/data/maps/server/kurts-house.json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — TS6059
+import cedolanCityJson from '@pixelmon/shared/data/maps/server/cedolan-city.json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — TS6059
+import cedolanPokeCenterJson from '@pixelmon/shared/data/maps/server/cedolan-poke-center.json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — TS6059
+import cedolanGymJson from '@pixelmon/shared/data/maps/server/cedolan-gym.json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — TS6059
+import pokemonInstituteJson from '@pixelmon/shared/data/maps/server/pokemon-institute.json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — TS6059
+import cedolanCondoJson from '@pixelmon/shared/data/maps/server/cedolan-condo.json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — TS6059
+import gameCornerJson from '@pixelmon/shared/data/maps/server/game-corner.json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — TS6059
+import cedolanDept1fJson from '@pixelmon/shared/data/maps/server/cedolan-dept-1f.json';
 
 /**
  * CollisionGrid — wrapper phía client cho `ServerMap.collision`.
@@ -113,6 +137,17 @@ export class CollisionGrid {
   getWarpAt(x: number, y: number) {
     if (!this.map) return undefined;
     return getWarpAt(this.map, x, y);
+  }
+
+  /** Danh sách toàn bộ objects trong map (warp, npc_spawn, items...). */
+  get objects(): ServerMap['objects'] {
+    return this.map?.objects ?? [];
+  }
+
+  /** Lấy danh sách NPC spawn trong map. */
+  getNpcSpawns() {
+    if (!this.map) return [];
+    return this.map.objects.filter((o): o is import('@pixelmon/shared').MapObjectNpc => o.type === 'npc_spawn');
   }
 
   /** Bitmask thô tại ô này (0 = ngoài bản đồ / không có dữ liệu). */
@@ -225,6 +260,14 @@ export const collisionRegistry = new MapCollisionRegistry({
   'players-house': asServerMap(playersHouseJson),
   'pokemon-lab': asServerMap(pokemonLabJson),
   'daisys-house': asServerMap(daisysHouseJson),
+  'kurts-house': asServerMap(kurtsHouseJson),
+  'cedolan-city': asServerMap(cedolanCityJson),
+  'cedolan-poke-center': asServerMap(cedolanPokeCenterJson),
+  'cedolan-gym': asServerMap(cedolanGymJson),
+  'pokemon-institute': asServerMap(pokemonInstituteJson),
+  'cedolan-condo': asServerMap(cedolanCondoJson),
+  'game-corner': asServerMap(gameCornerJson),
+  'cedolan-dept-1f': asServerMap(cedolanDept1fJson),
   // Aliases (khớp TILED_MAPS)
   'pallet-town': asServerMap(lappetTownJson),
   'interior-lab': asServerMap(pokemonLabJson),

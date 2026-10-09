@@ -486,10 +486,10 @@
       "data": [
         0,
         0,
-        1147,
-        1148,
         0,
-        1329,
+        0,
+        0,
+        0,
         1108,
         1109,
         0,
@@ -507,8 +507,8 @@
         0,
         0,
         0,
-        1121,
-        1122,
+        0,
+        0,
         0,
         0,
         0,
@@ -535,7 +535,7 @@
         0,
         0,
         0,
-        1521,
+        1320,
         1523,
         1173,
         1129,
@@ -566,7 +566,7 @@
         0,
         0,
         0,
-        1553,
+        1280,
         1555,
         1181,
         1137,
@@ -612,10 +612,10 @@
         0,
         0,
         793,
-        794,
-        794,
-        794,
-        794,
+        1291,
+        1700,
+        1702,
+        1292,
         795,
         0,
         0,
@@ -629,11 +629,11 @@
         0,
         0,
         1201,
-        1202,
+        0,
         1203,
         785,
         786,
-        786,
+        1337,
         786,
         787,
         0,
@@ -643,10 +643,10 @@
         0,
         0,
         793,
-        794,
-        794,
-        794,
-        794,
+        1291,
+        1708,
+        1710,
+        1292,
         795,
         0,
         0,
@@ -664,13 +664,13 @@
         1211,
         793,
         0,
-        1345,
+        1340,
         0,
         795,
         0,
         0,
         0,
-        1387,
+        0,
         0,
         0,
         801,
@@ -681,7 +681,7 @@
         803,
         0,
         0,
-        1387,
+        0,
         0,
         0,
         0,
@@ -695,7 +695,7 @@
         1219,
         793,
         0,
-        0,
+        1348,
         0,
         795,
         0,
@@ -964,10 +964,10 @@
       "data": [
         0,
         0,
+        1147,
+        1148,
         0,
-        0,
-        0,
-        0,
+        1329,
         0,
         0,
         0,
@@ -985,6 +985,8 @@
         1312,
         0,
         0,
+        1121,
+        1122,
         0,
         0,
         0,
@@ -1013,7 +1015,6 @@
         0,
         0,
         0,
-        1320,
         0,
         0,
         0,
@@ -1044,7 +1045,6 @@
         0,
         0,
         0,
-        1280,
         0,
         0,
         0,
@@ -1090,10 +1090,6 @@
         0,
         0,
         0,
-        1291,
-        1700,
-        1702,
-        1292,
         0,
         0,
         0,
@@ -1111,7 +1107,7 @@
         0,
         0,
         0,
-        1337,
+        1202,
         0,
         0,
         0,
@@ -1121,10 +1117,6 @@
         0,
         0,
         0,
-        1291,
-        1708,
-        1710,
-        1292,
         0,
         0,
         0,
@@ -1142,7 +1134,6 @@
         0,
         0,
         0,
-        1340,
         0,
         0,
         0,
@@ -1157,6 +1148,7 @@
         0,
         0,
         0,
+        1387,
         0,
         0,
         0,
@@ -1167,13 +1159,21 @@
         0,
         0,
         0,
+        1387,
         0,
         0,
         0,
         0,
         0,
         0,
-        1348,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
         0,
@@ -1612,16 +1612,36 @@
           "name": "Mom",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "npc_spawn",
           "visible": true,
           "width": 32,
           "x": 224,
           "y": 128,
           "properties": [
             {
+              "name": "npcId",
+              "type": "string",
+              "value": "mom"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "mom"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
               "name": "originalId",
               "type": "int",
               "value": 9
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Remember to read the wiki for further information.\nAn Internet shortcut to the wiki can be found in the\nproject's main folder.\nYou received a Pok\u00e9gear and Running Shoes."
             }
           ]
         },
@@ -1631,16 +1651,31 @@
           "name": "Warp tile 1",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "warp",
           "visible": true,
           "width": 32,
           "x": 32,
           "y": 96,
           "properties": [
             {
-              "name": "originalId",
+              "name": "toMap",
+              "type": "string",
+              "value": "cedolan-poke-center"
+            },
+            {
+              "name": "toX",
               "type": "int",
-              "value": 10
+              "value": 7
+            },
+            {
+              "name": "toY",
+              "type": "int",
+              "value": 8
+            },
+            {
+              "name": "direction",
+              "type": "string",
+              "value": "up"
             }
           ]
         },
@@ -1650,16 +1685,31 @@
           "name": "Warp tile 2",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "warp",
           "visible": true,
           "width": 32,
           "x": 64,
           "y": 96,
           "properties": [
             {
-              "name": "originalId",
+              "name": "toMap",
+              "type": "string",
+              "value": "game-corner"
+            },
+            {
+              "name": "toX",
               "type": "int",
-              "value": 11
+              "value": 9
+            },
+            {
+              "name": "toY",
+              "type": "int",
+              "value": 13
+            },
+            {
+              "name": "direction",
+              "type": "string",
+              "value": "up"
             }
           ]
         },
@@ -1669,16 +1719,36 @@
           "name": "Choices NPC",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "npc_spawn",
           "visible": true,
           "width": 32,
           "x": 288,
           "y": 224,
           "properties": [
             {
+              "name": "npcId",
+              "type": "string",
+              "value": "choices_npc"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
               "name": "originalId",
               "type": "int",
               "value": 12
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "I will offer you more than 4 choices at once. You\ncan put multiple \"Show Choices\" commands in a row\nto do this.\nPlease choose one.\nChoice 1 was chosen.\nChoice 2 was chosen.\nChoice 3 was chosen.\nChoice 4 was chosen.\nChoice 5 was chosen.\nChoice 6 was chosen.\nChoice 7 was chosen.\nThe choice was cancelled.\nPlease choose one. This choice can't be cancelled.\nChoice 1 was chosen.\nChoice 2 was chosen.\nChoice 3 was chosen.\nChoice 4 was chosen.\nChoice 5 was chosen.\nChoice 6 was chosen.\nChoice 7 was chosen.\nPlease choose one. Cancelling will result in Choice\n3.\nChoice 1 was chosen.\nChoice 2 was chosen.\nChoice 3 was chosen.\nChoice 4 was chosen.\nChoice 5 was chosen.\nChoice 6 was chosen.\nChoice 7 was chosen.\nThis is an example of how to modify choices, using\nthe hide_choice and rename_choice scripts.\nThis choice was renamed by rename_choice.\nThis choice is hidden if the player is not male.\nThis choice is hidden if the player is not female."
             }
           ]
         },
@@ -1688,16 +1758,36 @@
           "name": "Text formatting NPC",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "npc_spawn",
           "visible": true,
           "width": 32,
           "x": 320,
           "y": 224,
           "properties": [
             {
+              "name": "npcId",
+              "type": "string",
+              "value": "text_formatting_npc"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
               "name": "originalId",
               "type": "int",
               "value": 13
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Choose a text option.\nThis is the text of a male character.\nThis is the text of a female character.\ngThis text is the colour of the player's gender.\nogThis text is the colour of the opposite gender to\nthe player.\nDefault, blue, red, green, cyan,\nmagenta, yellow, grey, white,\npurple, orange, dark, light.\n<b>Bold text,</b> <i>italic text,</i> <u>underlined\ntext,</u> <s>strikethrough text,</s> <outln>outline\ntext,</outln> <outln2>thicker outline text.</outln2>\n<fn=Power Clear Bold>Power Clear Bold text,</fn>\n<fs=25>size 25 text,</fs> <fs=40>size 40 text,</fs>\n<o=128>half-transparent text.</o>\nThis is a line break. Text is <r>right-aligned until\nnext line break. Text is <ac>centred</ac> here.\nText is <ar>right-aligned</ar> here.\nN is the player's name, M is the player's money,\nis the content of Game Variable 12.\nThis is <icon=bagPocket3> bagPocket3 from the\nfolder Graphics/Icons. Icons shown this\nway are not padded.\nThe money window is shown.\nNThe coins window is shown.\nNThe money and coins windows are both\nshown. The coins window must be shown second.\nThe introBoy picture from the\nGraphics/Pictures folder is shown.\nThe introBoy picture is shown again, but\ncropped to the top-left 96x96 pixels of it.\nThe windowskin has changed to\n\"signskin\" here.\nThis message box has 3 lines to it rather than 2,\nso more text can be shown at once. Lorem ipsum\ndolor sit amet, consectetur adipisicing elit.\nuThis message box is at the top.\nmThis message box is in the middle.\nuThis message box ism jumping around the\nscreend in a rather off-putting way.\npThis message box slides on-screen at the start.\nlThis message box slides off-screen at the end.\nThis text appeared instantly!\nThis text is slow to appear.\nSlow text speed is 4, normal speed is 2, fast speed\nis 1. It takes this many 1/80ths of a second for the\nnext character in a message to appear.\nSound effect \"Pkmn move\nlearnt\" was played.\nMusic effect \"Item get\" will be played.\nA complete list of all message options is available on\nthe wiki."
             }
           ]
         },
@@ -1707,16 +1797,36 @@
           "name": "Pok\u00e9mon-checking NPC",
           "point": false,
           "rotation": 0,
-          "type": "event",
+          "type": "npc_spawn",
           "visible": true,
           "width": 32,
           "x": 32,
           "y": 160,
           "properties": [
             {
+              "name": "npcId",
+              "type": "string",
+              "value": "pok_mon_checking_npc"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "scientist"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": true
+            },
+            {
               "name": "originalId",
               "type": "int",
               "value": 14
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Choose a topic.\nYou don't have any able Pok\u00e9mon with you.\nis the first Pok\u00e9mon in your party.\nYou have a Celebi in your party.\nYou don't have a Celebi in your party."
             }
           ]
         },

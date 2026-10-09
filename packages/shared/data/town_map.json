@@ -1,0 +1,290 @@
+{
+  "regionId": 0,
+  "regionName": "Essen",
+  "image": "/assets/ui/town_map/mapRegion0.png",
+  "width": 480,
+  "height": 320,
+  "tileSize": 16,
+  "points": [
+    {
+      "x": 13,
+      "y": 12,
+      "name": "Lappet Town",
+      "poi": "Oak's Lab",
+      "mapId": "lappet-town",
+      "flyMap": 2,
+      "flyX": 8,
+      "flyY": 8,
+      "description": "Thị trấn yên bình bên bờ biển, nơi khởi đầu của những chuyến phiêu lưu.",
+      "descriptionEn": "A quiet seaside town where new Pokemon adventures begin.",
+      "facilities": ["Oak's Lab", "Player's House", "Daisy's House"]
+    },
+    {
+      "x": 13,
+      "y": 11,
+      "name": "Route 1",
+      "poi": "Kurt's House",
+      "mapId": "route-1",
+      "description": "Tuyến đường cỏ thảo nguyên nối liền Thị trấn Lappet và Thành phố Cedolan.",
+      "descriptionEn": "A grassy countryside road connecting Lappet Town and Cedolan City.",
+      "facilities": ["Kurt's House"]
+    },
+    {
+      "x": 13,
+      "y": 10,
+      "name": "Cedolan City",
+      "poi": "Cedolan Dept. Store",
+      "mapId": "cedolan-city",
+      "flyMap": 7,
+      "flyX": 47,
+      "flyY": 11,
+      "description": "Khu đô thị sầm uất phía tây với Trung tâm Bách hoá khổng lồ và Nhà thi đấu.",
+      "descriptionEn": "Vibrant western metropolis featuring Cedolan Department Store and Gym.",
+      "facilities": ["Cedolan Dept. Store", "Cedolan Gym"]
+    },
+    {
+      "x": 14,
+      "y": 10,
+      "name": "Cedolan City",
+      "poi": "PokeCenter & Institute",
+      "mapId": "cedolan-city",
+      "flyMap": 7,
+      "flyX": 47,
+      "flyY": 11,
+      "description": "Khu trung tâm thương mại phía đông với Trung tâm Pokémon và Viện Nghiên cứu.",
+      "descriptionEn": "Eastern district with Pokemon Center, Institute, and Game Corner.",
+      "facilities": ["PokeCenter", "Pokemon Institute", "Game Corner", "Cedolan Condo"]
+    },
+    {
+      "x": 14,
+      "y": 9,
+      "name": "Route 2",
+      "poi": "",
+      "mapId": "route-2",
+      "description": "Tuyến đường bắc dẫn lên sườn núi xanh hướng về Thị trấn Lerucean.",
+      "descriptionEn": "A northbound route winding past forested hills toward Lerucean Town.",
+      "facilities": []
+    },
+    {
+      "x": 14,
+      "y": 8,
+      "name": "Route 2",
+      "poi": "",
+      "mapId": "route-2",
+      "description": "Đoạn đường phía bắc của Tuyến đường 2 sát cửa ngõ Thị trấn Lerucean.",
+      "descriptionEn": "Northern stretch of Route 2 at the border of Lerucean Town.",
+      "facilities": []
+    },
+    {
+      "x": 15,
+      "y": 8,
+      "name": "Lerucean Town",
+      "poi": "Harbor & Port",
+      "mapId": "lerucean-town",
+      "flyMap": 23,
+      "flyX": 11,
+      "flyY": 15,
+      "description": "Thị trấn cảng biển thơ mộng với những ngọn gió biển trong lành.",
+      "descriptionEn": "A picturesque harbor town known for brisk sea breezes and trading ships.",
+      "facilities": ["PokeCenter", "Harbor Dock"]
+    },
+    {
+      "x": 16,
+      "y": 8,
+      "name": "Natural Park",
+      "poi": "Bug-Catching Contest",
+      "mapId": "natural-park",
+      "description": "Công viên tự nhiên trù phú, nơi diễn ra các cuộc thi bắt Pokémon Côn trùng.",
+      "descriptionEn": "Expansive public reserve home to diverse Pokemon and bug-catching contests.",
+      "facilities": ["Park Pavilion", "Fountain Plaza"]
+    },
+    {
+      "x": 15,
+      "y": 7,
+      "name": "Route 3",
+      "poi": "",
+      "mapId": "route-3",
+      "description": "Đường mòn vùng cao dẫn lên các đỉnh núi quanh năm băng giá.",
+      "descriptionEn": "A rugged mountain path leading toward the icy glacial peaks.",
+      "facilities": []
+    },
+    {
+      "x": 15,
+      "y": 6,
+      "name": "Route 3",
+      "poi": "Ice Cave",
+      "mapId": "route-3",
+      "description": "Hẻm núi tuyết dẫn vào Động Băng vĩnh cửu.",
+      "descriptionEn": "Cold mountain pass sheltering the entrance to Ice Cave.",
+      "facilities": ["Ice Cave"]
+    },
+    {
+      "x": 14,
+      "y": 6,
+      "name": "Route 3",
+      "poi": "",
+      "mapId": "route-3",
+      "description": "Tuyến đường đá hiểm trở kết nối với Cao nguyên Ingido.",
+      "descriptionEn": "Rocky trail linking the glacial path toward Indigo Plateau.",
+      "facilities": []
+    },
+    {
+      "x": 13,
+      "y": 6,
+      "name": "Ingido Plateau",
+      "poi": "Pokemon League",
+      "mapId": "indigo-plateau",
+      "flyMap": 35,
+      "flyX": 17,
+      "flyY": 7,
+      "description": "Đỉnh cao danh vọng nơi Liên minh Pokémon và Tứ Hoàng đón chờ các Huấn luyện viên.",
+      "descriptionEn": "The grand pinnacle where the Pokemon League and Champion await challengers.",
+      "facilities": ["Pokemon League", "Elite Four Hall"]
+    },
+    {
+      "x": 12,
+      "y": 6,
+      "name": "Route 4",
+      "poi": "",
+      "mapId": "route-4",
+      "description": "Đoạn dốc cao nguyên với gió rít và địa hình đá vôi hiểm trở.",
+      "descriptionEn": "High-altitude roadway cut through windswept limestone cliffs.",
+      "facilities": []
+    },
+    {
+      "x": 11,
+      "y": 6,
+      "name": "Route 4",
+      "poi": "",
+      "mapId": "route-4",
+      "description": "Cổng vào phía bắc của đường cao tốc dành cho xe đạp.",
+      "descriptionEn": "North gate connecting Route 4 to Seaside Cycling Road.",
+      "facilities": []
+    },
+    {
+      "x": 11,
+      "y": 7,
+      "name": "Route 5",
+      "poi": "Cycle Road",
+      "mapId": "route-5",
+      "description": "Dốc phía bắc của Đường xe đạp vượt biển (Cycle Road).",
+      "descriptionEn": "Northern ramp of the scenic Seaside Cycling Road.",
+      "facilities": ["Cycle Road Gate"]
+    },
+    {
+      "x": 11,
+      "y": 8,
+      "name": "Route 5",
+      "poi": "Cycle Road",
+      "mapId": "route-5",
+      "description": "Cây cầu vượt biển lộng gió, thiên đường của các tay lái xe đạp tốc độ cao.",
+      "descriptionEn": "Elevated coastal highway suspended over open ocean waters.",
+      "facilities": ["Cycle Track"]
+    },
+    {
+      "x": 11,
+      "y": 9,
+      "name": "Route 5",
+      "poi": "Cycle Road",
+      "mapId": "route-5",
+      "description": "Dốc phía nam hạ cánh của đường xe đạp nối sang Tuyến đường 6.",
+      "descriptionEn": "Southern exit ramp connecting Cycling Road to Route 6.",
+      "facilities": ["Cycle Road Gate"]
+    },
+    {
+      "x": 11,
+      "y": 10,
+      "name": "Route 6",
+      "poi": "",
+      "mapId": "route-6",
+      "description": "Tuyến đường ven sông êm ả rợp bóng cây xanh.",
+      "descriptionEn": "A quiet riverbank pathway shaded by tall forest canopies.",
+      "facilities": []
+    },
+    {
+      "x": 12,
+      "y": 10,
+      "name": "Route 6",
+      "poi": "",
+      "mapId": "route-6",
+      "description": "Đoạn đường nối thẳng vào cửa ngõ phía tây Thành phố Cedolan.",
+      "descriptionEn": "Eastern approach entering western Cedolan City outskirts.",
+      "facilities": []
+    },
+    {
+      "x": 15,
+      "y": 10,
+      "name": "Route 7",
+      "poi": "",
+      "mapId": "route-7",
+      "description": "Tuyến đường gồ ghề đầy đá sỏi dẫn ra vùng biển phía đông.",
+      "descriptionEn": "Rugged boulder-strewn road heading toward eastern sea cliffs.",
+      "facilities": []
+    },
+    {
+      "x": 16,
+      "y": 10,
+      "name": "Route 7",
+      "poi": "Rock Cave",
+      "mapId": "route-7",
+      "description": "Khu vực hang đá tự nhiên Rock Cave bí hiểm.",
+      "descriptionEn": "Rocky crags containing the cavernous entrance to Rock Cave.",
+      "facilities": ["Rock Cave"]
+    },
+    {
+      "x": 17,
+      "y": 10,
+      "name": "Battle Frontier",
+      "poi": "Frontier Facilities",
+      "mapId": "battle-frontier",
+      "flyMap": 52,
+      "flyX": 17,
+      "flyY": 14,
+      "description": "Quần đảo Đấu trường Đỉnh cao với các cơ sở tranh tài đỉnh cao thế giới.",
+      "descriptionEn": "Ultimate competitive arena island featuring Battle Tower and Frontier Brains.",
+      "facilities": ["Battle Tower", "Battle Factory", "Exchange Corner"]
+    },
+    {
+      "x": 12,
+      "y": 12,
+      "name": "Safari Zone",
+      "poi": "Wild Safari",
+      "mapId": "safari-zone",
+      "description": "Khu bảo tồn thiên nhiên rộng lớn cho phép bắt Pokémon hoang dã quý hiếm.",
+      "descriptionEn": "Expansive wildlife sanctuary where rare wild Pokemon can be captured.",
+      "facilities": ["Safari Zone Gate", "Warden House"]
+    },
+    {
+      "x": 13,
+      "y": 13,
+      "name": "Route 8",
+      "poi": "Diving area",
+      "mapId": "route-8",
+      "description": "Vùng biển sâu xanh thẳm lý tưởng cho môn lặn biển thám hiểm đáy đại dương.",
+      "descriptionEn": "Deep azure marine channel rich with coral reefs and deep dive trenches.",
+      "facilities": ["Deep Dive Area"]
+    },
+    {
+      "x": 18,
+      "y": 17,
+      "name": "Berth Island",
+      "poi": "Mystic Island",
+      "mapId": "berth-island",
+      "switch": 51,
+      "description": "Hòn đảo tam giác bí ẩn trôi dạt giữa đại dương xa xôi.",
+      "descriptionEn": "An enigmatic triangular island drifting in distant ocean currents.",
+      "facilities": ["Ancient Monolith"]
+    },
+    {
+      "x": 22,
+      "y": 16,
+      "name": "Faraday Island",
+      "poi": "Mythical Island",
+      "mapId": "faraday-island",
+      "switch": 52,
+      "description": "Hòn đảo huyền bí phủ trong sương mù, nơi lưu giữ truyền thuyết cổ xưa.",
+      "descriptionEn": "A secluded mythical island shrouded in ethereal fog.",
+      "facilities": ["Sacred Glade"]
+    }
+  ]
+}

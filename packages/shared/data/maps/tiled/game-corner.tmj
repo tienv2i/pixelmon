@@ -1,0 +1,3681 @@
+{
+  "compressionlevel": -1,
+  "height": 32,
+  "width": 20,
+  "infinite": false,
+  "layers": [
+    {
+      "data": [
+        1,
+        1,
+        1,
+        1,
+        2,
+        3,
+        4,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        3,
+        4,
+        1,
+        1,
+        96,
+        96,
+        9,
+        9,
+        9,
+        9,
+        10,
+        11,
+        12,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        10,
+        11,
+        12,
+        9,
+        9,
+        96,
+        96,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        96,
+        96,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        27,
+        26,
+        26,
+        26,
+        27,
+        26,
+        26,
+        26,
+        26,
+        26,
+        27,
+        96,
+        96,
+        26,
+        42,
+        34,
+        34,
+        34,
+        34,
+        34,
+        35,
+        42,
+        34,
+        34,
+        35,
+        42,
+        34,
+        34,
+        34,
+        34,
+        35,
+        96,
+        96,
+        26,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        26,
+        28,
+        17,
+        17,
+        17,
+        26,
+        26,
+        28,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        26,
+        27,
+        17,
+        17,
+        17,
+        26,
+        26,
+        27,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        26,
+        27,
+        17,
+        17,
+        17,
+        26,
+        26,
+        27,
+        17,
+        17,
+        26,
+        26,
+        26,
+        28,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        26,
+        27,
+        17,
+        17,
+        17,
+        26,
+        26,
+        27,
+        17,
+        17,
+        26,
+        26,
+        26,
+        27,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        26,
+        27,
+        17,
+        17,
+        17,
+        26,
+        26,
+        27,
+        17,
+        17,
+        26,
+        26,
+        26,
+        27,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        26,
+        35,
+        17,
+        17,
+        17,
+        42,
+        34,
+        35,
+        17,
+        17,
+        42,
+        34,
+        34,
+        35,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        26,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        26,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        1,
+        1,
+        1,
+        2,
+        3,
+        4,
+        1,
+        1,
+        1,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        9,
+        9,
+        9,
+        10,
+        11,
+        12,
+        9,
+        9,
+        9,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        26,
+        34,
+        34,
+        34,
+        34,
+        34,
+        34,
+        34,
+        34,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        26,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        26,
+        26,
+        28,
+        17,
+        17,
+        17,
+        17,
+        26,
+        26,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        26,
+        26,
+        27,
+        17,
+        17,
+        17,
+        17,
+        24,
+        26,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        26,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96
+      ],
+      "height": 32,
+      "id": 1,
+      "name": "Ground",
+      "opacity": 1,
+      "type": "tilelayer",
+      "visible": true,
+      "width": 20,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "data": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        113,
+        114,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        124,
+        214,
+        121,
+        122,
+        0,
+        0,
+        216,
+        0,
+        214,
+        0,
+        216,
+        0,
+        214,
+        0,
+        0,
+        0,
+        216,
+        124,
+        0,
+        0,
+        0,
+        222,
+        240,
+        194,
+        196,
+        238,
+        224,
+        0,
+        222,
+        223,
+        224,
+        0,
+        222,
+        239,
+        223,
+        239,
+        224,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        103,
+        0,
+        0,
+        138,
+        149,
+        0,
+        0,
+        141,
+        137,
+        138,
+        149,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        111,
+        0,
+        0,
+        138,
+        149,
+        0,
+        0,
+        141,
+        137,
+        138,
+        149,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        135,
+        0,
+        0,
+        138,
+        149,
+        0,
+        0,
+        141,
+        137,
+        138,
+        149,
+        0,
+        0,
+        150,
+        151,
+        152,
+        0,
+        0,
+        0,
+        0,
+        103,
+        0,
+        0,
+        138,
+        149,
+        0,
+        0,
+        141,
+        137,
+        138,
+        149,
+        0,
+        0,
+        161,
+        162,
+        163,
+        0,
+        0,
+        0,
+        0,
+        111,
+        0,
+        0,
+        146,
+        149,
+        0,
+        0,
+        141,
+        145,
+        146,
+        149,
+        0,
+        0,
+        169,
+        170,
+        171,
+        0,
+        0,
+        0,
+        0,
+        135,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        124,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        85,
+        86,
+        87,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        134,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        93,
+        94,
+        95,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        113,
+        114,
+        0,
+        0,
+        0,
+        113,
+        114,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        214,
+        121,
+        122,
+        0,
+        0,
+        0,
+        121,
+        122,
+        216,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        222,
+        239,
+        223,
+        239,
+        223,
+        239,
+        223,
+        239,
+        224,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        113,
+        114,
+        0,
+        0,
+        0,
+        0,
+        0,
+        113,
+        114,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        121,
+        122,
+        0,
+        0,
+        0,
+        0,
+        0,
+        121,
+        122,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        85,
+        86,
+        87,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        93,
+        94,
+        95,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "height": 32,
+      "id": 2,
+      "name": "Decoration",
+      "opacity": 1,
+      "type": "tilelayer",
+      "visible": true,
+      "width": 20,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "data": [
+        0,
+        0,
+        105,
+        106,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        116,
+        221,
+        0,
+        0,
+        0,
+        0,
+        221,
+        0,
+        221,
+        0,
+        221,
+        0,
+        221,
+        0,
+        0,
+        0,
+        221,
+        116,
+        0,
+        0,
+        0,
+        0,
+        232,
+        186,
+        188,
+        230,
+        0,
+        0,
+        0,
+        215,
+        0,
+        0,
+        0,
+        231,
+        215,
+        231,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        130,
+        0,
+        0,
+        0,
+        0,
+        129,
+        130,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        142,
+        143,
+        144,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        153,
+        154,
+        155,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        116,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        126,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        105,
+        106,
+        0,
+        0,
+        0,
+        105,
+        106,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        221,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        221,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        231,
+        215,
+        231,
+        215,
+        231,
+        215,
+        231,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        97,
+        98,
+        0,
+        0,
+        0,
+        0,
+        0,
+        97,
+        98,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "height": 32,
+      "id": 3,
+      "name": "Overhead",
+      "opacity": 1,
+      "type": "tilelayer",
+      "visible": true,
+      "width": 20,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "draworder": "topdown",
+      "id": 4,
+      "name": "Objects",
+      "objects": [
+        {
+          "height": 32,
+          "id": 1,
+          "name": "Slot Machine 1",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 0,
+          "y": 192,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 2,
+          "name": "Slot Machine 2",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 0,
+          "y": 224,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 3,
+          "name": "Slot Machine 3",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 0,
+          "y": 256,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 4,
+          "name": "Slot Machine 4",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 0,
+          "y": 288,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 4
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 5,
+          "name": "Slot Machine 5",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 0,
+          "y": 320,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 6,
+          "name": "Slot Machine 6",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 160,
+          "y": 192,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 6
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 7,
+          "name": "Slot Machine 7",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 160,
+          "y": 224,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 7
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 8,
+          "name": "Slot Machine 8",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 160,
+          "y": 256,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 8
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 9,
+          "name": "Slot Machine 9",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 160,
+          "y": 288,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 9
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 10,
+          "name": "Slot Machine 10",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 160,
+          "y": 320,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 10
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 11,
+          "name": "Slot Machine 11",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 192,
+          "y": 192,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 11
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 12,
+          "name": "Slot Machine 12",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 192,
+          "y": 224,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 12
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 13,
+          "name": "Slot Machine 13",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 192,
+          "y": 256,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 13
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 14,
+          "name": "Slot Machine 14",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 192,
+          "y": 288,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 14
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 15,
+          "name": "Slot Machine 15",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 192,
+          "y": 320,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 16,
+          "name": "Voltorb Flip",
+          "point": false,
+          "rotation": 0,
+          "type": "event",
+          "visible": true,
+          "width": 32,
+          "x": 352,
+          "y": 320,
+          "properties": [
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 16
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 17,
+          "name": "Lottery",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 288,
+          "y": 64,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "lottery"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 17
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "This is the Pok\u00e9mon Lottery Corner. I'm Felicity, your\nattendant today.\nIf the drawn number matches the ID No. of any of\nyour Pok\u00e9mon, you could win fabulous gifts.\nWould you like to check today's lucky number?\nFirst, I'll look up today's Pok\u00e9mon Lottery Corner\nlucky number.\n...\nYour Loto Ticket number is .\nNow, let's see if it matches the ID No. of any of your\nPok\u00e9mon.\nI'm sorry. You didn't get a match...\nPlease do visit again.\nCongratulations!\nThe ID number of your team's  matches your\nLoto Ticket number!\nCongratulations!\nThe ID number of your PC-boxed  matches your\nLoto Ticket number!\nOh my goodness, all five digits matched!\nYou've won the jackpot prize!\nPlease do visit again! Good-bye from Felicity, your\nattendant!\nYou have no room left. Make room, then come see\nme.\nThe last four digits matched, so you win the first\nprize!\nPlease do visit again! Good-bye from Felicity, your\nattendant!\nYou have no room left. Make room, then come see\nme.\nThe last three digits matched, so you win the\nsecond prize!\nPlease do visit again! Good-bye from Felicity, your\nattendant!\nYou have no room left. Make room, then come see\nme.\nThe last two digits matched, so you win the third\nprize!\nPlease do visit again! Good-bye from Felicity, your\nattendant!\nYou have no room left. Make room, then come see\nme.\nThe last digit matched, so you win the fourth prize!\nPlease do visit again! Good-bye from Felicity, your\nattendant!\nYou have no room left. Make room, then come see\nme.\nOh, I see.Please do visit us again."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 18,
+          "name": "Voltorb Flip man",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 352,
+          "y": 256,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "voltorb_flip_man"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 18
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "My name is Mr. Game!\nMy heart pounds with excitement when people\nenjoy my Coin game!\nIn fact, that's what I live for!Go ahead and play it!\nMake my heart pound with excitement!\nGo ahead and play my Coin game!\nMake my heart pound with excitement!"
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 19,
+          "name": "Coin seller",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 128,
+          "y": 64,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "coin_seller"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 19
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "NWelcome to Rocket Game Corner!\nNDo you need some game coins?Would you\nlike to buy some?\nNYou don't have a Coin Case.\nNDo you need some game coins?Would you\nlike to buy some?\nNWhoops!Your Coin Case is full.\nNYou can't afford the coins.\nNThank youHere are your coins!\nNWhoops!Your Coin Case is full.\nNYou can't afford the coins.\nNThank youHere are your coins!\nNNo?Please come play sometime!"
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 20,
+          "name": "Exit",
+          "point": false,
+          "rotation": 0,
+          "type": "warp",
+          "visible": true,
+          "width": 32,
+          "x": 288,
+          "y": 448,
+          "properties": [
+            {
+              "name": "toMap",
+              "type": "string",
+              "value": "cedolan-city"
+            },
+            {
+              "name": "toX",
+              "type": "int",
+              "value": 34
+            },
+            {
+              "name": "toY",
+              "type": "int",
+              "value": 20
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 21,
+          "name": "Coin Case giver",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 96,
+          "y": 64,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "coin_case_giver"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 21
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Welcome!\nOh, you don't have a Coin Case? Here.\nYou can exchange your coins for fabulous prizes\nnext door.\nYou don't have any room for it. Come back when\nyou do.\nYou can exchange your coins for fabulous prizes\nnext door."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 22,
+          "name": "Triple Triad explainer",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 416,
+          "y": 64,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "triple_triad_explainer"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "guide"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 22
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "I'm here to explain the rules of Triple Triad.\nWhich topic do you want to learn about?\nTriple Triad is a game played with special cards\nplaced on a 3x3 board.\nEach card has 4 numbers on it, one per side.\nThese numbers are so-called stats.\nPlayers take turns placing cards on the board. As\nthey do so, they try to capture and gain control of\ntheir opponent's cards.\nThat's where the numbers come in. If a player\nplaces a card with a higher number next to a card\nwith a lower number, the player captures that card.\nThus, the goal of the game is to gain control of more\ncards than the other player by the end of the game.\nThere are a number of optional game rules you can\napply to individual games.\nThey can affect card stats, how cards capture\neach other, the scoring and the prizes.\nWhen you win a game, you will recive 1 random\ncard from your opponent from their Deck.\nThis also works the other way around: if you lose,\nyou have to give your opponent one of your cards,\nchosen at random.\nYou can change what you win or lose from a game\nby using an optional game rule."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 23,
+          "name": "Triple Triad card shop",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 448,
+          "y": 64,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "triple_triad_card_shop"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 23
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Welcome to the Triad Card Shop.\nAnything else I can do for you?\nAnything else I can do for you?\nHere is where you can purchase new cards for\nTriple Triad duels.\nThe selection grows as you catch and find new\nPok\u00e9mon, so check often.\nAnd, of course, stronger Pok\u00e9mon cards cost more\nthan weaker cards.\nYou don't have to use this shop in your game. It's\njust an example of how the player could gain Triple\nTriad cards. You could implement other ways.\nPlease come again."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 24,
+          "name": "Triple Triad duel",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 512,
+          "y": 160,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "triple_triad_duel"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "youngster"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 24
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "I'm ready to duel with you.\nOh, you don't have enough cards to play. You need\nat least 5."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 25,
+          "name": "Triple Triad duel with rules",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 512,
+          "y": 192,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "triple_triad_duel_with_rules"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "youngster"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 25
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Ready for a real rule duel?\nOh, you don't have enough cards to play. You need\nat least 5."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 26,
+          "name": "Triple Triad duel with deck",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 512,
+          "y": 224,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "triple_triad_duel_with_deck"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "youngster"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 26
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "I built my deck specially for this!\nOh, you don't have enough cards to play. You need\nat least 5."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 27,
+          "name": "Triple Triad duel with prize",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 512,
+          "y": 256,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "triple_triad_duel_with_prize"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "youngster"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 27
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "If you win, I'll give you an Arceus card!\nOh, you don't have enough cards to play. You need\nat least 5."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 28,
+          "name": "Prize vendor left",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 64,
+          "y": 736,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "prize_vendor_left"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 28
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "NWe exchange your coins for prizes.\nNWhich prize would you like?\nNPlease save your Coins and come again!\nNSo, you want the ?\nNSorry, you'll need more coins than that.\nNHere you go!\\1\nNYou have no room in your Bag."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 29,
+          "name": "Prize vendor middle",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 128,
+          "y": 736,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "prize_vendor_middle"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 29
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "NWe exchange your coins for prizes.\nNWhich prize would you like?\nNPlease save your Coins and come again!\nNYour party's full!Please make some room\nbefore you come back.\nNWould you like ?\nNSorry, you'll need more coins than that.\nNHere you go!\\1\nNN received the !"
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 30,
+          "name": "Prize vendor right",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 192,
+          "y": 736,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "prize_vendor_right"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "citizen"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 30
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "NWe exchange your coins for prizes.\nNWhich prize would you like?\nNPlease save your Coins and come again!\nNSo, you want the ?\nNSorry, you'll need more coins than that.\nNHere you go!\\1\nNYou have no room in your Bag."
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 31,
+          "name": "Shop exit",
+          "point": false,
+          "rotation": 0,
+          "type": "warp",
+          "visible": true,
+          "width": 32,
+          "x": 128,
+          "y": 960,
+          "properties": [
+            {
+              "name": "toMap",
+              "type": "string",
+              "value": "cedolan-city"
+            },
+            {
+              "name": "toX",
+              "type": "int",
+              "value": 39
+            },
+            {
+              "name": "toY",
+              "type": "int",
+              "value": 19
+            }
+          ]
+        }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "nextlayerid": 5,
+  "nextobjectid": 32,
+  "orientation": "orthogonal",
+  "properties": [
+    {
+      "name": "name",
+      "type": "string",
+      "value": "Game Corner"
+    },
+    {
+      "name": "mapType",
+      "type": "string",
+      "value": "interior"
+    },
+    {
+      "name": "music",
+      "type": "string",
+      "value": "game-corner"
+    },
+    {
+      "name": "weather",
+      "type": "string",
+      "value": "sunny"
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "value": "Game Corner ported from Pok\u00e9mon Essentials."
+    }
+  ],
+  "renderorder": "right-down",
+  "tiledversion": "1.10.2",
+  "tileheight": 32,
+  "tilewidth": 32,
+  "tilesets": [
+    {
+      "columns": 8,
+      "firstgid": 1,
+      "image": "assets/tilesets/Interior general.png",
+      "imageheight": 8032,
+      "imagewidth": 256,
+      "margin": 0,
+      "name": "interior_general",
+      "spacing": 0,
+      "tilecount": 2008,
+      "tileheight": 32,
+      "tilewidth": 32,
+      "tiles": [
+        {
+          "id": 0,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 16,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 23,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 25,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 26,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 27,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 33,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 34,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 41,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 84,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 85,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 86,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 92,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 93,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 94,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 95,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 96,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 97,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 102,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 104,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 105,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 110,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 112,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 113,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 115,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 120,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 121,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 123,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 125,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 128,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 129,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 133,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 134,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 136,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 137,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 140,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 141,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 142,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 143,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 144,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 145,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 148,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 149,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 150,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 151,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 152,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 153,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 154,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 160,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 161,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 162,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 168,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 169,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 170,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 185,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 187,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 193,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 195,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 213,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 214,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 143
+            }
+          ]
+        },
+        {
+          "id": 215,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 220,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 221,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 143
+            }
+          ]
+        },
+        {
+          "id": 222,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 223,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 143
+            }
+          ]
+        },
+        {
+          "id": 229,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 230,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 231,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 237,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 238,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 239,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "type": "map",
+  "version": "1.10"
+}

@@ -1,7 +1,49 @@
 [
   {
+    "mapId": "cedolan-city",
+    "file": "cedolan-city.json",
+    "width": 60,
+    "height": 43
+  },
+  {
+    "mapId": "cedolan-condo",
+    "file": "cedolan-condo.json",
+    "width": 20,
+    "height": 15
+  },
+  {
+    "mapId": "cedolan-dept-1f",
+    "file": "cedolan-dept-1f.json",
+    "width": 20,
+    "height": 17
+  },
+  {
+    "mapId": "cedolan-gym",
+    "file": "cedolan-gym.json",
+    "width": 20,
+    "height": 17
+  },
+  {
+    "mapId": "cedolan-poke-center",
+    "file": "cedolan-poke-center.json",
+    "width": 20,
+    "height": 15
+  },
+  {
     "mapId": "daisys-house",
     "file": "daisys-house.json",
+    "width": 20,
+    "height": 15
+  },
+  {
+    "mapId": "game-corner",
+    "file": "game-corner.json",
+    "width": 20,
+    "height": 32
+  },
+  {
+    "mapId": "kurts-house",
+    "file": "kurts-house.json",
     "width": 20,
     "height": 15
   },
@@ -15,6 +57,12 @@
     "mapId": "players-house",
     "file": "players-house.json",
     "width": 31,
+    "height": 15
+  },
+  {
+    "mapId": "pokemon-institute",
+    "file": "pokemon-institute.json",
+    "width": 20,
     "height": 15
   },
   {

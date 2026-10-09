@@ -131,6 +131,10 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
 
     terrain_tags = _read_int16_array(ts_data.attributes["@terrain_tags"]._private_data)
 
+    prio_raw = ts_data.attributes["@priorities"]._private_data
+    _, _, _, _, psz = struct.unpack_from("<5I", prio_raw, 0)
+    priorities = struct.unpack_from(f"<{psz}h", prio_raw, 20)
+
     # Đọc tên tileset gốc từ RMXP để chọn đúng file ảnh (Outside / Interior general).
     raw_ts_name = ts_data.attributes.get("@tileset_name", "")
     ts_name = raw_ts_name.decode("utf-8", errors="ignore") if isinstance(raw_ts_name, bytes) else str(raw_ts_name)
@@ -148,26 +152,62 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
         tileset_h = 16096
         tileset_count = 4024
 
+    def _to_gid(tid_val, z_default=0):
+        if tid_val == 0:
+            return 0
+        elif tid_val >= 384:
+            return (tid_val - 384) + 1
+        elif 240 <= tid_val < 288:
+            return 411 if z_default == 0 else 5
+        else:
+            return 1 if z_default == 0 else 0
+
+    ground_data = []
+    deco_data = []
+    overhead_data = []
+
+    for y in range(h):
+        for x in range(w):
+            idx0 = 0 * (w * h) + y * w + x
+            idx1 = 1 * (w * h) + y * w + x
+            idx2 = 2 * (w * h) + y * w + x
+
+            t0 = tiles[idx0]
+            t1 = tiles[idx1]
+            t2 = tiles[idx2]
+
+            p0 = priorities[t0] if (0 <= t0 < len(priorities)) else 0
+            p1 = priorities[t1] if (0 <= t1 < len(priorities)) else 0
+            p2 = priorities[t2] if (0 <= t2 < len(priorities)) else 0
+
+            # Ground: luôn là tile tầng 0 (sàn/đất)
+            ground_data.append(_to_gid(t0, 0))
+
+            # Decoration (priority == 0, vẽ dưới nhân vật):
+            # Lấy tile từ z=2 nếu prio==0, nếu không lấy từ z=1 nếu prio==0
+            d_tid = 0
+            if t2 > 0 and p2 == 0:
+                d_tid = t2
+            elif t1 > 0 and p1 == 0:
+                d_tid = t1
+            deco_data.append(_to_gid(d_tid, 1) if d_tid > 0 else 0)
+
+            # Overhead (priority > 0, vẽ trên đầu nhân vật - tán cây, mái nhà):
+            # Lấy tile từ z=2 nếu prio > 0, nếu không lấy từ z=1 nếu prio > 0
+            o_tid = 0
+            if t2 > 0 and p2 > 0:
+                o_tid = t2
+            elif t1 > 0 and p1 > 0:
+                o_tid = t1
+            overhead_data.append(_to_gid(o_tid, 2) if o_tid > 0 else 0)
+
     layer_names = ["Ground", "Decoration", "Overhead"]
+    layer_datas = [ground_data, deco_data, overhead_data]
     tmj_layers = []
-    
+
     for z in range(3):
-        data = []
-        for y in range(h):
-            for x in range(w):
-                tid_val = tiles[z * (w * h) + y * w + x]
-                if tid_val == 0:
-                    data.append(0)
-                elif tid_val >= 384:
-                    gid = (tid_val - 384) + 1
-                    data.append(gid)
-                elif 240 <= tid_val < 288:
-                    data.append(411 if z == 0 else 5)
-                else:
-                    data.append(1 if z == 0 else 0)
-                    
         tmj_layers.append({
-            "data": data,
+            "data": layer_datas[z],
             "height": h,
             "id": z + 1,
             "name": layer_names[z],
@@ -186,8 +226,22 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
     warp_landing_positions = []  # (x, y) tile coords — ô landing của warp để set WALKABLE
     tmj_warp_props = {}    # event_id -> TMJ properties (toMap/toX/toY/direction) cho object type=warp
 
-    # Map registry: RMXP map_id → project slug (5 map đang convert)
-    MAP_ID_TO_SLUG = {2: "lappet-town", 3: "players-house", 4: "pokemon-lab", 5: "route-1", 8: "daisys-house"}
+    # Map registry: RMXP map_id → project slug
+    MAP_ID_TO_SLUG = {
+        2: "lappet-town",
+        3: "players-house",
+        4: "pokemon-lab",
+        5: "route-1",
+        6: "kurts-house",
+        7: "cedolan-city",
+        8: "daisys-house",
+        9: "cedolan-poke-center",
+        10: "cedolan-gym",
+        11: "pokemon-institute",
+        12: "cedolan-condo",
+        13: "game-corner",
+        14: "cedolan-dept-1f",
+    }
 
     for eid, ev in sorted(events.items()):
         eattrs = ev.attributes
@@ -256,6 +310,84 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
                     tmj_warp_props[eid].append({"name": "direction", "type": "string", "value": warp_dir})
                 continue
 
+        # Trích xuất NPC character nếu có graphic nhân vật hợp lệ
+        gname = ""
+        dialog_lines = []
+        if pages:
+            p0 = pages[0]
+            if hasattr(p0, "attributes"):
+                g = p0.attributes.get("@graphic")
+                if g and hasattr(g, "attributes"):
+                    raw_g = g.attributes.get("@character_name", "")
+                    gname = raw_g.decode("utf-8", errors="ignore") if isinstance(raw_g, bytes) else str(raw_g)
+                cmd_list = p0.attributes.get("@list", [])
+                for cmd in cmd_list:
+                    if hasattr(cmd, "attributes"):
+                        code = cmd.attributes.get("@code")
+                        params = cmd.attributes.get("@parameters", [])
+                        if code in (101, 401) and params:
+                            t = params[0]
+                            if isinstance(t, bytes): t = t.decode("utf-8", errors="ignore")
+                            import re
+                            clean_t = re.sub(r'\\(?:[a-zA-Z]+(?=\[)|[a-zA-Z])(?:\[[^\]]*\])?', '', str(t)).strip()
+                            if clean_t:
+                                dialog_lines.append(clean_t)
+
+        def _map_npc_sprite(g_val, n_val):
+            if not g_val: return None
+            g = g_val.lower()
+            n = (n_val or "").lower()
+            if g.startswith("doors") or g.startswith("object") or g.startswith("berrytree") or "ball" in g:
+                return None
+            if "brock" in g or "brock" in n: return "brock"
+            if "mom" in n or "npc 28" in g: return "mom"
+            if "prof" in n or "oak" in n or "phone001" in g: return "oak"
+            if "daisy" in n or "npc 26" in g: return "daisy"
+            if "kurt" in n or "npc 18" in g: return "kurt"
+            if "nurse" in n or "joy" in n or "npc 16" in g: return "nurse"
+            if "scientist" in g or "fossil" in n: return "scientist"
+            if "name rater" in n or "namerater" in n: return "namerater"
+            if "camper" in g or "youngster" in g or "youngster" in n: return "youngster"
+            if "police" in g or "officer" in n: return "policeman"
+            if "guide" in n or "explainer" in n or "gym guy" in n or "npc 15" in g or "npc 06" in g: return "guide"
+            if g.startswith("trainer_") or "trainer" in n: return "youngster"
+            if g.startswith("npc "): return "citizen"
+            return None
+
+        npc_sprite = _map_npc_sprite(gname, ev_name)
+        if npc_sprite:
+            import re
+            is_trainer = False
+            trainer_id = None
+            g_low = gname.lower()
+            n_low = ev_name.lower()
+            if g_low.startswith("trainer_") or "trainer" in n_low or "brock" in n_low or "camper" in n_low:
+                is_trainer = True
+                if "brock" in n_low: trainer_id = "leader_brock_brock"
+                elif "camper" in n_low: trainer_id = "camper_liam"
+                elif "youngster" in n_low: trainer_id = "youngster_ben"
+
+            npc_id = re.sub(r'[^a-z0-9_]+', '_', ev_name.lower()).strip('_') or f"npc_{eid}"
+            npc_obj = {
+                "id": eid,
+                "name": ev_name or f"NPC_{eid}",
+                "type": "npc_spawn",
+                "npcId": npc_id,
+                "sprite": npc_sprite,
+                "x": ex,
+                "y": ey,
+                "width": 1,
+                "height": 1,
+                "trainer": is_trainer,
+                "dialog": dialog_lines if dialog_lines else [f"Xin chào! Tôi là {ev_name}."],
+                "team": [],
+                "visible": True,
+            }
+            if trainer_id:
+                npc_obj["trainerId"] = trainer_id
+            server_objects.append(npc_obj)
+            continue
+
         # Event generic (không phải warp hoặc dest map chưa convert)
         server_objects.append({
             "id": eid, "name": ev_name or f"Event_{eid}", "type": "event",
@@ -319,6 +451,23 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
                 "rotation": 0, "type": "warp", "visible": True, "width": 32,
                 "x": so["x"] * 32, "y": so["y"] * 32,
                 "properties": list(tmj_warp_props.get(so["id"]) or [])
+            })
+        elif so["type"] == "npc_spawn":
+            props = [
+                {"name": "npcId", "type": "string", "value": so["npcId"]},
+                {"name": "sprite", "type": "string", "value": so["sprite"]},
+                {"name": "trainer", "type": "bool", "value": so.get("trainer", False)},
+                {"name": "originalId", "type": "int", "value": so["id"]},
+            ]
+            if "trainerId" in so:
+                props.append({"name": "trainerId", "type": "string", "value": so["trainerId"]})
+            if "dialog" in so and so["dialog"]:
+                props.append({"name": "dialog", "type": "string", "value": "\n".join(so["dialog"])})
+            tmj_objects_for_tiled.append({
+                "height": 32, "id": so["id"], "name": so["name"], "point": False,
+                "rotation": 0, "type": "npc_spawn", "visible": True, "width": 32,
+                "x": so["x"] * 32, "y": so["y"] * 32,
+                "properties": props
             })
         else:
             # Giữ object dạng event + originalId như cũ

@@ -353,10 +353,18 @@ function deriveCollision(map: TiledMap, mapId: string): CollisionLayer {
       if ((o.type ?? '').toLowerCase() !== 'warp') continue;
       const tx = Math.floor(o.x / map.tilewidth);
       const ty = Math.floor(o.y / map.tileheight);
-      if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) continue;
-      const i = ty * map.width + tx;
-      if (flags[i] & WATER) continue; // nước — bỏ qua
-      flags[i] = (flags[i] & ~BLOCKED) | WALKABLE | WARP;
+      const spanX = Math.max(1, Math.round((o.width || map.tilewidth) / map.tilewidth));
+      const spanY = Math.max(1, Math.round((o.height || map.tileheight) / map.tileheight));
+      for (let dy = 0; dy < spanY; dy++) {
+        for (let dx = 0; dx < spanX; dx++) {
+          const cx = tx + dx;
+          const cy = ty + dy;
+          if (cx < 0 || cy < 0 || cx >= map.width || cy >= map.height) continue;
+          const i = cy * map.width + cx;
+          if (flags[i] & WATER) continue; // nước — bỏ qua
+          flags[i] = (flags[i] & ~BLOCKED) | WALKABLE | WARP;
+        }
+      }
     }
   }
 
@@ -480,14 +488,17 @@ function applyCrossMapLandings(
 
     if (type === 'npc_spawn') {
       const npcId = propStr(o, 'npcId') ?? o.name ?? '';
+      const dialogueText = propStr(o, 'dialogue') ?? propStr(o, 'dialog') ?? '';
+      const dialog = dialogueText ? dialogueText.split('\n') : [];
       out.push({
         ...base,
         type: 'npc_spawn',
         npcId,
         sprite: propStr(o, 'sprite'),
-        dialog: [],
+        dialog,
         team: [],
-        trainer: false,
+        trainer: propBool(o, 'trainer') ?? false,
+        trainerId: propStr(o, 'trainerId'),
         visible: o.visible ?? true,
       } as MapObject);
       continue;

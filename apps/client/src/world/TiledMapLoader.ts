@@ -163,12 +163,11 @@ export async function loadTiledMap(
     }
 
     // Đặt depth chuẩn hoá:
-    // Ground (10) -> Decoration (12) -> Player (20) -> Overhead (30 - trên đầu người chơi)
+    // Ground (10) -> Decoration (12) -> Player/NPCs (20) -> Overhead (30 - trên đầu người chơi)
     //
-    // `Overhead` là lớp tile vẽ ĐÈ LÊN nhân vật (tán cây, mái nhà, rào trên cao...)
-    // nên depth phải > 20. Về va chạm, lớp này **KHÔNG chặn** — người chơi đi được
-    // bên dưới (xem heuristic tầng A trong `scripts/build-server-map.ts`); muốn
-    // chặn thì gán `passage=0x0f` cho tile trong Tiled.
+    // - Ground (10): Mặt đất / sàn nhà (RMXP z=0, priority = 0)
+    // - Decoration (12): Vật thể trên đất/sàn vẽ dưới nhân vật (RMXP z=1/z=2, priority == 0): thảm, bàn, ghế, rào chắn
+    // - Overhead (30): Vật thể vẽ trên đầu nhân vật (RMXP priority > 0): tán cây, mái nhà, đèn treo trần
     const lowerName = layer.name.toLowerCase();
     let layerDepth = depthBase;
     if (lowerName.includes('ground')) {

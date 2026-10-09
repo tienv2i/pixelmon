@@ -322,14 +322,16 @@ export class PartyStrip extends UiModal {
             });
           }
 
-          // 1. Text Level (dòng trên) — Thêm tiền tố S. cho Pokémon Shiny
+          // 1. Text Level (dòng trên) — shiny chỉ đổi màu vàng, KHÔNG tiền tố
+          // `S.` (tràn slot 72px với Lv.100). Dấu hiệu shiny là badge `S`
+          // góc dưới-phải (thêm ở dưới).
           if (m.level !== undefined) {
             const isShiny = Boolean(m.shiny || m.pokemonData?.shiny);
-            const lvStr = isShiny ? `S. Lv.${m.level}` : `Lv.${m.level}`;
+            const lvStr = `Lv.${m.level}`;
             const lvColor = isShiny ? '#f1c40f' : '#fdcb6e';
             const lvTxt = this.scene.add
               .text(startX + 36, sy + 6, lvStr, {
-                fontSize: isShiny ? '9.5px' : '10px',
+                fontSize: '10px',
                 fontFamily: FONT.mono,
                 fontStyle: 'bold',
                 color: lvColor,
@@ -337,6 +339,21 @@ export class PartyStrip extends UiModal {
               .setOrigin(0, 0);
             this.slotTexts.push(lvTxt);
             this.contentContainer.add(lvTxt);
+          }
+
+          // 1b. Badge `S` cho Pokémon Shiny — góc dưới-phải (vùng trống dưới
+          // thanh HP), không xô text level.
+          if (Boolean(m.shiny || m.pokemonData?.shiny)) {
+            const sBadge = this.scene.add
+              .text(startX + curSlotW - 2, sy + curSlotH - 2, 'S', {
+                fontSize: '9px',
+                fontFamily: FONT.mono,
+                fontStyle: 'bold',
+                color: '#f1c40f',
+              })
+              .setOrigin(1, 1);
+            this.slotTexts.push(sBadge);
+            this.contentContainer.add(sBadge);
           }
 
           // 2. Thanh máu HP mini (dòng dưới)

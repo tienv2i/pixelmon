@@ -1075,11 +1075,16 @@ export class BagModal extends UiModal {
       }
     };
 
-    // Nút SỬ DỤNG (USE)
+    // Nút SỬ DỤNG (USE) — đã chọn target ở card (nút CHỌN) thì dùng luôn,
+    // khỏi mở PartySelect lần nữa (trước đây USE luôn mở picker dù đã pick).
     mkActionBtn(t('BAG_BTN_USE'), 0x00cec9, 0x183742, true, actionY, () => {
       if (!this.onUse) return;
       if (!needTarget) {
         this.onUse(item.itemId, '');
+        return;
+      }
+      if (this.selectedPokemon) {
+        this.onUse(item.itemId, this.selectedPokemon.id);
         return;
       }
       this.openPartySelect(item, 'use');

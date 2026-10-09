@@ -1,20 +1,20 @@
 import Phaser from 'phaser';
 // Kiểu `*.png?url` đã khai báo trong `src/vite-env.d.ts` → không cần ts-ignore.
-import outdoorTilesetUrl from '@pixelmon/shared/assets/tilesets/Outdoor.png?url';
-import interiorTilesetUrl from '@pixelmon/shared/assets/tilesets/Interior general.png?url';
+// Tileset theo world (mỗi world 1 bộ riêng) — resolve động qua glob.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — TS6059: type nằm ngoài rootDir của client (packages/shared/data)
-import type { TiledMapJSON, TiledTileset } from '@pixelmon/shared/data/maps/tiled/types';
+import type { TiledMapJSON, TiledTileset } from '@pixelmon/shared/data/maps/tiled-types';
 
 /**
  * TiledMapLoader — đọc file .tmj (Tiled Maps Editor) và render bằng Phaser Tilemap.
  *
- * Dữ liệu map: `packages/shared/data/maps/tiled/*.tmj` + `assets/tilesets/Outdoor.png`.
- * Mỗi .tmj có 3 tilelayer: Ground, Decoration, Overhead + 1 objectgroup.
+ * Dữ liệu map: `packages/shared/data/maps/worlds/<world>/tiled/*.tmj` + tileset
+ * trong `worlds/<world>/tilesets/*.png`. Mỗi .tmj có 3 tilelayer: Ground,
+ * Decoration, Overhead + 1 objectgroup.
  *
- * QUY ƯỚC NGUỒN SỰ THẬT: mọi `.tmj` trong thư mục trên **tự động** được đăng ký bằng
- * `import.meta.glob` — thêm map mới chỉ cần copy file `.tmj` vào thư mục rồi rebuild,
- * KHÔNG phải sửa code (xem `plan-tiled-first.md` Phase 1).
+ * QUY ƯỚC NGUỒN SỰ THẬT: mọi `.tmj` trong các world **tự động** được đăng ký bằng
+ * `import.meta.glob` — thêm map mới chỉ cần copy file `.tmj` vào `tiled/` của world
+ * rồi rebuild, KHÔNG phải sửa code.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,10 +28,31 @@ import type { TiledMapJSON, TiledTileset } from '@pixelmon/shared/data/maps/tile
  *   đã biến `.tmj` thành `export default JSON.parse(...)`).
  * - `eager: true` → nạp đồng bộ, đồng thời để Vite đưa mọi map vào bundle.
  */
-const TMJ_MODULES = import.meta.glob('@pixelmon/shared/data/maps/tiled/*.tmj', {
+const TMJ_MODULES = import.meta.glob('@pixelmon/shared/data/maps/worlds/*/tiled/*.tmj', {
   eager: true,
   import: 'default',
 }) as Record<string, unknown>;
+
+/**
+ * Tileset PNG theo world (`worlds/<world>/tilesets/*.png`), resolve theo tên file:
+ * outdoor = file chứa 'outdoor'/'outside' (không chứa 'interior'), interior = ngược lại.
+ */
+const TILESET_MODULES = import.meta.glob(
+  '@pixelmon/shared/data/maps/worlds/*/tilesets/*.png',
+  { eager: true, query: '?url', import: 'default' },
+) as Record<string, string>;
+
+function tilesetUrlFor(worldId: string, isInterior: boolean): string | undefined {
+  const cands = Object.entries(TILESET_MODULES).filter(([p]) =>
+    p.includes(`/worlds/${worldId}/tilesets/`),
+  );
+  const pick = (wantInterior: boolean) =>
+    cands.find(([p]) => {
+      const base = (p.split('/').pop() ?? '').toLowerCase();
+      return wantInterior ? base.includes('interior') : !base.includes('interior');
+    });
+  return pick(isInterior)?.[1] ?? pick(!isInterior)?.[1] ?? cands[0]?.[1];
+}
 
 /** File `.tmj` có tên thuần số (`2.tmj`, `5.tmj`…) = output cũ của converter RMXP. Bỏ qua. */
 const LEGACY_NUMERIC_FILE = /^\d+$/;
@@ -49,12 +70,19 @@ export const TILED_MAP_ALIASES: Record<string, string> = {
 /** Registry các map ID tự động phát hiện trong repo (khớp MapInfos.rxdata). */
 export const TILED_MAPS: Record<string, TiledMapJSON> = {};
 
+/** World chứa mỗi map — parse từ đường dẫn module (`worlds/<world>/tiled/`). */
+export const TILED_MAP_WORLD: Record<string, string> = {};
+
 for (const [modulePath, mapJson] of Object.entries(TMJ_MODULES)) {
+  const segs = modulePath.split('/');
+  const tiledIdx = segs.lastIndexOf('tiled');
+  const worldId = tiledIdx > 0 ? segs[tiledIdx - 1]! : 'essen-classic';
   const fileName = modulePath.split('/').pop() ?? '';
   const mapId = fileName.replace(/\.tmj$/, '');
   if (!mapId || LEGACY_NUMERIC_FILE.test(mapId)) continue;
   if (!mapJson || typeof mapJson !== 'object') continue;
   TILED_MAPS[mapId] = mapJson as TiledMapJSON;
+  TILED_MAP_WORLD[mapId] = worldId;
 }
 
 // Gắn alias sau khi đã nạp bản chính (tránh alias đè lên map thật).
@@ -82,12 +110,15 @@ export interface LoadedTiledMap {
 /**
  * Load tileset image vào texture cache (nếu chưa có).
  * Dùng `this.load.image()` để đồng bộ với loader của Phaser.
+ * `url` bắt buộc — resolve theo world qua `tilesetUrlFor()`.
  */
 export async function loadTilesetTexture(
   scene: Phaser.Scene,
   key = 'tileset_outdoor',
-  url = outdoorTilesetUrl,
+  url?: string,
 ): Promise<void> {
+  if (scene.textures.exists(key)) return;
+  if (!url) throw new Error(`Không resolve được tileset URL cho key "${key}" (world chưa có tileset?)`);
   if (scene.textures.exists(key)) return;
 
   return new Promise<void>((resolve, reject) => {
@@ -116,9 +147,11 @@ export async function loadTiledMap(
   const ts: TiledTileset = mapJson.tilesets[0];
   if (!ts) throw new Error(`Map "${mapId}" has no tilesets`);
 
+  // Tileset theo world của map (mỗi world 1 bộ riêng).
+  const worldId = TILED_MAP_WORLD[mapId] ?? 'essen-classic';
   const isInterior = ts.image.includes('Interior') || ts.name.includes('interior');
   const textureKey = isInterior ? 'tileset_interior' : 'tileset_outdoor';
-  const textureUrl = isInterior ? interiorTilesetUrl : outdoorTilesetUrl;
+  const textureUrl = tilesetUrlFor(worldId, isInterior);
 
   // Load tileset nếu chưa có
   await loadTilesetTexture(scene, textureKey, textureUrl);

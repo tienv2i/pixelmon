@@ -1,0 +1,1630 @@
+{
+  "compressionlevel": -1,
+  "height": 15,
+  "width": 20,
+  "infinite": false,
+  "layers": [
+    {
+      "data": [
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        29,
+        29,
+        29,
+        29,
+        29,
+        29,
+        29,
+        29,
+        29,
+        29,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        674,
+        682,
+        682,
+        682,
+        682,
+        682,
+        682,
+        682,
+        682,
+        1559,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        674,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        674,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        674,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        674,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        674,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        665,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159,
+        159
+      ],
+      "height": 15,
+      "id": 1,
+      "name": "Ground",
+      "opacity": 1,
+      "type": "tilelayer",
+      "visible": true,
+      "width": 20,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "data": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1186,
+        1187,
+        1155,
+        1156,
+        0,
+        1337,
+        0,
+        1512,
+        1526,
+        1511,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1194,
+        1195,
+        1163,
+        1164,
+        0,
+        1345,
+        1349,
+        1557,
+        1558,
+        1519,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        785,
+        786,
+        786,
+        786,
+        786,
+        787,
+        0,
+        1279,
+        1536,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        793,
+        1291,
+        1700,
+        1702,
+        1292,
+        795,
+        0,
+        0,
+        1349,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        793,
+        1291,
+        1708,
+        1710,
+        1292,
+        795,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        801,
+        802,
+        802,
+        802,
+        802,
+        803,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1395,
+        0,
+        0,
+        0,
+        0,
+        862,
+        863,
+        864,
+        0,
+        1395,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        870,
+        871,
+        872,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "height": 15,
+      "id": 2,
+      "name": "Decoration",
+      "opacity": 1,
+      "type": "tilelayer",
+      "visible": true,
+      "width": 20,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "data": [
+        0,
+        0,
+        1147,
+        1148,
+        0,
+        1329,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1387,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1387,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "height": 15,
+      "id": 3,
+      "name": "Overhead",
+      "opacity": 1,
+      "type": "tilelayer",
+      "visible": true,
+      "width": 20,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "draworder": "topdown",
+      "id": 4,
+      "name": "Objects",
+      "objects": [
+        {
+          "height": 32,
+          "id": 1,
+          "name": "Exit",
+          "point": false,
+          "rotation": 0,
+          "type": "warp",
+          "visible": true,
+          "width": 32,
+          "x": 192,
+          "y": 256,
+          "properties": [
+            {
+              "name": "toMap",
+              "type": "string",
+              "value": "route-1"
+            },
+            {
+              "name": "toX",
+              "type": "int",
+              "value": 11
+            },
+            {
+              "name": "toY",
+              "type": "int",
+              "value": 6
+            }
+          ]
+        },
+        {
+          "height": 32,
+          "id": 2,
+          "name": "Kurt",
+          "point": false,
+          "rotation": 0,
+          "type": "npc_spawn",
+          "visible": true,
+          "width": 32,
+          "x": 224,
+          "y": 128,
+          "properties": [
+            {
+              "name": "npcId",
+              "type": "string",
+              "value": "kurt"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "kurt"
+            },
+            {
+              "name": "trainer",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "originalId",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "dialog",
+              "type": "string",
+              "value": "Hello! I'm Kurt!\nI specialise in turning Apricorns into Pok\u00e9 Balls.\nIf you like, I can convert one of yours into a Pok\u00e9\nBall.\nHello again.\nDo you have an Apricorn for me?\nWhich Apricorn would you like me to convert?\nLet me know when you want me to convert an\nApricorn for you.\nOkay. I'll turn your  into a Pok\u00e9 Ball for you.\nI should be finished by tomorrow.\nCome back when you have an Apricorn for me."
+            }
+          ]
+        }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "nextlayerid": 5,
+  "nextobjectid": 3,
+  "orientation": "orthogonal",
+  "properties": [
+    {
+      "name": "name",
+      "type": "string",
+      "value": "Kurt's House"
+    },
+    {
+      "name": "mapType",
+      "type": "string",
+      "value": "interior"
+    },
+    {
+      "name": "music",
+      "type": "string",
+      "value": "kurts-house"
+    },
+    {
+      "name": "weather",
+      "type": "string",
+      "value": "sunny"
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "value": "Kurt's House ported from Pok\u00e9mon Essentials."
+    }
+  ],
+  "renderorder": "right-down",
+  "tiledversion": "1.10.2",
+  "tileheight": 32,
+  "tilewidth": 32,
+  "tilesets": [
+    {
+      "columns": 8,
+      "firstgid": 1,
+      "image": "../tilesets/Interior general.png",
+      "imageheight": 8032,
+      "imagewidth": 256,
+      "margin": 0,
+      "name": "interior_general",
+      "spacing": 0,
+      "tilecount": 2008,
+      "tileheight": 32,
+      "tilewidth": 32,
+      "tiles": [
+        {
+          "id": 20,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 28,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 158,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 664,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 673,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 681,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 784,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 785,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 786,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 792,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 793,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 794,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 800,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 801,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 802,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 861,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 862,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 863,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 869,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 870,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 871,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1146,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1147,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1154,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1155,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1162,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1163,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1185,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1186,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1193,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1194,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1278,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1290,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1291,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1328,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1336,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1344,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1348,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1386,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1394,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1510,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1511,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1518,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1524,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1525,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1526,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1527,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1535,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1556,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1557,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1558,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 1699,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1701,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1707,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "id": 1709,
+          "properties": [
+            {
+              "name": "passage",
+              "type": "int",
+              "value": 15
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "type": "map",
+  "version": "1.10"
+}

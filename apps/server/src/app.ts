@@ -94,11 +94,11 @@ export function createApp(): Express {
 
   // ── Tiled maps (.tmj) — runtime fetch fallback cho client ──
   // Client bundle dùng `import.meta.glob`; đây là bản backup nếu cần tải map
-  // ngoài bundle (xem plan-tiled-first.md Phase 1.3).
+  // ngoài bundle. Mỗi world có bộ riêng: /maps/worlds/<world>/tiled/<id>.tmj.
   app.use(
-    '/maps/tiled',
+    '/maps/worlds',
     express.static(
-      path.join(__dirname, '..', '..', '..', 'packages', 'shared', 'data', 'maps', 'tiled'),
+      path.join(__dirname, '..', '..', '..', 'packages', 'shared', 'data', 'maps', 'worlds'),
     ),
   );
 

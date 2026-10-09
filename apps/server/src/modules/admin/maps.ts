@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -25,24 +25,44 @@ function resolveDataDir(): string {
 }
 
 const DATA_DIR = resolveDataDir();
-const MAPS_SERVER_DIR = join(DATA_DIR, 'maps', 'server');
-const MAPS_TILED_DIR = join(DATA_DIR, 'maps', 'tiled');
+const WORLDS_DIR = join(DATA_DIR, 'maps', 'worlds');
+const MAP_INDEX_PATH = join(DATA_DIR, 'maps', 'map-index.json');
 const PROJECT_ROOT = join(DATA_DIR, '..', '..');
 
-export async function listAdminMaps(_req: Request, res: Response): Promise<void> {
+/** World chứa map (đọc `map-index.json`; không có → essen-classic). */
+function worldOfMap(mapId: string): string {
   try {
-    const indexPath = join(MAPS_SERVER_DIR, 'index.json');
-    if (!existsSync(indexPath)) {
-      res.json({ maps: [] });
-      return;
+    const idx = JSON.parse(readFileSync(MAP_INDEX_PATH, 'utf-8')) as Record<string, string>;
+    return idx[mapId] ?? 'essen-classic';
+  } catch {
+    return 'essen-classic';
+  }
+}
+
+const serverPathFor = (mapId: string, world?: string) =>
+  join(WORLDS_DIR, world ?? worldOfMap(mapId), 'server', `${mapId}.json`);
+const tiledPathFor = (mapId: string, world?: string) =>
+  join(WORLDS_DIR, world ?? worldOfMap(mapId), 'tiled', `${mapId}.tmj`);
+
+export async function listAdminMaps(req: Request, res: Response): Promise<void> {
+  try {
+    // Gộp index mọi world (mỗi world 1 bộ riêng); `?world=` để lọc.
+    const filterWorld = typeof req.query.world === 'string' ? req.query.world : '';
+    const worldsRaw = await readFile(join(DATA_DIR, 'maps', 'worlds.json'), 'utf-8').catch(() => '[]');
+    const worlds = JSON.parse(worldsRaw) as { id: string }[];
+    const entries: { mapId: string; file: string; width: number; height: number; world: string }[] = [];
+    for (const w of worlds.length > 0 ? worlds : [{ id: 'essen-classic' }]) {
+      if (filterWorld && w.id !== filterWorld) continue;
+      const indexPath = join(WORLDS_DIR, w.id, 'server', 'index.json');
+      if (!existsSync(indexPath)) continue;
+      const indexRaw = await readFile(indexPath, 'utf-8');
+      const indexList: { mapId: string; file: string; width: number; height: number }[] = JSON.parse(indexRaw);
+      for (const e of indexList) entries.push({ ...e, world: w.id });
     }
 
-    const indexRaw = await readFile(indexPath, 'utf-8');
-    const indexList: { mapId: string; file: string; width: number; height: number }[] = JSON.parse(indexRaw);
-
     const maps = await Promise.all(
-      indexList.map(async (entry) => {
-        const filePath = join(MAPS_SERVER_DIR, entry.file);
+      entries.map(async (entry) => {
+        const filePath = join(WORLDS_DIR, entry.world, 'server', entry.file);
         let detail: any = {};
         if (existsSync(filePath)) {
           try {
@@ -57,6 +77,7 @@ export async function listAdminMaps(_req: Request, res: Response): Promise<void>
 
         return {
           mapId: entry.mapId,
+          world: entry.world,
           name: detail.name || entry.mapId,
           width: detail.width || entry.width,
           height: detail.height || entry.height,
@@ -87,8 +108,9 @@ export async function listAdminMaps(_req: Request, res: Response): Promise<void>
 export async function getAdminMapDetail(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const serverPath = join(MAPS_SERVER_DIR, `${id}.json`);
-    const tiledPath = join(MAPS_TILED_DIR, `${id}.tmj`);
+    const world = typeof req.query.world === 'string' && req.query.world ? req.query.world : worldOfMap(String(id));
+    const serverPath = serverPathFor(String(id), world);
+    const tiledPath = tiledPathFor(String(id), world);
 
     if (!existsSync(serverPath)) {
       res.status(404).json({ error: 'MAP_NOT_FOUND', message: `Map ${id} not found` });
@@ -195,7 +217,7 @@ function computeMapStats(serverMap: any, tiledMap: any) {
 export async function updateAdminMap(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const serverPath = join(MAPS_SERVER_DIR, `${id}.json`);
+    const serverPath = serverPathFor(String(id));
 
     if (!existsSync(serverPath)) {
       res.status(404).json({ error: 'MAP_NOT_FOUND', message: `Map ${id} not found` });
@@ -205,7 +227,7 @@ export async function updateAdminMap(req: Request, res: Response): Promise<void>
     const serverRaw = await readFile(serverPath, 'utf-8');
     const serverMap = JSON.parse(serverRaw);
 
-    const { name, description, weather, music, mapType, objects, encounters } = req.body;
+    const { name, description, weather, music, mapType, objects, encounters, worldId } = req.body;
 
     if (name !== undefined) serverMap.name = String(name);
     if (description !== undefined) serverMap.description = String(description);
@@ -215,7 +237,39 @@ export async function updateAdminMap(req: Request, res: Response): Promise<void>
     if (Array.isArray(objects)) serverMap.objects = objects;
     if (Array.isArray(encounters)) serverMap.encounters = encounters;
 
-    await writeFile(serverPath, JSON.stringify(serverMap, null, 2), 'utf-8');
+    // Chuyển map sang world khác: dời cả server JSON + TMJ, cập nhật map-index.
+    if (typeof worldId === 'string' && worldId && worldId !== serverMap.worldId) {
+      const worldsRaw = await readFile(join(DATA_DIR, 'maps', 'worlds.json'), 'utf-8').catch(() => '[]');
+      const worlds = JSON.parse(worldsRaw) as { id: string }[];
+      if (!worlds.some((w) => w.id === worldId)) {
+        res.status(400).json({ error: 'UNKNOWN_WORLD', message: `World ${worldId} không tồn tại` });
+        return;
+      }
+      const { rename, mkdir } = await import('fs/promises');
+      const fromWorld = serverMap.worldId || worldOfMap(String(id));
+      await mkdir(join(WORLDS_DIR, worldId, 'server'), { recursive: true });
+      await mkdir(join(WORLDS_DIR, worldId, 'tiled'), { recursive: true });
+      const fromServer = serverPathFor(String(id), fromWorld);
+      const fromTiled = tiledPathFor(String(id), fromWorld);
+      serverMap.worldId = worldId;
+      await writeFile(fromServer, JSON.stringify(serverMap, null, 2), 'utf-8');
+      await rename(fromServer, serverPathFor(String(id), worldId));
+      if (existsSync(fromTiled)) await rename(fromTiled, tiledPathFor(String(id), worldId));
+      // Cập nhật map-index.json (giữ thứ tự).
+      try {
+        const idx = JSON.parse(await readFile(MAP_INDEX_PATH, 'utf-8')) as Record<string, string>;
+        idx[String(id)] = worldId;
+        const sorted: Record<string, string> = {};
+        for (const k of Object.keys(idx).sort()) sorted[k] = idx[k];
+        await writeFile(MAP_INDEX_PATH, JSON.stringify(sorted, null, 2) + '\n', 'utf-8');
+      } catch {
+        // map-index sẽ được sinh lại ở lần build:map kế tiếp.
+      }
+      // Rebuild index từng world (bỏ entry cũ, thêm entry mới).
+      await rebuildWorldIndexes();
+    } else {
+      await writeFile(serverPath, JSON.stringify(serverMap, null, 2), 'utf-8');
+    }
 
     res.json({ success: true, map: serverMap });
   } catch (err: any) {
@@ -224,13 +278,39 @@ export async function updateAdminMap(req: Request, res: Response): Promise<void>
   }
 }
 
+/** Viết lại `server/index.json` mọi world từ file hiện có (sau khi chuyển world). */
+async function rebuildWorldIndexes(): Promise<void> {
+  const { readdir, mkdir } = await import('fs/promises');
+  const worlds = await readdir(WORLDS_DIR, { withFileTypes: true });
+  for (const w of worlds) {
+    if (!w.isDirectory()) continue;
+    const serverDir = join(WORLDS_DIR, w.name, 'server');
+    await mkdir(serverDir, { recursive: true });
+    const entries: { mapId: string; file: string; width: number; height: number }[] = [];
+    for (const f of await readdir(serverDir)) {
+      if (!f.endsWith('.json') || f === 'index.json') continue;
+      if (/^\d+$/.test(f.replace(/\.json$/, ''))) continue;
+      try {
+        const s = JSON.parse(await readFile(join(serverDir, f), 'utf-8'));
+        entries.push({ mapId: s.mapId, file: `${s.mapId}.json`, width: s.width, height: s.height });
+      } catch {
+        // Bỏ file lỗi.
+      }
+    }
+    entries.sort((a, b) => a.mapId.localeCompare(b.mapId));
+    await writeFile(join(serverDir, 'index.json'), JSON.stringify(entries, null, 2) + '\n', 'utf-8');
+  }
+}
+
 export async function importEssentialsMap(req: Request, res: Response): Promise<void> {
   try {
-    const { mapId, slug, name, mapType } = req.body;
+    const { mapId, slug, name, mapType, worldId } = req.body;
     if (!mapId || !slug || !name) {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'mapId, slug, name are required' });
       return;
     }
+    // World đích (mặc định essen-classic để không vỡ flow cũ).
+    const targetWorld = typeof worldId === 'string' && worldId ? worldId : 'essen-classic';
 
     const scriptPath = join(PROJECT_ROOT, 'scripts', 'tools', 'convert_essentials_map.py');
     const pythonBin = join(PROJECT_ROOT, '.venv', 'bin', 'python3');
@@ -243,17 +323,20 @@ export async function importEssentialsMap(req: Request, res: Response): Promise<
       String(name),
       '--type',
       String(mapType || 'town'),
+      '--world',
+      String(targetWorld),
     ];
 
     await execFileAsync(pythonExe, args, { cwd: PROJECT_ROOT });
 
-    // Update server index.json if not already present
-    const indexPath = join(MAPS_SERVER_DIR, 'index.json');
+    // Update per-world server index.json + root map-index.json.
+    const worldServerDir = join(WORLDS_DIR, String(targetWorld), 'server');
+    const indexPath = join(worldServerDir, 'index.json');
     if (existsSync(indexPath)) {
       const indexRaw = await readFile(indexPath, 'utf-8');
       const indexList: any[] = JSON.parse(indexRaw);
       if (!indexList.some((e) => e.mapId === slug)) {
-        const mapFilePath = join(MAPS_SERVER_DIR, `${slug}.json`);
+        const mapFilePath = join(worldServerDir, `${slug}.json`);
         let w = 20;
         let h = 18;
         if (existsSync(mapFilePath)) {
@@ -269,6 +352,15 @@ export async function importEssentialsMap(req: Request, res: Response): Promise<
         });
         await writeFile(indexPath, JSON.stringify(indexList, null, 2), 'utf-8');
       }
+    }
+    try {
+      const idx = JSON.parse(await readFile(MAP_INDEX_PATH, 'utf-8')) as Record<string, string>;
+      idx[String(slug)] = String(targetWorld);
+      const sorted: Record<string, string> = {};
+      for (const k of Object.keys(idx).sort()) sorted[k] = idx[k];
+      await writeFile(MAP_INDEX_PATH, JSON.stringify(sorted, null, 2) + '\n', 'utf-8');
+    } catch {
+      // map-index sẽ được sinh lại ở lần build:map kế tiếp.
     }
 
     res.json({ success: true, message: `Map ${name} (${slug}) imported successfully` });
@@ -286,11 +378,11 @@ export async function regenerateAdminMap(req: Request, res: Response): Promise<v
   try {
     const { id } = req.params;
 
-    const tmjPath = join(MAPS_TILED_DIR, `${id}.tmj`);
+    const tmjPath = tiledPathFor(String(id));
     if (!existsSync(tmjPath)) {
       res.status(404).json({
         error: 'TMJ_NOT_FOUND',
-        message: `TMJ file not found for map ${id}. Save .tmj into packages/shared/data/maps/tiled/ first.`,
+        message: `TMJ file not found for map ${id}. Save .tmj into packages/shared/data/maps/worlds/<world>/tiled/ first.`,
       });
       return;
     }

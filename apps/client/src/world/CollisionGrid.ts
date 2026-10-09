@@ -1,4 +1,27 @@
 import type { ServerMap } from '@pixelmon/shared';
+
+/**
+ * Nạp MỌI server JSON trong mọi world (`worlds/<world>/server/*.json`, trừ
+ * index.json) — thêm map/world mới không cần sửa import tay.
+ */
+const SERVER_JSON_MODULES = import.meta.glob(
+  '@pixelmon/shared/data/maps/worlds/*/server/*.json',
+  { eager: true, import: 'default' },
+) as Record<string, unknown>;
+
+function registryFromGlob(): Record<string, ServerMap> {
+  const reg: Record<string, ServerMap> = {};
+  for (const [modulePath, raw] of Object.entries(SERVER_JSON_MODULES)) {
+    const fileName = modulePath.split('/').pop() ?? '';
+    if (fileName === 'index.json') continue;
+    const mapId = fileName.replace(/\.json$/, '');
+    if (!mapId || /^\d+$/.test(mapId)) continue;
+    reg[mapId] = raw as ServerMap;
+  }
+  return reg;
+}
+
+const GLOB_REGISTRY = registryFromGlob();
 import {
   CollisionFlag,
   isWalkable,
@@ -14,50 +37,24 @@ import {
   type WalkableOptions,
 } from '@pixelmon/shared';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059: file nằm ngoài rootDir của client (packages/shared/data)
-import lappetTownJson from '@pixelmon/shared/data/maps/server/lappet-town.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import route1Json from '@pixelmon/shared/data/maps/server/route-1.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import playersHouseJson from '@pixelmon/shared/data/maps/server/players-house.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import pokemonLabJson from '@pixelmon/shared/data/maps/server/pokemon-lab.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import daisysHouseJson from '@pixelmon/shared/data/maps/server/daisys-house.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import kurtsHouseJson from '@pixelmon/shared/data/maps/server/kurts-house.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import cedolanCityJson from '@pixelmon/shared/data/maps/server/cedolan-city.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import cedolanPokeCenterJson from '@pixelmon/shared/data/maps/server/cedolan-poke-center.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import cedolanGymJson from '@pixelmon/shared/data/maps/server/cedolan-gym.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import pokemonInstituteJson from '@pixelmon/shared/data/maps/server/pokemon-institute.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import cedolanCondoJson from '@pixelmon/shared/data/maps/server/cedolan-condo.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import gameCornerJson from '@pixelmon/shared/data/maps/server/game-corner.json';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — TS6059
-import cedolanDept1fJson from '@pixelmon/shared/data/maps/server/cedolan-dept-1f.json';
 
 /**
  * CollisionGrid — wrapper phía client cho `ServerMap.collision`.
  *
- * Nguồn SSOT: `packages/shared/data/maps/server/*.json` (do converter
- * `scripts/tools/convert_essentials_map.py` sinh ra, đã gồm WATER/GRASS/LEDGE/WARP).
+ * Nguồn SSOT: `packages/shared/data/maps/worlds/<world>/server/*.json` (do
+ * `scripts/build-server-map.ts` sinh ra, đã gồm WATER/GRASS/LEDGE/WARP).
  * Trả về `ServerMap` cho các helper `formulas/mapruntime.ts` để client và server
  * dùng chung **một bộ logic va chạm duy nhất**.
  */
@@ -247,32 +244,17 @@ export class MapCollisionRegistry {
   }
 }
 
-/** Cast JSON → ServerMap (typecheck nhờ schema ở phía server; client tin dữ liệu bundle). */
-const asServerMap = (raw: unknown): ServerMap => raw as ServerMap;
-
 /**
  * Registry mặc định của client — khớp danh sách `TILED_MAPS` trong `TiledMapLoader`.
  * Alias dùng chung cùng một grid với map gốc.
  */
 export const collisionRegistry = new MapCollisionRegistry({
-  'lappet-town': asServerMap(lappetTownJson),
-  'route-1': asServerMap(route1Json),
-  'players-house': asServerMap(playersHouseJson),
-  'pokemon-lab': asServerMap(pokemonLabJson),
-  'daisys-house': asServerMap(daisysHouseJson),
-  'kurts-house': asServerMap(kurtsHouseJson),
-  'cedolan-city': asServerMap(cedolanCityJson),
-  'cedolan-poke-center': asServerMap(cedolanPokeCenterJson),
-  'cedolan-gym': asServerMap(cedolanGymJson),
-  'pokemon-institute': asServerMap(pokemonInstituteJson),
-  'cedolan-condo': asServerMap(cedolanCondoJson),
-  'game-corner': asServerMap(gameCornerJson),
-  'cedolan-dept-1f': asServerMap(cedolanDept1fJson),
+  ...GLOB_REGISTRY,
   // Aliases (khớp TILED_MAPS)
-  'pallet-town': asServerMap(lappetTownJson),
-  'interior-lab': asServerMap(pokemonLabJson),
-  'interior-player-house': asServerMap(playersHouseJson),
-  'interior-rival-house': asServerMap(daisysHouseJson),
+  'pallet-town': GLOB_REGISTRY['lappet-town']!,
+  'interior-lab': GLOB_REGISTRY['pokemon-lab']!,
+  'interior-player-house': GLOB_REGISTRY['players-house']!,
+  'interior-rival-house': GLOB_REGISTRY['daisys-house']!,
 });
 
 /** Tiện gọi nhanh: collision grid của map hiện tại. */

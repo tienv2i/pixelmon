@@ -1,12 +1,13 @@
 /**
- * build-server-map.ts — Tạo `packages/shared/data/maps/server/<id>.json` từ `.tmj` (Tiled).
+ * build-server-map.ts — Tạo `packages/shared/data/maps/worlds/<world>/server/<id>.json`
+ * từ `.tmj` trong `worlds/<world>/tiled/` (Tiled). Mỗi world có bộ riêng.
  *
  * Mục tiêu (plan-tiled-first Phase 2): KHÔNG viết tay server JSON — mọi map vẽ trong Tiled
  * đều chạy `pnpm run build:map <id>` để sinh dữ liệu va chạm + object.
  *
  * Cách chạy:
- *   node scripts/build-server-map.ts <mapId...>     # cụ thể
- *   node scripts/build-server-map.ts --all          # mọi map có trong tiled/
+ *   node scripts/build-server-map.ts <mapId...>     # cụ thể (tự tìm world chứa tmj)
+ *   node scripts/build-server-map.ts --all          # mọi map trong mọi world
  *   node scripts/build-server-map.ts --all --dry-run # chỉ báo cáo, không ghi
  *   node scripts/build-server-map.ts --all --watch   # tự regenerate khi Tiled save
  *
@@ -71,8 +72,35 @@ function passageToPassFlags(low: number): number {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
-const TILED_DIR = path.join(ROOT, 'packages/shared/data/maps/tiled');
-const SERVER_DIR = path.join(ROOT, 'packages/shared/data/maps/server');
+/** Mỗi world có bộ riêng: `worlds/<world>/{tiled,server}/`. */
+const WORLDS_DIR = path.join(ROOT, 'packages/shared/data/maps/worlds');
+/** Registry map → world (sinh tự động, commit kèm). */
+const MAP_INDEX_PATH = path.join(ROOT, 'packages/shared/data/maps/map-index.json');
+
+/** Cache mapId → worldId (quét `worlds/{world}/tiled` 1 lần). */
+const worldCache = new Map<string, string>();
+
+async function worldOf(mapId: string): Promise<string> {
+  const hit = worldCache.get(mapId);
+  if (hit) return hit;
+  const worlds = await readdir(WORLDS_DIR, { withFileTypes: true });
+  for (const w of worlds) {
+    if (!w.isDirectory()) continue;
+    if (existsSync(path.join(WORLDS_DIR, w.name, 'tiled', `${mapId}.tmj`))) {
+      worldCache.set(mapId, w.name);
+      return w.name;
+    }
+  }
+  throw new Error(`Không tìm thấy .tmj cho map "${mapId}" trong worlds/*/tiled/`);
+}
+
+function tiledPathFor(mapId: string, world: string): string {
+  return path.join(WORLDS_DIR, world, 'tiled', `${mapId}.tmj`);
+}
+
+function serverPathFor(mapId: string, world: string): string {
+  return path.join(WORLDS_DIR, world, 'server', `${mapId}.json`);
+}
 const ENCOUNTERS_PATH = path.join(ROOT, 'packages/shared/data/encounters.json');
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -176,7 +204,8 @@ const LEDGE_DIR_TO_FLAG: Record<string, number> = {
 
 /** Đọc JSON map Tiled. */
 async function readTiled(mapId: string): Promise<TiledMap> {
-  const p = path.join(TILED_DIR, `${mapId}.tmj`);
+  const world = await worldOf(mapId);
+  const p = tiledPathFor(mapId, world);
   if (!existsSync(p)) throw new Error(`TMJ không tồn tại: ${p}`);
   return JSON.parse(await readFile(p, 'utf-8')) as TiledMap;
 }
@@ -544,6 +573,7 @@ async function buildOne(
   opts: { dryRun?: boolean; allMaps?: TiledMap[] } = {},
 ): Promise<{ ok: boolean; warps: number }> {
   try {
+    const world = await worldOf(mapId);
     const map = await readTiled(mapId);
     const meta = deriveMeta(map, mapId);
     const collision = deriveCollision(map, mapId);
@@ -564,6 +594,7 @@ async function buildOne(
       mapType: (meta.mapType as 'town' | 'route' | 'dungeon' | 'gym' | 'interior' | 'battle') ?? 'town',
       music: meta.music,
       weather: meta.weather,
+      worldId: world,
       width: map.width,
       height: map.height,
       tileWidth: map.tilewidth,
@@ -582,11 +613,11 @@ async function buildOne(
       return { ok: true, warps };
     }
 
-    await mkdir(SERVER_DIR, { recursive: true });
-    const outPath = path.join(SERVER_DIR, `${mapId}.json`);
+    await mkdir(path.join(WORLDS_DIR, world, 'server'), { recursive: true });
+    const outPath = serverPathFor(mapId, world);
     await writeFile(outPath, JSON.stringify(out, null, 2) + '\n', 'utf-8');
     console.log(
-      `  ✅ ${mapId}: ${map.width}×${map.height}, ${warps} warp, ${objects.length} obj, ${encounters.length} spawn`,
+      `  ✅ [${world}] ${mapId}: ${map.width}×${map.height}, ${warps} warp, ${objects.length} obj, ${encounters.length} spawn`,
     );
     return { ok: true, warps };
   } catch (e) {
@@ -595,36 +626,63 @@ async function buildOne(
   }
 }
 
-/** Cập nhật index.json — sinh từ tất cả file `*.json` trong server/ (trừ index.json). */
+/**
+ * Cập nhật index: `server/index.json` RIÊNG từng world + `map-index.json`
+ * gốc (`{mapId: worldId}` — loader/admin resolve không cần quét).
+ */
 async function rebuildIndex(): Promise<void> {
-  const entries = [];
-  const files = await readdir(SERVER_DIR);
-  for (const f of files) {
-    if (!f.endsWith('.json') || f === 'index.json') continue;
-    // Bỏ file map legacy đặt tên theo số RMXP (2.json, 8.json...) — không
-    // có `.tmj` tương ứng, chỉ là bản dự phòng cũ.
-    if (/^\d+$/.test(f.replace(/\.json$/, ''))) continue;
-    const p = path.join(SERVER_DIR, f);
-    const s = JSON.parse(await readFile(p, 'utf-8')) as ServerMap;
-    entries.push({ mapId: s.mapId, file: `${s.mapId}.json`, width: s.width, height: s.height });
+  const worlds = (await readdir(WORLDS_DIR, { withFileTypes: true }))
+    .filter((w) => w.isDirectory())
+    .map((w) => w.name)
+    .sort();
+  const mapIndex: Record<string, string> = {};
+  for (const world of worlds) {
+    const serverDir = path.join(WORLDS_DIR, world, 'server');
+    await mkdir(serverDir, { recursive: true });
+    const entries = [];
+    const files = await readdir(serverDir);
+    for (const f of files) {
+      if (!f.endsWith('.json') || f === 'index.json') continue;
+      // Bỏ file map legacy đặt tên theo số RMXP (2.json, 8.json...) — không
+      // có `.tmj` tương ứng, chỉ là bản dự phòng cũ.
+      if (/^\d+$/.test(f.replace(/\.json$/, ''))) continue;
+      const p = path.join(serverDir, f);
+      const s = JSON.parse(await readFile(p, 'utf-8')) as ServerMap;
+      entries.push({ mapId: s.mapId, file: `${s.mapId}.json`, width: s.width, height: s.height });
+      mapIndex[s.mapId] = world;
+    }
+    entries.sort((a, b) => a.mapId.localeCompare(b.mapId));
+    await writeFile(
+      path.join(serverDir, 'index.json'),
+      JSON.stringify(entries, null, 2) + '\n',
+      'utf-8',
+    );
+    console.log(`  📇 [${world}] server/index.json cập nhật (${entries.length} map)`);
   }
-  entries.sort((a, b) => a.mapId.localeCompare(b.mapId));
-  await writeFile(
-    path.join(SERVER_DIR, 'index.json'),
-    JSON.stringify(entries, null, 2) + '\n',
-    'utf-8',
-  );
-  console.log(`  📇 index.json cập nhật (${entries.length} map)`);
+  const sortedIndex: Record<string, string> = {};
+  for (const k of Object.keys(mapIndex).sort()) sortedIndex[k] = mapIndex[k];
+  await writeFile(MAP_INDEX_PATH, JSON.stringify(sortedIndex, null, 2) + '\n', 'utf-8');
+  console.log(`  📇 map-index.json cập nhật (${Object.keys(sortedIndex).length} map)`);
 }
 
-/** Liệt kê mọi mapId có `.tmj` (bỏ file tên thuần số). */
+/** Liệt kê mọi mapId có `.tmj` trong mọi world (bỏ file tên thuần số). */
 async function allMapIds(): Promise<string[]> {
-  const files = await readdir(TILED_DIR);
-  return files
-    .filter((f) => f.endsWith('.tmj'))
-    .map((f) => f.replace(/\.tmj$/, ''))
-    .filter((id) => !/^\d+$/.test(id))
-    .sort();
+  const ids: string[] = [];
+  const worlds = await readdir(WORLDS_DIR, { withFileTypes: true });
+  for (const w of worlds) {
+    if (!w.isDirectory()) continue;
+    const tiledDir = path.join(WORLDS_DIR, w.name, 'tiled');
+    if (!existsSync(tiledDir)) continue;
+    const files = await readdir(tiledDir);
+    for (const f of files) {
+      if (!f.endsWith('.tmj')) continue;
+      const id = f.replace(/\.tmj$/, '');
+      if (/^\d+$/.test(id)) continue;
+      ids.push(id);
+      worldCache.set(id, w.name);
+    }
+  }
+  return [...new Set(ids)].sort();
 }
 
 /** Main. */
@@ -671,13 +729,20 @@ async function main() {
   await run();
 
   if (watch) {
-    console.log(`👀 Watching ${TILED_DIR} ... (Ctrl+C để thoát)`);
-    fsWatch(TILED_DIR, async (_e, filename) => {
-      if (filename && filename.endsWith('.tmj')) {
-        const id = filename.replace(/\.tmj$/, '');
-        if (ids.includes(id) || all) await run();
-      }
-    });
+    // Watch mọi `worlds/<w>/tiled/` (fsWatch không đệ quy).
+    const worlds = await readdir(WORLDS_DIR, { withFileTypes: true });
+    for (const w of worlds) {
+      if (!w.isDirectory()) continue;
+      const tiledDir = path.join(WORLDS_DIR, w.name, 'tiled');
+      if (!existsSync(tiledDir)) continue;
+      console.log(`👀 Watching ${tiledDir} ... (Ctrl+C để thoát)`);
+      fsWatch(tiledDir, async (_e, filename) => {
+        if (filename && filename.endsWith('.tmj')) {
+          const id = filename.replace(/\.tmj$/, '');
+          if (ids.includes(id) || all) await run();
+        }
+      });
+    }
   }
 }
 

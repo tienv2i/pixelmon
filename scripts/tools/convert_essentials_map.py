@@ -101,7 +101,7 @@ def _read_int16_array(raw):
     _, size = struct.unpack_from("<2I", raw, 0)
     return struct.unpack_from(f"<{size}h", raw, 8)
 
-def convert(essentials_dir, map_id, slug, name, map_type="town"):
+def convert(essentials_dir, map_id, slug, name, map_type="town", world="essen-classic"):
     tilesets_file = os.path.join(essentials_dir, "Data", "Tilesets.rxdata")
     map_file = os.path.join(essentials_dir, "Data", f"Map{map_id:03d}.rxdata")
     
@@ -590,6 +590,7 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
         "mapType": map_type,
         "music": slug,
         "weather": "sunny",
+        "worldId": world,
         "width": w,
         "height": h,
         "tileWidth": 32,
@@ -605,8 +606,10 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
         "requiredBadges": []
     }
     
-    tiled_out = os.path.join(PROJECT_ROOT, "packages", "shared", "data", "maps", "tiled", f"{slug}.tmj")
-    server_out = os.path.join(PROJECT_ROOT, "packages", "shared", "data", "maps", "server", f"{slug}.json")
+    tiled_out = os.path.join(PROJECT_ROOT, "packages", "shared", "data", "maps", "worlds", world, "tiled", f"{slug}.tmj")
+    server_out = os.path.join(PROJECT_ROOT, "packages", "shared", "data", "maps", "worlds", world, "server", f"{slug}.json")
+    os.makedirs(os.path.dirname(tiled_out), exist_ok=True)
+    os.makedirs(os.path.dirname(server_out), exist_ok=True)
     
     with open(tiled_out, "w") as f:
         json.dump(tmj_json, f, indent=2)
@@ -619,31 +622,37 @@ def convert(essentials_dir, map_id, slug, name, map_type="town"):
 def _patch_cross_map_landings(target_slug, collision_flags, w, h):
     """Patch WALKABLE cho landing tiles từ warps của map khác trỏ đến target_slug."""
     import glob as _glob
-    server_dir = os.path.join(PROJECT_ROOT, "packages", "shared", "data", "maps", "server")
-    for path in _glob.glob(os.path.join(server_dir, "*.json")):
-        other_slug = os.path.splitext(os.path.basename(path))[0]
-        if other_slug == target_slug:
+    worlds_dir = os.path.join(PROJECT_ROOT, "packages", "shared", "data", "maps", "worlds")
+    if not os.path.isdir(worlds_dir):
+        return
+    for world in sorted(os.listdir(worlds_dir)):
+        server_dir = os.path.join(worlds_dir, world, "server")
+        if not os.path.isdir(server_dir):
             continue
-        try:
-            with open(path) as f:
-                other = json.load(f)
-            if not isinstance(other, dict) or other.get("mapId") != other_slug:
+        for path in _glob.glob(os.path.join(server_dir, "*.json")):
+            other_slug = os.path.splitext(os.path.basename(path))[0]
+            if other_slug == target_slug:
                 continue
-        except Exception:
-            continue
-        for o in other.get("objects", []):
-            if o.get("type") != "warp" or o.get("toMap") != target_slug:
+            try:
+                with open(path) as f:
+                    other = json.load(f)
+                if not isinstance(other, dict) or other.get("mapId") != other_slug:
+                    continue
+            except Exception:
                 continue
-            tx, ty = o.get("toX"), o.get("toY")
-            if tx is None or ty is None or tx < 0 or ty < 0 or tx >= w or ty >= h:
-                continue
-            idx = ty * w + tx
-            if idx >= len(collision_flags):
-                continue
-            f = collision_flags[idx]
-            if f & WATER:
-                continue
-            collision_flags[idx] = (f & ~BLOCKED) | WALKABLE
+            for o in other.get("objects", []):
+                if o.get("type") != "warp" or o.get("toMap") != target_slug:
+                    continue
+                tx, ty = o.get("toX"), o.get("toY")
+                if tx is None or ty is None or tx < 0 or ty < 0 or tx >= w or ty >= h:
+                    continue
+                idx = ty * w + tx
+                if idx >= len(collision_flags):
+                    continue
+                f = collision_flags[idx]
+                if f & WATER:
+                    continue
+                collision_flags[idx] = (f & ~BLOCKED) | WALKABLE
 
 # Ghi chú cho developer Phase 1a:
 # - Đây là SSO (single source of truth) va chạm. Client import static, server
@@ -659,10 +668,11 @@ def main():
     parser.add_argument("slug", type=str, help="Target map slug (e.g. pallet-town, route-1)")
     parser.add_argument("name", type=str, help="Display name (e.g. 'Route 1')")
     parser.add_argument("--type", type=str, default="town", help="Map type (town, route, interior)")
+    parser.add_argument("--world", type=str, default="essen-classic", help="Target world id")
     parser.add_argument("--essentials", type=str, default=ESSENTIALS_DEFAULT, help="Path to Essentials root")
-    
+
     args = parser.parse_args()
-    convert(args.essentials, args.map_id, args.slug, args.name, args.type)
+    convert(args.essentials, args.map_id, args.slug, args.name, args.type, args.world)
 
 if __name__ == "__main__":
     main()

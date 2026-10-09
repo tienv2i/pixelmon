@@ -37,7 +37,6 @@ import { normalizeSpecies, normalizeMove, normalizeItem } from './normalize.js';
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DATA_DIR = join(PACKAGE_ROOT, 'data');
 const MAPS_DIR = join(DATA_DIR, 'maps');
-const SERVER_MAPS_DIR = join(MAPS_DIR, 'server');
 
 export interface QuestData {
   questId: string;
@@ -312,11 +311,29 @@ export class GameData {
 export class MapLoader {
   private cache = new Map<string, ServerMap>();
   private worldsCache: World[] | null = null;
+  /** Registry map → world (`maps/map-index.json`, sinh bởi build-server-map). */
+  private mapIndexCache: Record<string, string> | null = null;
+
+  private async mapWorld(mapId: string): Promise<string> {
+    if (!this.mapIndexCache) {
+      try {
+        this.mapIndexCache = (await readJson(join(MAPS_DIR, 'map-index.json'))) as Record<string, string>;
+      } catch {
+        this.mapIndexCache = {};
+      }
+    }
+    return this.mapIndexCache[mapId] ?? 'essen-classic';
+  }
+
+  private serverPath(mapId: string, world: string): string {
+    return join(MAPS_DIR, 'worlds', world, 'server', `${mapId}.json`);
+  }
 
   async load(mapId: string): Promise<ServerMap> {
     const cached = this.cache.get(mapId);
     if (cached) return cached;
-    const raw = await readJson(join(SERVER_MAPS_DIR, `${mapId}.json`));
+    const world = await this.mapWorld(mapId);
+    const raw = await readJson(this.serverPath(mapId, world));
     const parsed = ServerMapSchema.parse(raw);
     // Validate worldId — lạ → rơi về `essen-classic` + warn (không crash).
     const worlds = await this.listWorlds();
@@ -334,8 +351,18 @@ export class MapLoader {
   }
 
   async listIndex(): Promise<ServerMapIndexEntry[]> {
-    const raw = await readJson(join(SERVER_MAPS_DIR, 'index.json'));
-    return ServerMapIndexEntrySchema.array().parse(raw);
+    // Gộp `server/index.json` của mọi world (mỗi world 1 bộ riêng).
+    const worlds = await this.listWorlds();
+    const out: ServerMapIndexEntry[] = [];
+    for (const w of worlds) {
+      try {
+        const raw = await readJson(join(MAPS_DIR, 'worlds', w.id, 'server', 'index.json'));
+        for (const e of ServerMapIndexEntrySchema.array().parse(raw)) out.push(e);
+      } catch {
+        // World draft chưa có map → bỏ qua.
+      }
+    }
+    return out;
   }
 
   async listIds(): Promise<string[]> {
@@ -368,6 +395,7 @@ export class MapLoader {
   clear(): void {
     this.cache.clear();
     this.worldsCache = null;
+    this.mapIndexCache = null;
   }
 }
 

@@ -1,9 +1,13 @@
 # Multi-World Maps — Plan (2026-10-10)
 
-> Trạng thái: **P0 xong một phần (2026-10-10)** — `worlds.json` có `essen-classic`
+> Trạng thái: **P0 xong + tách storage xong (2026-10-10)** — `worlds.json` có `essen-classic`
 > (legacy, 13 map cũ) + `vibe-world` (draft, chưa có map); `WorldSchema`,
 > `ServerMap.worldId` (default essen-classic), `MapLoader.listWorlds/getWorld/
-> listMapsOfWorld` + validate fallback. Còn lại (warp cổng, admin UI, content) theo phases.
+> listMapsOfWorld` + validate fallback. **Storage riêng từng world:**
+> `worlds/<world>/{tiled,server,tilesets}` + `map-index.json` gốc; build script,
+> loader, admin API (`?world=`, chuyển world, import `--world`), client loader
+> (glob + tileset theo world) đều world-aware. Còn lại (warp cổng, admin UI
+> switcher/form, content) theo phases.
 > Vấn đề: 17 map hiện tại trộn nhiều nguồn (Essen hand-made + Cedolan/Pallet import
 > Essentials + interiors rời rạc) — phong cách lệch nhau ("tạp nham"). Mục tiêu: dựng
 > **world mới với bộ maps + assets mới**, **giữ nguyên world cũ** chơi được song song.
@@ -34,7 +38,7 @@
 
 ## 2. Assets (namespacing, không đè asset cũ)
 
-- `packages/shared/data/maps/tiled/<worldId>/*.tmj` + tileset `assets/worlds/<worldId>/…`.
+- `packages/shared/data/maps/worlds/<worldId>/tiled/*.tmj` + tileset `worlds/<worldId>/tilesets/…`.
 - Client `TiledMapLoader`: resolve path theo `worldId` của map (fallback `classic`).
 - Tileset chuẩn giữ nguyên (32×32, 8 cột) để dùng chung pipeline `build-server-map.ts`.
 - Quy ước đặt tên map mới: `<world>-<tên>` (vd `essen-pallet`, `essen-route-1`) — tránh

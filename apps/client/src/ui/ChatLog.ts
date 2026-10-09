@@ -215,9 +215,50 @@ export class ChatLog extends UiModal {
     const end = total - this.scrollY;
     const start = Math.max(0, end - max);
     const slice = this.lines.slice(start, end);
+
+    // Đáy vùng text (trên ô input). Layout từ DƯỚI lên để tin mới nhất luôn
+    // hiện đủ; tin cũ bị cắt khi hết chỗ (như terminal scroll).
+    const limitY = this.chatH - INPUT_H - 6;
+    const topY = 6;
+
+    // Pass 1: gán text + đo chiều cao thật sau wrap (message dài > 1 hàng).
+    const hs: number[] = [];
     for (let i = 0; i < this.textObjects.length; i++) {
-      this.textObjects[i]?.setText(slice[i] ?? '');
-      this.textObjects[i]?.setVisible(!this.isMinimized && this.open && i < max);
+      const o = this.textObjects[i];
+      if (!o) {
+        hs.push(LINE_H);
+        continue;
+      }
+      const msg = slice[i];
+      o.setText(msg ?? '');
+      hs.push(msg === undefined ? LINE_H : Math.max(LINE_H, o.height));
+    }
+
+    // Pass 2: đi ngược từ tin mới nhất, giữ các tin vừa khít ngân sách.
+    let first = slice.length;
+    let acc = 0;
+    for (let i = slice.length - 1; i >= 0; i--) {
+      // Tin đơn dài hơn cả khung → vẫn hiện 1 mình từ đỉnh (tràn, hiếm).
+      if (first === slice.length && acc === 0 && hs[i]! > limitY - topY) {
+        first = i;
+        break;
+      }
+      if (acc + hs[i]! > limitY - topY) break;
+      acc += hs[i]!;
+      first = i;
+    }
+
+    // Pass 3: đặt vị trí từ đỉnh; ngoài [first..end) thì ẩn.
+    let y = topY;
+    for (let i = 0; i < this.textObjects.length; i++) {
+      const o = this.textObjects[i];
+      if (!o) continue;
+      const vis = !this.isMinimized && this.open && i >= first && i < slice.length;
+      o.setVisible(vis);
+      if (vis) {
+        o.setY(y);
+        y += hs[i]!;
+      }
     }
     this.updateScrollBar();
   }

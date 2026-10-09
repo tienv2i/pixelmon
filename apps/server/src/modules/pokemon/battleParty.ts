@@ -67,7 +67,23 @@ interface PokemonDbRow {
   shiny: boolean | null;
   ivs: Record<string, number> | null;
   evs: Record<string, number> | null;
-  nature: string | null;
+  /**
+   * DB lưu `nature` dạng JSONB **object** (`{name,increases,decreases}` —
+   * xem generator.ts) chứ không phải string. Giữ union để chịu được cả 2
+   * shape (dữ liệu cũ có thể chỉ là tên).
+   */
+  nature: { name?: string } | string | null;
+  held_item: string | null;
+}
+
+/** Bóc tên nature từ giá trị DB (object JSONB hoặc string) → luôn là string. */
+function normalizeNature(raw: unknown): string {
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  if (raw && typeof raw === 'object' && typeof (raw as { name?: unknown }).name === 'string') {
+    const name = (raw as { name: string }).name.trim();
+    if (name) return name;
+  }
+  return 'hardy';
 }
 
 /** `stats` trong DB có thể thiếu field → luôn trả về đủ 6 chỉ số. */
@@ -151,11 +167,12 @@ function rowToMember(row: PokemonDbRow): BattleTeamMember {
     currentHp: Math.max(0, Math.min(stats.hp, Number(row.current_hp ?? stats.hp))),
     status: row.status ?? '',
     gender: row.gender ?? 'genderless',
+    heldItem: row.held_item ?? '',
     shiny: Boolean(row.shiny),
     moves: normalizeMoves(row.moves),
     ivs: normalizeSpread(row.ivs),
     evs: normalizeSpread(row.evs),
-    natureName: row.nature ?? 'hardy',
+    natureName: normalizeNature(row.nature),
   };
 }
 
@@ -167,7 +184,12 @@ function rowToMember(row: PokemonDbRow): BattleTeamMember {
 export async function loadBattleParty(userId: string): Promise<BattleTeamMember[]> {
   if (!userId) return [];
   const { rows } = await pool.query(
-    `SELECT id, species_id, nickname, level, exp, stats, current_hp, moves, status, gender, shiny
+    // PHẢI include `ivs`, `evs`, `nature`: `rowToMember` đọc trực tiếp từ row
+    // (normalizeSpread/natureName) và `BattleRoom` recompute stats khi level-up.
+    // Thiếu 3 cột này → IV/EV bị về 0, nature về hardy, rồi saveTeam() ghi đè
+    // `stats` xuống DB = phá stat vĩnh viễn cho tới lần recompute kế tiếp.
+    `SELECT id, species_id, nickname, level, exp, stats, current_hp, moves, status, gender, shiny,
+            ivs, evs, nature, friendship, held_item
        FROM pokemon
       WHERE owner_id = $1 AND party_slot IS NOT NULL
       ORDER BY party_slot ASC`,

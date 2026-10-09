@@ -374,6 +374,7 @@ Tab Debug gồm:
 
 - **Login gate:** yêu cầu role `admin`, JWT trong LocalStorage, kiểm tra phiên qua `/api/auth/me`.
 - **i18n:** EN/VI (200+ từ khoá).
+  - 🔧 **2026-10-10:** chuyển ~60 chuỗi cứng (badges, counts, pagination, bảng gamedata, chi tiết species, editor sprite, stats/HUD/alerts maps) sang dict `i18n.js` + `t(key, params)`; bảng động tự re-render khi đổi ngôn ngữ (callback `onApply` có sẵn).
 - **Tab Maps:** danh sách + filter theo loại · preview canvas 32×32 (toggle layer/grid/collision/warp)
   · import từ `.rxdata` · **`♻️ Regenerate JSON`** (chạy `build:map` server-side) · card **Thống kê Map** (cells/layer, phân bố collision, đối tượng).
 - **Tab Users:** search realtime, phân trang server-side, tạo tài khoản, đổi mật khẩu, ban/unban, gán sprite.

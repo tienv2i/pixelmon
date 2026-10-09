@@ -18,8 +18,8 @@
     { value: 'banned', labelKey: 'role.banned', color: '#ff7675' },
   ];
 
-  function t(key) {
-    return window.I18N ? window.I18N.t(key) : key;
+  function t(key, params) {
+    return window.I18N ? window.I18N.t(key, params) : key;
   }
 
   function roleBadge(role) {
@@ -144,7 +144,7 @@
     var el = emptyId ? $(emptyId) : null;
     if (el) {
       el.classList.remove('hidden');
-      el.textContent = 'Không tải được dữ liệu: ' + (err && err.message ? err.message : 'lỗi mạng');
+      el.textContent = t('common.loadError', { msg: err && err.message ? err.message : t('common.networkError') });
     }
   }
   function getJSON(path) {
@@ -304,21 +304,21 @@
     getJSON('/health')
       .then(function (d) {
         $('kpi-uptime').textContent = fmtUptime(d.uptime);
-        setBadge($('server-status'), true, 'đang hoạt động', 'ngoại tuyến');
-        setBadge($('badge-http'), true, 'OK', 'lỗi');
+        setBadge($('server-status'), true, t('ov.online'), t('ov.offline'));
+        setBadge($('badge-http'), true, 'OK', t('common.error'));
         $('detail-http').textContent = 'uptime ' + fmtUptime(d.uptime);
       })
       .catch(function () {
-        setBadge($('server-status'), false, 'ngoại tuyến');
-        setBadge($('badge-http'), false, 'lỗi');
+        setBadge($('server-status'), false, t('ov.offline'));
+        setBadge($('badge-http'), false, t('common.error'));
       });
 
     getJSON('/api/admin/status')
       .then(function (d) {
-        setBadge($('badge-db'), !!d.database, 'OK', 'lỗi');
-        $('detail-db').textContent = d.database || 'lỗi';
-        setBadge($('badge-redis'), !!d.redis, 'OK', 'lỗi');
-        $('detail-redis').textContent = d.redis || 'lỗi';
+        setBadge($('badge-db'), !!d.database, 'OK', t('common.error'));
+        $('detail-db').textContent = d.database || t('common.error');
+        setBadge($('badge-redis'), !!d.redis, 'OK', t('common.error'));
+        $('detail-redis').textContent = d.redis || t('common.error');
         if (typeof d.userCount === 'number') $('kpi-users').textContent = d.userCount;
         if (typeof d.pokemonCount === 'number') $('kpi-pokemon').textContent = d.pokemonCount;
 
@@ -340,8 +340,8 @@
         }
       })
       .catch(function () {
-        setBadge($('badge-db'), false, 'lỗi');
-        setBadge($('badge-redis'), false, 'lỗi');
+        setBadge($('badge-db'), false, t('common.error'));
+        setBadge($('badge-redis'), false, t('common.error'));
       });
 
     getJSON('/api/admin/users?limit=5&sort=created_at')
@@ -401,7 +401,7 @@
         $('inv-qty').textContent = t.total_qty || 0;
         $('inv-distinct').textContent = t.distinct_items || 0;
         $('inv-owners').textContent = t.owners || 0;
-        $('items-total').textContent = (t.rows || 0) + ' ô đồ';
+        $('items-total').textContent = t('cnt.items', { n: t.rows || 0 });
         fillTable('inv-top-qty-table', null, d.topByQty || [], function (r) {
           return '<tr><td>' + esc(r.item_id) + '</td><td class="mono">' + r.qty + '</td><td class="dim">' + r.owners + '</td></tr>';
         });
@@ -418,7 +418,7 @@
     getJSON('/api/admin/items/top-spenders?limit=20')
       .then(function (d) {
         var rows = d.players || [];
-        $('items-total').textContent = rows.length + ' người chơi';
+        $('items-total').textContent = t('cnt.players', { n: rows.length });
         fillTable('spenders-table', 'spenders-empty', rows, function (r) {
           return (
             '<tr><td>' + esc(r.displayName || r.username) + '</td>' +
@@ -439,7 +439,7 @@
     getJSON('/api/admin/evolution/history?limit=100')
       .then(function (d) {
         var rows = d.history || [];
-        $('items-total').textContent = rows.length + ' lần tiến hoá';
+        $('items-total').textContent = t('cnt.evos', { n: rows.length });
         fillTable('evolution-table', 'evolution-empty', rows, function (r) {
           var mod = r.moderatorName ? '<span style="color:#6c5ce7;">@' + esc(r.moderatorName) + '</span>' : '<span class="dim">system</span>';
           var methodColor = r.method === 'force' || r.method === 'reverse' ? '#ff7675' : '#00cec9';
@@ -464,7 +464,7 @@
     getJSON(url)
       .then(function (d) {
         var rows = d.events || [];
-        $('items-total').textContent = rows.length + ' sự kiện';
+        $('items-total').textContent = t('cnt.events', { n: rows.length });
         fillTable('events-table', 'events-empty', rows, function (r) {
           var payload = '';
           try {
@@ -572,7 +572,7 @@
       imgEl.src = defaultPreview;
       if (label) label.textContent = t('m.spriteDefault') + ' (hero 64×64)';
       if (toggleBtn) {
-        toggleBtn.textContent = userSpriteShowGif ? '⏸ Xem ảnh tĩnh' : '▶ Xem hoạt ảnh';
+        toggleBtn.textContent = t(userSpriteShowGif ? 'sp.previewStill' : 'sp.previewAnim');
       }
       return;
     }
@@ -586,7 +586,7 @@
       label.textContent = s.name + ' · ' + s.frameW + '×' + s.frameH + ' (' + (s.frameCount || 16) + 'f)';
     }
     if (toggleBtn) {
-      toggleBtn.textContent = userSpriteShowGif ? '⏸ Xem ảnh tĩnh' : '▶ Xem hoạt ảnh';
+      toggleBtn.textContent = t(userSpriteShowGif ? 'sp.previewStill' : 'sp.previewAnim');
     }
   }
 
@@ -836,7 +836,7 @@
           if (d.ok) {
             closeModal();
             loadUsers();
-          } else showMsg($('modal-msg'), d.message || 'Lỗi cập nhật.', 'error');
+          } else showMsg($('modal-msg'), d.message || t('m.updateError'), 'error');
         })
         .catch(function (e) {
           showMsg($('modal-msg'), e.message, 'error');
@@ -856,7 +856,7 @@
           if (d.ok) {
             closeModal();
             loadUsers();
-          } else showMsg($('modal-msg'), d.message || 'Lỗi tạo user.', 'error');
+          } else showMsg($('modal-msg'), d.message || t('m.createError'), 'error');
         })
         .catch(function (e) {
           showMsg($('modal-msg'), e.message, 'error');
@@ -1074,13 +1074,13 @@
     var to = Math.min(page * limit, total);
 
     var infoHtml =
-      '<div class="dim" style="font-size:13px;">Hiển thị <strong>' +
+      '<div class="dim" style="font-size:13px;">' + t('pg.showing') + ' <strong>' +
       from +
       ' - ' +
       to +
       '</strong> / <strong>' +
       total +
-      '</strong> mục (Trang ' +
+      '</strong> ' + t('pg.items') + ' (' + t('u.page') + ' ' +
       page +
       ' / ' +
       totalPages +
@@ -1092,7 +1092,7 @@
       (page <= 1 ? 'disabled' : '') +
       ' onclick="' +
       pageCallbackName +
-      '(1)">« Đầu</button>';
+      '(1)">' + t('pg.first') + '</button>';
     btnsHtml +=
       '<button class="btn btn-sm btn-ghost" ' +
       (page <= 1 ? 'disabled' : '') +
@@ -1100,7 +1100,7 @@
       pageCallbackName +
       '(' +
       (page - 1) +
-      ')">‹ Trước</button>';
+      ')">' + t('pg.prev') + '</button>';
 
     var startPage = Math.max(1, page - 2);
     var endPage = Math.min(totalPages, page + 2);
@@ -1124,7 +1124,7 @@
       pageCallbackName +
       '(' +
       (page + 1) +
-      ')">Sau ›</button>';
+      ')">' + t('pg.next') + '</button>';
     btnsHtml +=
       '<button class="btn btn-sm btn-ghost" ' +
       (page >= totalPages ? 'disabled' : '') +
@@ -1132,7 +1132,7 @@
       pageCallbackName +
       '(' +
       totalPages +
-      ')">Cuối »</button>';
+      ')">' + t('pg.last') + '</button>';
     btnsHtml += '</div>';
 
     container.innerHTML = infoHtml + btnsHtml;
@@ -1150,7 +1150,7 @@
           if ($('gd-stat-abilities')) $('gd-stat-abilities').textContent = counts.abilities || res.summary.totalAbilities || '267';
           if ($('gd-stat-types')) $('gd-stat-types').textContent = counts.types || res.summary.totalTypes || '19';
           if ($('gd-source-time') && res.summary.importedAt) {
-            $('gd-source-time').textContent = 'Nạp: ' + fmtDate(res.summary.importedAt) + ' (' + (counts.forms || 339) + ' forms)';
+            $('gd-source-time').textContent = t('gd.importedAt', { date: fmtDate(res.summary.importedAt), n: counts.forms || 339 });
           }
         }
       })
@@ -1190,7 +1190,7 @@
     if (st.rarity) url += '&rarity=' + encodeURIComponent(st.rarity);
 
     var tbody = document.querySelector('#gd-species-table tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:24px;" class="dim">Đang tải danh sách Pokémon...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:24px;" class="dim">' + t('gd.loadingSpecies') + '</td></tr>';
 
     getJSON(url)
       .then(function (res) {
@@ -1200,7 +1200,7 @@
 
         if (tbody) {
           if (st.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:24px;" class="dim">Không tìm thấy Pokémon nào khớp điều kiện.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:24px;" class="dim">' + t('gd.emptySpecies') + '</td></tr>';
           } else {
             tbody.innerHTML = st.data.map(function (s, idx) {
               var dexNum = s.dexNum || (st.page - 1) * st.limit + idx + 1;
@@ -1236,7 +1236,7 @@
                 '<td>' + statsStr + '</td>' +
                 '<td><strong class="mono" style="color:#fdcb6e;">' + bst + '</strong></td>' +
                 '<td>' + gdRarityBadge(s.rarity) + '</td>' +
-                '<td><button class="btn btn-sm btn-ghost" onclick="window._gdViewSpecies(\'' + esc(s.id) + '\')">Chi tiết</button></td>' +
+                '<td><button class="btn btn-sm btn-ghost" onclick="window._gdViewSpecies(\'' + esc(s.id) + '\')">' + t('gd.viewDetail') + '</button></td>' +
                 '</tr>'
               );
             }).join('');
@@ -1245,7 +1245,7 @@
         renderGdPagination('gd-species-pagination', st, 'window._gdPageSpecies');
       })
       .catch(function (err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:24px; color:#ff7675;">Lỗi tải dữ liệu: ' + esc(err.message) + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:24px; color:#ff7675;">' + t('gd.loadError', { msg: esc(err.message) }) + '</td></tr>';
       });
   }
 
@@ -1257,7 +1257,7 @@
     if (st.type) url += '&type=' + encodeURIComponent(st.type);
 
     var tbody = document.querySelector('#gd-moves-table tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px;" class="dim">Đang tải danh sách chiêu thức...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px;" class="dim">' + t('gd.loadingMoves') + '</td></tr>';
 
     getJSON(url)
       .then(function (res) {
@@ -1267,7 +1267,7 @@
 
         if (tbody) {
           if (st.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px;" class="dim">Không tìm thấy chiêu thức nào.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px;" class="dim">' + t('gd.emptyMoves') + '</td></tr>';
           } else {
             tbody.innerHTML = st.data.map(function (m) {
               var powerStr = m.power > 0 ? '<strong class="mono">' + m.power + '</strong>' : '<span class="dim">—</span>';
@@ -1290,7 +1290,7 @@
         renderGdPagination('gd-moves-pagination', st, 'window._gdPageMoves');
       })
       .catch(function (err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px; color:#ff7675;">Lỗi tải dữ liệu: ' + esc(err.message) + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px; color:#ff7675;">' + t('gd.loadError', { msg: esc(err.message) }) + '</td></tr>';
       });
   }
 
@@ -1301,7 +1301,7 @@
     if (st.category) url += '&category=' + encodeURIComponent(st.category);
 
     var tbody = document.querySelector('#gd-items-table tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px;" class="dim">Đang tải danh sách vật phẩm...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px;" class="dim">' + t('gd.loadingItems') + '</td></tr>';
 
     getJSON(url)
       .then(function (res) {
@@ -1311,11 +1311,11 @@
 
         if (tbody) {
           if (st.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px;" class="dim">Không tìm thấy vật phẩm nào.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px;" class="dim">' + t('gd.emptyItems') + '</td></tr>';
           } else {
             tbody.innerHTML = st.data.map(function (it) {
               var iconSrc = '/assets/icons/items/' + it.id + '.png';
-              var priceStr = it.price > 0 ? '<span class="mono" style="color:#fdcb6e;">$' + it.price.toLocaleString() + '</span>' : '<span class="dim">Không bán</span>';
+              var priceStr = it.price > 0 ? '<span class="mono" style="color:#fdcb6e;">$' + it.price.toLocaleString() + '</span>' : '<span class="dim">' + t('gd.notForSale') + '</span>';
               var sellStr = it.sellPrice > 0 ? '<span class="mono">$' + it.sellPrice.toLocaleString() + '</span>' : '<span class="dim">—</span>';
               return (
                 '<tr>' +
@@ -1333,7 +1333,7 @@
         renderGdPagination('gd-items-pagination', st, 'window._gdPageItems');
       })
       .catch(function (err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:#ff7675;">Lỗi tải dữ liệu: ' + esc(err.message) + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:#ff7675;">' + t('gd.loadError', { msg: esc(err.message) }) + '</td></tr>';
       });
   }
 
@@ -1343,7 +1343,7 @@
     if (st.q) url += '&q=' + encodeURIComponent(st.q);
 
     var tbody = document.querySelector('#gd-abilities-table tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:24px;" class="dim">Đang tải danh sách đặc tính...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:24px;" class="dim">' + t('gd.loadingAbilities') + '</td></tr>';
 
     getJSON(url)
       .then(function (res) {
@@ -1353,13 +1353,13 @@
 
         if (tbody) {
           if (st.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:24px;" class="dim">Không tìm thấy đặc tính nào.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:24px;" class="dim">' + t('gd.emptyAbilities') + '</td></tr>';
           } else {
             tbody.innerHTML = st.data.map(function (ab) {
               return (
                 '<tr>' +
                 '<td><strong>' + esc(ab.name) + '</strong><br><span class="dim mono" style="font-size:11px;">' + esc(ab.id) + '</span></td>' +
-                '<td style="font-size:13px; line-height:1.5;">' + esc(ab.description || 'Chưa có mô tả chi tiết.') + '</td>' +
+                '<td style="font-size:13px; line-height:1.5;">' + esc(ab.description || t('gd.noDesc')) + '</td>' +
                 '</tr>'
               );
             }).join('');
@@ -1368,13 +1368,13 @@
         renderGdPagination('gd-abilities-pagination', st, 'window._gdPageAbilities');
       })
       .catch(function (err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:24px; color:#ff7675;">Lỗi tải dữ liệu: ' + esc(err.message) + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:24px; color:#ff7675;">' + t('gd.loadError', { msg: esc(err.message) }) + '</td></tr>';
       });
   }
 
   function loadGameDataTypes() {
     var tbody = document.querySelector('#gd-types-table tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px;" class="dim">Đang nạp bảng hệ và tương khắc...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px;" class="dim">' + t('gd.loadingTypes') + '</td></tr>';
 
     getJSON('/api/admin/gamedata/types')
       .then(function (res) {
@@ -1382,7 +1382,7 @@
         var chart = res.chart || {};
         if (tbody) {
           if (typesList.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px;" class="dim">Chưa có dữ liệu hệ.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px;" class="dim">' + t('gd.emptyTypes') + '</td></tr>';
           } else {
             tbody.innerHTML = typesList.map(function (typeObj) {
               var tName = typeof typeObj === 'string' ? typeObj : (typeObj.name || typeObj.id);
@@ -1412,7 +1412,7 @@
         }
       })
       .catch(function (err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:#ff7675;">Lỗi tải bảng hệ: ' + esc(err.message) + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:#ff7675;">' + t('gd.loadError', { msg: esc(err.message) }) + '</td></tr>';
       });
   }
 
@@ -1423,13 +1423,13 @@
     if (!modal || !body) return;
 
     modal.classList.remove('hidden');
-    title.textContent = 'Chi tiết Pokémon: #' + speciesId;
-    body.innerHTML = '<div style="text-align:center; padding:40px;" class="dim">Đang tải thông tin chi tiết...</div>';
+    title.textContent = t('gd.speciesTitle', { id: speciesId });
+    body.innerHTML = '<div style="text-align:center; padding:40px;" class="dim">' + t('gd.loadingDetail') + '</div>';
 
     getJSON('/api/admin/gamedata/species/' + encodeURIComponent(speciesId))
       .then(function (res) {
         var s = res.species;
-        if (!s) throw new Error('Không có dữ liệu loài');
+        if (!s) throw new Error(t('gd.noSpeciesData'));
 
         title.textContent = '#' + String(s.dexNum).padStart(3, '0') + ' ' + s.name;
         var typesBadges = (s.types || []).map(gdTypeBadge).join(' ');
@@ -1449,7 +1449,7 @@
           );
         }
 
-        var evolutionsHtml = '<span class="dim">Không có tiến hoá tiếp theo</span>';
+        var evolutionsHtml = '<span class="dim">' + t('gd.noEvo') + '</span>';
         if (s.evolutions && s.evolutions.length > 0) {
           evolutionsHtml = s.evolutions.map(function (ev) {
             var methodStr = ev.method;
@@ -1458,11 +1458,11 @@
           }).join(' ');
         }
 
-        var movesHtml = '<span class="dim">Chưa có danh sách chiêu</span>';
+        var movesHtml = '<span class="dim">' + t('gd.noMoves') + '</span>';
         if (s.moves && s.moves.length > 0) {
           movesHtml = '<div style="max-height:180px; overflow-y:auto; border:1px solid #2d3748; border-radius:6px; padding:8px;">' +
             '<table style="width:100%; font-size:12px;">' +
-            '<thead><tr><th style="width:60px;">Cấp</th><th>Chiêu thức</th></tr></thead>' +
+            '<thead><tr><th style="width:60px;">' + t('gd.colLevel') + '</th><th>' + t('gd.colMove') + '</th></tr></thead>' +
             '<tbody>' +
             s.moves.map(function (m) {
               return '<tr><td class="mono font-semibold" style="color:#00cec9;">Lv. ' + m.level + '</td><td><strong>' + esc(m.move) + '</strong></td></tr>';
@@ -1480,27 +1480,27 @@
           '    <img src="' + battlerImg + '" onerror="this.src=\'' + iconImg + '\';this.style.width=\'80px\';this.style.height=\'80px\';" style="width:128px; height:128px; object-fit:contain; image-rendering:pixelated;" />' +
           '    <div style="margin-top:10px;">' + typesBadges + '</div>' +
           '    <div style="margin-top:6px;">' + gdRarityBadge(s.rarity) + '</div>' +
-          '    <button class="btn btn-sm btn-ghost" onclick="new Audio(\'' + cryUrl + '\').play().catch(function(){});" style="margin-top:10px; width:100%; font-size:11px;" title="Phát tiếng kêu Pokémon">🔊 Nghe tiếng kêu</button>' +
+          '    <button class="btn btn-sm btn-ghost" onclick="new Audio(\'' + cryUrl + '\').play().catch(function(){});" style="margin-top:10px; width:100%; font-size:11px;" title="' + esc(t('gd.playCryTitle')) + '">' + t('gd.playCry') + '</button>' +
           '  </div>' +
           '  <div style="flex:1; min-width:260px;">' +
           '    <div style="font-size:13px; color:#a0aec0; margin-bottom:4px;">' + esc(s.category || 'Pokémon') + '</div>' +
           '    <div style="font-size:13px; line-height:1.5; margin-bottom:12px; background:#232936; padding:10px; border-radius:6px; border-left:3px solid #00cec9;">' +
-          esc(s.pokedexDescription || 'Dữ liệu Pokédex đang được cập nhật...') +
+          esc(s.pokedexDescription || t('gd.pokedexUpdating')) +
           '    </div>' +
           '    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; margin-bottom:12px;">' +
-          '      <div><span class="dim">Chiều cao:</span> <strong>' + (s.height || '—') + ' m</strong></div>' +
-          '      <div><span class="dim">Cân nặng:</span> <strong>' + (s.weight || '—') + ' kg</strong></div>' +
-          '      <div><span class="dim">Tỷ lệ bắt:</span> <strong class="mono">' + (s.catchRate || '—') + '</strong></div>' +
-          '      <div><span class="dim">Kinh nghiệm gốc:</span> <strong class="mono">' + (s.baseExperience || '—') + '</strong></div>' +
-          '      <div><span class="dim">Đặc tính:</span> <strong>' + (s.abilities ? s.abilities.join(', ') : '—') + '</strong></div>' +
-          '      <div><span class="dim">Đặc tính ẩn:</span> <strong style="color:#fdcb6e;">' + (s.hiddenAbility || '—') + '</strong></div>' +
+          '      <div><span class="dim">' + t('gd.lblHeight') + '</span> <strong>' + (s.height || '—') + ' m</strong></div>' +
+          '      <div><span class="dim">' + t('gd.lblWeight') + '</span> <strong>' + (s.weight || '—') + ' kg</strong></div>' +
+          '      <div><span class="dim">' + t('gd.lblCatchRate') + '</span> <strong class="mono">' + (s.catchRate || '—') + '</strong></div>' +
+          '      <div><span class="dim">' + t('gd.lblBaseExp') + '</span> <strong class="mono">' + (s.baseExperience || '—') + '</strong></div>' +
+          '      <div><span class="dim">' + t('gd.lblAbilities') + '</span> <strong>' + (s.abilities ? s.abilities.join(', ') : '—') + '</strong></div>' +
+          '      <div><span class="dim">' + t('gd.lblHiddenAbility') + '</span> <strong style="color:#fdcb6e;">' + (s.hiddenAbility || '—') + '</strong></div>' +
           '    </div>' +
           '  </div>' +
           '</div>' +
           '<div style="background:#1a202c; border:1px solid #2d3748; border-radius:8px; padding:16px; margin-bottom:16px;">' +
           '  <div style="display:flex; justify-content:space-between; margin-bottom:10px;">' +
-          '    <h4 style="margin:0; font-size:14px;">Chỉ số cơ bản (Base Stats)</h4>' +
-          '    <span class="mono" style="font-weight:bold; color:#fdcb6e;">Tổng BST: ' + bst + '</span>' +
+          '    <h4 style="margin:0; font-size:14px;">' + t('gd.baseStats') + '</h4>' +
+          '    <span class="mono" style="font-weight:bold; color:#fdcb6e;">' + t('gd.totalBst', { n: bst }) + '</span>' +
           '  </div>' +
           statBar('HP', stats.hp || 0, 255, '#2ecc71') +
           statBar('Attack', stats.attack || 0, 255, '#e67e22') +
@@ -1510,16 +1510,16 @@
           statBar('Speed', stats.speed || 0, 255, '#e91e63') +
           '</div>' +
           '<div style="margin-bottom:16px;">' +
-          '  <h4 style="margin:0 0 8px 0; font-size:14px;">Tuyến tiến hoá (Evolutions)</h4>' +
+          '  <h4 style="margin:0 0 8px 0; font-size:14px;">' + t('gd.evoChain') + '</h4>' +
           evolutionsHtml +
           '</div>' +
           '<div>' +
-          '  <h4 style="margin:0 0 8px 0; font-size:14px;">Chiêu thức học theo cấp (Level-up Moves)</h4>' +
+          '  <h4 style="margin:0 0 8px 0; font-size:14px;">' + t('gd.levelMoves') + '</h4>' +
           movesHtml +
           '</div>';
       })
       .catch(function (err) {
-        body.innerHTML = '<div style="text-align:center; padding:40px; color:#ff7675;">Lỗi khi tải thông tin: ' + esc(err.message) + '</div>';
+        body.innerHTML = '<div style="text-align:center; padding:40px; color:#ff7675;">' + t('gd.loadError', { msg: esc(err.message) }) + '</div>';
       });
   }
 
@@ -1542,7 +1542,7 @@
               esc(pGif) +
               '" title="' +
               esc(s.name) +
-              ' — bấm xem 256px">' +
+              t('gd.view256') + '">' +
               '<img src="' +
               esc(p128) +
               '" alt="' +
@@ -2187,7 +2187,7 @@
     $('sprite-preview-img').src = staticUrl;
     var toggleBtn = $('sprite-preview-toggle-mode');
     if (toggleBtn) {
-      toggleBtn.textContent = '▶ Xem animation đi bộ';
+      toggleBtn.textContent = t('sp.previewAnim');
       toggleBtn.style.display = gifUrl && gifUrl !== staticUrl ? '' : 'none';
     }
     $('sprite-preview-modal').classList.remove('hidden');
@@ -2301,10 +2301,10 @@
       var img = $('sprite-preview-img');
       if (spritePreviewState.isGif) {
         img.src = spritePreviewState.gifUrl;
-        this.textContent = '⏸ Xem ảnh tĩnh';
+        this.textContent = t('sp.previewStill');
       } else {
         img.src = spritePreviewState.staticUrl;
-        this.textContent = '▶ Xem animation đi bộ';
+        this.textContent = t('sp.previewAnim');
       }
     });
 
@@ -2613,7 +2613,7 @@
       var warpsList = $('map-warps-list');
       warpsList.innerHTML = '';
       if (warps.length === 0) {
-        warpsList.innerHTML = '<div style="font-size: 11px; color: var(--text-dim);">Chưa có cổng warp nào</div>';
+        warpsList.innerHTML = '<div style="font-size: 11px; color: var(--text-dim);">' + t('map.noWarps') + '</div>';
       } else {
         warps.forEach(function (w) {
           var el = document.createElement('div');
@@ -2662,17 +2662,17 @@
       (stats.layers || []).forEach(function (l) {
         rows += '<tr><td style="padding: 2px 0;">' + l.name + '</td><td style="text-align: right; font-family: monospace;">' + l.cells + '</td></tr>';
       });
-      rows += '<tr><td style="padding: 2px 0; color: var(--text-dim);">Tile có properties</td><td style="text-align: right; font-family: monospace;">' + (stats.tilePropsCount || 0) + '</td></tr>';
+      rows += '<tr><td style="padding: 2px 0; color: var(--text-dim);">' + t('map.stTiles') + '</td><td style="text-align: right; font-family: monospace;">' + (stats.tilePropsCount || 0) + '</td></tr>';
       layersEl.innerHTML = rows;
 
       // Va chạm
       var c = stats.collision || {};
       colEl.innerHTML =
-        '<tr><td style="padding: 2px 0;">Tổng ô</td><td style="text-align: right; font-family: monospace;">' + (c.total || 0) + '</td></tr>' +
-        '<tr><td style="padding: 2px 0; color: #4ade80;">Đi được</td><td style="text-align: right; font-family: monospace;">' + (c.walkable || 0) + '</td></tr>' +
-        '<tr><td style="padding: 2px 0; color: #f87171;">Chặn</td><td style="text-align: right; font-family: monospace;">' + (c.blocked || 0) + '</td></tr>' +
-        '<tr><td style="padding: 2px 0; color: #60a5fa;">Nước</td><td style="text-align: right; font-family: monospace;">' + (c.water || 0) + '</td></tr>' +
-        '<tr><td style="padding: 2px 0; color: #a3e635;">Cỏ</td><td style="text-align: right; font-family: monospace;">' + (c.grass || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0;">' + t('map.stTotal') + '</td><td style="text-align: right; font-family: monospace;">' + (c.total || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #4ade80;">' + t('map.stWalk') + '</td><td style="text-align: right; font-family: monospace;">' + (c.walkable || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #f87171;">' + t('map.stBlocked') + '</td><td style="text-align: right; font-family: monospace;">' + (c.blocked || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #60a5fa;">' + t('map.stWater') + '</td><td style="text-align: right; font-family: monospace;">' + (c.water || 0) + '</td></tr>' +
+        '<tr><td style="padding: 2px 0; color: #a3e635;">' + t('map.stGrass') + '</td><td style="text-align: right; font-family: monospace;">' + (c.grass || 0) + '</td></tr>' +
         '<tr><td style="padding: 2px 0; color: #fbbf24;">Ledge</td><td style="text-align: right; font-family: monospace;">' + (c.ledge || 0) + '</td></tr>' +
         '<tr><td style="padding: 2px 0; color: #c084fc;">Warp</td><td style="text-align: right; font-family: monospace;">' + (c.warp || 0) + '</td></tr>';
 
@@ -2944,9 +2944,9 @@
         if (tileX >= 0 && tileX < m.width && tileY >= 0 && tileY < m.height) {
           var flag = m.collision && m.collision.flags ? m.collision.flags[tileY * m.width + tileX] : 0;
           var isBlocked = (flag & 0x04) !== 0 || (flag & 0x02) !== 0; // BLOCKED|WATER
-          $('map-hud').textContent = 'Tile: (' + tileX + ', ' + tileY + ') | Đi được: ' + (isBlocked ? 'KHÔNG (Cản trở)' : 'CÓ');
+          $('map-hud').textContent = t('map.hudTile', { x: tileX, y: tileY, ok: t(isBlocked ? 'map.walkNo' : 'map.walkYes') });
         } else {
-          $('map-hud').textContent = 'Tile: --, -- | Đi được: --';
+          $('map-hud').textContent = t('map.hudNone');
         }
       });
 
@@ -2983,10 +2983,10 @@
         };
         postJSON('/api/admin/maps/' + mapState.currentId, body, 'PATCH')
           .then(function () {
-            alert('Đã lưu cấu hình map thành công!');
+            alert(t('map.savedOk'));
           })
           .catch(function (err) {
-            alert('Lỗi lưu cấu hình: ' + err.message);
+            alert(t('map.saveError', { msg: err.message }));
           });
       });
     }
@@ -3029,7 +3029,7 @@
         e.preventDefault();
         var submitBtn = $('map-import-submit');
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Đang import...';
+        submitBtn.textContent = t('map.importing');
 
         var body = {
           mapId: parseInt($('import-map-id').value, 10),
@@ -3041,16 +3041,16 @@
         postJSON('/api/admin/maps/import', body, 'POST')
           .then(function (res) {
             submitBtn.disabled = false;
-            submitBtn.textContent = 'Bắt đầu Import';
+            submitBtn.textContent = t('map.importStart');
             $('map-import-modal').classList.add('hidden');
-            alert(res.message || 'Import bản đồ thành công!');
+            alert(res.message || t('map.importOk'));
             mapState.currentId = body.slug;
             loadMaps();
           })
           .catch(function (err) {
             submitBtn.disabled = false;
-            submitBtn.textContent = 'Bắt đầu Import';
-            alert('Lỗi import: ' + err.message);
+            submitBtn.textContent = t('map.importStart');
+            alert(t('map.importError', { msg: err.message }));
           });
       });
     }
@@ -3060,15 +3060,15 @@
       $('map-btn-regenerate').addEventListener('click', function () {
         var id = mapState.currentId;
         if (!id) {
-          alert('Vui lòng chọn map trước.');
+          alert(t('map.selectMapFirst'));
           return;
         }
         var btn = $('map-btn-regenerate');
-        if (!confirm('Regenerate server JSON cho map "' + id + '"?\n\nFile .tmj phải đã được lưu trong Tiled trước.')) return;
+        if (!confirm(t('map.confirmRegen', { id: id }))) return;
 
         var original = btn.textContent;
         btn.disabled = true;
-        btn.textContent = '⏳ Đang build...';
+        btn.textContent = t('map.building');
 
         postJSON('/api/admin/maps/' + id + '/regenerate', {}, 'POST')
           .then(function (res) {
@@ -3078,13 +3078,13 @@
             var extra = s
               ? '\n\n📐 ' + s.width + '×' + s.height + ' · 🚪 ' + s.warps + ' warp · 📦 ' + s.objects + ' obj'
               : '';
-            alert((res.message || 'Đã regenerate thành công!') + extra + '\n\nHãy restart server để nạp JSON mới.');
+            alert((res.message || t('map.regenOk')) + extra + '\n\n' + t('map.regenRestart'));
             loadMaps();
           })
           .catch(function (err) {
             btn.disabled = false;
             btn.textContent = original;
-            alert('Lỗi regenerate: ' + err.message);
+            alert(t('map.regenError', { msg: err.message }));
           });
       });
     }

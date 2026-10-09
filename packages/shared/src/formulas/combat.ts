@@ -178,13 +178,26 @@ export function expForLevel(level: number, growthRate: GrowthRate = 'mediumFast'
       return Math.floor((6 * level ** 3) / 5 - 15 * level ** 2 + 100 * level - 140);
     case 'slow':
       return Math.floor((5 * level ** 3) / 4);
-    case 'fluctuating':
-      return Math.floor((5 * level ** 3) / 14 - 45 * level ** 2 + 350 * level - 200);
+    case 'fluctuating': {
+      // Canonical Gen 3+ curve (3 tier). Bản cũ dùng 1 polynomial duy nhất cho
+      // mọi level → giá trị ÂM ở tầm L50 (≈ −50 558) khiến species fluctuating
+      // (14 loài) spawn sai / exp âm trong DB.
+      if (level < 15) {
+        return Math.floor((level ** 3 * (Math.floor((level + 1) / 3) + 24)) / 50);
+      }
+      if (level < 36) {
+        return Math.floor((level ** 3 * (level + 14)) / 50);
+      }
+      return Math.floor((level ** 3 * (Math.floor(level / 2) + 32)) / 50);
+    }
     case 'erratic': {
-      if (level <= 50) return Math.floor((level ** 3 * (100 - level)) / 50);
-      if (level <= 68) return Math.floor((level ** 3 * (150 - level)) / 100);
-      if (level <= 98) return Math.floor((level ** 3 * ((190 - level) / 100)) / 1);
-      return Math.floor((level ** 3 * (200 - level)) / 100);
+      // Canonical Gen 3+ curve (4 tier, Bulbapedia). Tier 3 (68–97) là
+      // n³·⌊(1911−10n)/3⌋/500 — bản cũ dùng n³·(190−n)/100 (sai) và bản
+      // "(191−n)/3" cũng sai → 25 species erratic lên level sai/không đơn điệu.
+      if (level < 50) return Math.floor((level ** 3 * (100 - level)) / 50);
+      if (level < 68) return Math.floor((level ** 3 * (150 - level)) / 100);
+      if (level < 98) return Math.floor((level ** 3 * Math.floor((1911 - 10 * level) / 3)) / 500);
+      return Math.floor((level ** 3 * (160 - level)) / 100);
     }
     case 'mediumFast':
     default:

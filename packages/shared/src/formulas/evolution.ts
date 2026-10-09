@@ -138,6 +138,19 @@ export function resolveEvolution(
     return null;
   };
 
+  // Người chơi CHỦ ĐỘNG dùng đá → `item` phải đứng TRƯỚC `level`. Nếu không,
+  // eevee Lv16+ (hoặc kirlia Lv30+) dùng Water/Dawn Stone sẽ tiến hoá theo level
+  // (Leafeon / Gardevoir) thay vì theo đá (Vaporeon / Gallade) — mất đá + sai loài.
+  if (ctx.usedItemId) {
+    return (
+      find('trade') ??
+      find('item') ??
+      find('level') ??
+      find('friendship') ??
+      find('move')
+    );
+  }
+
   return (
     find('trade') ??
     find('level') ??

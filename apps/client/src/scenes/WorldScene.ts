@@ -2983,6 +2983,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
+    // Refresh panel debug TRƯỚC guard lock-UI — xem `refreshDebugPanels()`.
+    this.refreshDebugPanels();
+
     if (!this.cursors || !this.canMove || this.isBlockingUiOpen()) return;
 
     const left = this.cursors.left.isDown || !!this.wasd?.A?.isDown;
@@ -3066,7 +3069,16 @@ export class WorldScene extends Phaser.Scene {
         this.updateHoverTile(activePointer.x, activePointer.y);
       }
     }
+  }
 
+  /**
+   * Refresh panel debug (DebugModal + widget ghim) theo thời gian thực.
+   *
+   * PHẢI gọi trước guard `isBlockingUiOpen()` trong `update()`: DebugModal có
+   * `lockUi: true` nên hễ mở panel là guard true → refresh nằm sau guard thì
+   * `updateInfo` không bao giờ chạy → tab info trắng tinh.
+   */
+  private refreshDebugPanels(): void {
     // Cập nhật thông số thời gian thực vào DebugModal (nếu đang mở)
     if (this.debugModal?.isOpen()) {
       const mapMeta = MAPS[this.currentMapId];

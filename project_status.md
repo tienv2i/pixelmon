@@ -321,6 +321,7 @@ Tab Debug gồm:
 | `/spawn [dexNum]` | **Gọi trận wild** (bỏ trống = random) |
 | `/map` `/pos` `/server` `/help` `/clear` | Thông tin / lệnh |
 | `/time` · `/weather` | **Mới:** giờ game + phase ngày/đêm · thời tiết map (số liệu server) |
+| `/friendship [slot]` | **Mới:** điểm happiness/255 + bậc + đủ/thiếu ngưỡng evolve 160 (SSOT `shared/formulas/friendship.ts`, `PokemonData.friendship` từ `/api/pokemon`) |
 
 > 🛠️ **Refactor 2026-10-10 (`src/debug/`):** tách `handleDebugCommand` (~515 dòng) khỏi WorldScene thành registry + 6 nhóm lệnh (`movement`/`mapDebug`/`npc`/`moderation`/`ui`/`systems`) — WorldScene chỉ còn delegate + adapter closure (không mở `private`). `/help` tự sinh từ registry. Sửa bug `/debug off` unreachable (nhánh cũ đặt sau `return`). `describeTerrainTag` chuyển sang `debug/commands/mapDebug.ts`.
 
@@ -334,11 +335,13 @@ Tab Debug gồm:
 - **Toggle:** Settings > Hệ thống → 1 nút duy nhất hiển thị ngôn ngữ hiện tại.
 - **Settings kèm theo:** Anti-aliasing (`system.antialias`, đọc lúc boot).
 
-### 4.4 Chat + lệnh debug (`ChatLog` + `WorldScene`)
+### 4.4 Chat + lệnh debug (`ChatLog` + registry `src/debug/`)
 - **Ô nhập chữ cố định** ở đáy khung chat (không cần bấm Enter để mở) — tự nắn vị trí theo `relayout()`,
   **lịch sử lệnh ArrowUp/Down** (50 lệnh), placeholder đổi theo role.
-- **Route lệnh:** bắt đầu bằng `/` → `handleDebugCommand()` (chỉ **moderator+**, server luôn re-check role);
-  không đủ quyền → báo đỏ, **không gửi lên server**. Còn lại → chat thường qua `sendChat`.
+- **Route lệnh:** bắt đầu bằng `/` → registry `src/debug/` (delegate từ WorldScene, chỉ **moderator+**,
+  server luôn re-check role); không đủ quyền → báo đỏ, **không gửi lên server**. Còn lại → chat thường qua `sendChat`.
+- **Render wrap (fix 2026-10-10):** trước đây object đặt cách đều `LINE_H` cố định → message dài > 1 hàng
+  đè lên dòng dưới. Giờ layout 3 pass theo chiều cao thật sau wrap, neo đáy (tin mới luôn hiện, tin cũ cắt khi hết chỗ).
 - **Output dài** (VD `/help` 13 dòng) → `addSystemBlock()` tạm mở khung lên 14 dòng, giữ 30s rồi co lại.
 - **`/spawn [dexNum]`** → client `sendDebugSpawn` → server `WorldRoom.debug_spawn` (validate role từ DB)
   → `initiateWildBattle` → trả `debug_msg` hiện vào chat.

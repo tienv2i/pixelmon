@@ -613,7 +613,24 @@ Audit read-only toàn bộ hệ EXP/EV/Evolve + admin đã phát hiện và **s�
 - Thêm `middleware/security.ts`: rate-limit login **10 lần/15 phút/IP**, register **5 lần/giờ/IP** (429 + `Retry-After`); CSP + `X-Content-Type-Options` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy`.
   - ⚠ `script-src` còn `'unsafe-inline'` vì admin.js dùng onclick attribute; siết `'self'` thuần cần refactor thêm — tách riêng.
 
-**Còn tồn đọng (không sửa lần này):** trainer EXP (`players.exp`) chưa implement · `friendship` không bao giờ tăng → `eevee→espeon` không reachable · `PartyStrip`/`PokemonSummaryModal` hiển thị EXP sai convention · `MAX_EV_TOTAL` chưa áp trong `gainEv` · `SpeciesSchema` thiếu `evYields`.
+**Còn tồn đọng (không sửa lần này):** trainer EXP (`players.exp`) chưa implement · `PartyStrip`/`PokemonSummaryModal` hiển thị EXP sai convention · `MAX_EV_TOTAL` chưa áp trong `gainEv` · `SpeciesSchema` thiếu `evYields`.
+
+### 🌙 Hệ thống Ngày/Đêm + Thời tiết + Happiness/Evolve theo giờ (2026-10-10)
+
+Đồng hồ/thời tiết trước đây là **client-side giả lập** (`new Date()` local + weather random theo seed), encounter gọi `rollEncounter(table, {}, 1)` với **ctx rỗng** nên filter `timeOfDay`/`weather` chưa bao giờ chạy, `friendship` không bao giờ tăng → `eevee→espeon` unreachable và **umbreon không tồn tại trong data**.
+
+| # | Hệ thống | Triển khai |
+| :--- | :--- | :--- |
+| 1 | **World clock SSOT** (`formulas/worldClock.ts`) | `TIME_SCALE` x6, epoch cố định (toàn cục, restart không nhảy giờ), `phaseAt` (dawn 5–7 / day 7–18 / dusk 18–20 / night 20–5), `worldClockAt/Now`, `msUntilNextPhase` |
+| 2 | **Weather deterministic** | `weatherFor(mapId, mapWeather, day, block)` — 8 block/ngày, hash FNV-1a; `ServerMap.weather` làm override tuyệt đối, không đặt → pool nắng-chiếm-đa-số |
+| 3 | **Server broadcast** | `WorldClockService` (10s/nhịp, chỉ sync khi đổi) → `WorldState.timeOfDay/weather/gameMinutes`; stop khi room dispose |
+| 4 | **Encounter theo giờ/thời tiết** | WorldRoom truyền ctx thật vào `rollEncounter` |
+| 5 | **Evolution `time`** | Schema `method:'time'` + `timeOfDay[]`; `entrySatisfied` check phase + `minFriendship` (mặc định 160); thứ tự `time` trước `friendship`; everstone chặn cả `time` |
+| 6 | **Data eevee** | espeon → `time` dawn/day; **thêm umbreon** → `time` dusk/night; **xoá** 2 entry level-16 leafeon/glaceon sai mainline (chặn đứng espeon/umbreon vì `level` resolve trước `time`) |
+| 7 | **Happiness tracking** (`pokemon/friendship.ts`) | `FRIENDSHIP_DELTA`: thắng +1 / thua −1 / gục −2 / bỏ chạy −2; daily tick +1 toàn bộ Pokémon mỗi ngày game; bậc `friendshipTier` |
+| 8 | **Client** | `InfoPanel.setServerClock()` (chưa sync → giữ giả lập cũ); `WorldScene.syncWorldClock` + overlay tối (night 0.38 / dusk-dawn 0.14, chỉ camera world render); Pokedex hiện `❤+DAWN/DAY…` |
+
+**Xác minh:** `pnpm run typecheck` 4/4 · JSON hợp lệ · restart server+client sạch, `/health` OK, `game data loaded: 898 species` (zod parse pass hết entry `time` mới).
 
 ---
 > ✅ **Đã hoàn thành:** PvP Battle (Plan 47) — xem Mục 9.

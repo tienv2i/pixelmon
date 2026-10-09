@@ -36,6 +36,7 @@ import {
   spriteUploadMiddleware,
 } from './modules/admin/sprite.js';
 import { requireAuth, requireAdmin } from './middleware/auth.js';
+import { rateLimit, securityHeaders } from './middleware/security.js';
 import { getUserInfo, updateUserInfo } from './modules/user/index.js';
 import { bagRouter } from './modules/items/bagApi.js';
 import {
@@ -65,6 +66,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export function createApp(): Express {
   const app = express();
+
+  // Bảo mật cho trang server tự phục vụ + API (CSP, chống clickjacking...).
+  app.use(securityHeaders());
 
   app.use(
     cors({
@@ -99,6 +103,16 @@ export function createApp(): Express {
   );
 
   // ── Auth ──
+  // Rate-limit chống brute-force: 10 lần / 15 phút / IP cho login, 5 / giờ cho
+  // register (đăng ký tài khoản là hành động nặng + nhạy cảm).
+  app.use(
+    '/api/auth/login',
+    rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Đăng nhập quá nhiều lần. Thử lại sau ít phút.' }),
+  );
+  app.use(
+    '/api/auth/register',
+    rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: 'Đăng ký quá nhiều lần. Thử lại sau.' }),
+  );
   app.use('/api/auth', authRouter);
 
   // ── Admin API (chỉ role=admin) ──

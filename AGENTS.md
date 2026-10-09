@@ -10,7 +10,7 @@ Dự án: **Pixelmon** — Pokemon MMORPG trên web (Phaser 3 Client + Colyseus 
 > - **Quy trình chuẩn:** Nhận yêu cầu -> Đọc file trọng tâm -> Tạo/sửa code chuẩn xác -> Chạy `pnpm run typecheck` xác nhận cú pháp -> Báo cáo hoàn thành.
 > - **Tập trung:** Tối ưu hóa thời gian xử lý, không lan man, không dài dòng, không tự tiện làm tester.
 
-1. **Phạm vi thư mục:**
+1. **Phạm vi thư mục:** => Hiện tại tạm thời vô hiệu hoá qui định này, cho phép truy cập khi cần thiết.
    - Thư mục gốc: `/mnt/data/AI-Agent/pixelmon`. Mọi đường dẫn, import, lệnh đều tính từ đây.
    - **Hạn chế tối đa** việc truy cập hay đọc file ngoài thư mục dự án. Nếu bắt buộc cần đọc tài nguyên bên ngoài, **PHẢI hỏi và được user xác nhận trước**.
 2. **Kiểm thử (Testing):**

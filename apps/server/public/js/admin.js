@@ -86,7 +86,12 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;')
+      // Escape `'` cho ngữ cảnh HTML attribute. LƯU Ý: đây KHÔNG phải biện pháp
+      // chống XSS cho inline handler dạng `onclick="fn('<data>')"` — HTML parser
+      // decode `&#39;` về `'` TRƯỚC khi JS chạy. Các bảng có dữ liệu người dùng
+      // (users, sprites) đã chuyển sang `data-*` + event delegation.
+      .replace(/'/g, '&#39;');
   }
   function fmtDate(v) {
     if (!v) return '—';
@@ -133,6 +138,15 @@
   }
 
   // ── API helper ──
+  /** Bắt lỗi im lặng của các bảng list: log ra console + hiện inline (nếu có). */
+  function loadFail(err, emptyId) {
+    console.warn('[admin] load failed', err);
+    var el = emptyId ? $(emptyId) : null;
+    if (el) {
+      el.classList.remove('hidden');
+      el.textContent = 'Không tải được dữ liệu: ' + (err && err.message ? err.message : 'lỗi mạng');
+    }
+  }
   function getJSON(path) {
     var opts = { headers: { Accept: 'application/json' } };
     if (TOKEN) opts.headers['Authorization'] = 'Bearer ' + TOKEN;
@@ -348,7 +362,9 @@
           );
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        loadFail(err, 'recent-users-empty');
+      });
   }
 
   // ── Items & Trades (Plan 45 Phase 7) ──────────────────────────────────
@@ -393,7 +409,9 @@
           return '<tr><td>' + esc(r.item_id) + '</td><td class="mono">' + r.owners + '</td><td class="dim">' + r.qty + '</td></tr>';
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        loadFail(err);
+      });
   }
 
   function loadTopSpenders() {
@@ -412,7 +430,9 @@
           );
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        loadFail(err, 'spenders-empty');
+      });
   }
 
   function loadEvolutionHistory() {
@@ -433,7 +453,9 @@
           );
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        loadFail(err, 'evolution-empty');
+      });
   }
 
   function loadEventLog() {
@@ -465,7 +487,9 @@
           );
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        loadFail(err, 'events-empty');
+      });
   }
 
   // ── Sprite helpers (dùng bởi bảng users + modal user) ──
@@ -590,17 +614,21 @@
         fillTable('users-table', 'users-empty', usersState.data, function (u) {
           var isMe = CURRENT_USER && CURRENT_USER.user && CURRENT_USER.user.id === u.id;
           var isBanned = u.role === 'banned';
+          // KHÔNG dùng onclick="...('<username>')": username là dữ liệu người
+          // dùng tự đăng ký, nằm trong JS string của attribute sẽ bị HTML-decode
+          // trả `'` về cho JS → phá string / XSS. Dùng data-* (escape đúng ngữ cảnh
+          // attribute) + event delegation.
           var banBtn = isBanned
-            ? '<button class="btn btn-sm btn-ghost btn-unban" onclick="window._adminUnban(\'' +
-              u.id +
-              '\')" title="' +
+            ? '<button class="btn btn-sm btn-ghost btn-unban" data-action="unban" data-id="' +
+              esc(u.id) +
+              '" title="' +
               esc(t('u.unban')) +
               '">🔓</button> '
-            : '<button class="btn btn-sm btn-ghost btn-danger" onclick="window._adminBan(\'' +
-              u.id +
-              "','" +
+            : '<button class="btn btn-sm btn-ghost btn-danger" data-action="ban" data-id="' +
+              esc(u.id) +
+              '" data-username="' +
               esc(u.username) +
-              '\')" title="' +
+              '" title="' +
               esc(t('u.ban')) +
               '">🚫</button> ';
 
@@ -643,24 +671,24 @@
             fmtDate(u.lastLoginAt) +
             '</td>' +
             '<td class="actions">' +
-            '<button class="btn btn-sm btn-ghost" onclick="window._adminEdit(\'' +
-            u.id +
-            '\')" title="' +
+            '<button class="btn btn-sm btn-ghost" data-action="edit" data-id="' +
+            esc(u.id) +
+            '" title="' +
             esc(t('btn.edit')) +
             '">✎</button> ' +
-            '<button class="btn btn-sm btn-ghost" onclick="window._adminPasswd(\'' +
-            u.id +
-            '\')" title="' +
+            '<button class="btn btn-sm btn-ghost" data-action="passwd" data-id="' +
+            esc(u.id) +
+            '" title="' +
             esc(t('u.resetPass')) +
             '">🔑</button> ' +
             banBtn +
             (isMe
               ? ''
-              : '<button class="btn btn-sm btn-ghost btn-danger" onclick="window._adminDelete(\'' +
-                u.id +
-                "','" +
+              : '<button class="btn btn-sm btn-ghost btn-danger" data-action="delete" data-id="' +
+                esc(u.id) +
+                '" data-username="' +
                 esc(u.username) +
-                '\')" title="' +
+                '" title="' +
                 esc(t('btn.delete')) +
                 '">✕</button>') +
             '</td></tr>'
@@ -917,7 +945,9 @@
           );
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        loadFail(err, 'pokemon-empty');
+      });
   }
 
   // ── Players ──
@@ -944,7 +974,9 @@
           );
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        loadFail(err, 'players-empty');
+      });
   }
 
   function loadAll() {
@@ -1502,13 +1534,13 @@
           var p256 = s.previewUrl256 || s.sheetUrl;
           var pGif = s.previewGif256 || s.previewGif128 || p256;
           var thumbHtml = p128
-            ? '<div class="sprite-thumb-preview" onclick="_previewSpriteModal(\'' +
+            ? '<div class="sprite-thumb-preview" data-action="preview" data-name="' +
               esc(s.name) +
-              "','" +
+              '" data-p256="' +
               esc(p256) +
-              "','" +
+              '" data-pgif="' +
               esc(pGif) +
-              '\')" title="' +
+              '" title="' +
               esc(s.name) +
               ' — bấm xem 256px">' +
               '<img src="' +
@@ -1542,11 +1574,11 @@
             'f</td><td class="dim">' +
             esc(fmtDate(s.createdAt)) +
             '</td><td>' +
-            '<button class="btn btn-ghost btn-sm" onclick="_spriteDelete(\'' +
+            '<button class="btn btn-ghost btn-sm" data-action="delete-sprite" data-id="' +
             esc(s.id) +
-            "','" +
+            '" data-name="' +
             esc(s.name) +
-            '\')" title="' +
+            '" title="' +
             esc(t('btn.delete')) +
             '">🗑</button>' +
             '</td></tr>'
@@ -1556,6 +1588,7 @@
         spritesCache = list.filter(function (s) {
           return s.sheetUrl;
         });
+        bindSpriteDelegation();
       })
       .catch(function () {
         fillTable('sprites-table', 'sprites-empty', [], function () {
@@ -2072,6 +2105,48 @@
   window._adminDelete = function (id, name) {
     deleteUser(id, name);
   };
+
+  // ── Event delegation cho bảng Users ──
+  // Các nút dùng data-action (không còn onclick + username inline) để tránh
+  // XSS: đọc dataset rồi gọi đúng hàm bên trên.
+  (function () {
+    var table = $('users-table');
+    if (!table) return;
+    table.addEventListener('click', function (ev) {
+      var el = ev.target && ev.target.closest ? ev.target.closest('button[data-action]') : null;
+      if (!el || !table.contains(el)) return;
+      var action = el.getAttribute('data-action');
+      var id = el.getAttribute('data-id');
+      var name = el.getAttribute('data-username');
+      if (action === 'edit') window._adminEdit(id);
+      else if (action === 'passwd') window._adminPasswd(id);
+      else if (action === 'ban') window._adminBan(id, name);
+      else if (action === 'unban') window._adminUnban(id);
+      else if (action === 'delete') window._adminDelete(id, name);
+    });
+  })();
+
+  // ── Event delegation cho bảng Sprites (chống XSS qua sprite name) ──
+  function bindSpriteDelegation() {
+    var table = $('sprites-table');
+    if (!table || table.dataset.delegated === '1') return;
+    table.dataset.delegated = '1';
+    table.addEventListener('click', function (ev) {
+      var el = ev.target && ev.target.closest ? ev.target.closest('[data-action]') : null;
+      if (!el || !table.contains(el)) return;
+      var action = el.getAttribute('data-action');
+      if (action === 'preview') {
+        window._previewSpriteModal(
+          el.getAttribute('data-name'),
+          el.getAttribute('data-p256'),
+          el.getAttribute('data-pgif'),
+        );
+      } else if (action === 'delete-sprite') {
+        window._spriteDelete(el.getAttribute('data-id'), el.getAttribute('data-name'));
+      }
+    });
+  }
+
   window._spriteDelete = function (id, name) {
     deleteSprite(id, name);
   };
@@ -2545,8 +2620,21 @@
           el.className = 'item-row';
           el.style.padding = '6px 8px';
           el.style.fontSize = '12px';
-          el.innerHTML = '<div style="font-weight: 500; color: var(--accent);">🚪 ' + (w.name || 'Warp') + ' <span style="font-family: monospace; color: var(--text-dim);">(' + w.x + ', ' + w.y + ')</span></div>' +
-            '<div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">→ <strong>' + (w.toMap || '--') + '</strong> (' + w.toX + ', ' + w.toY + ')</div>';
+          el.innerHTML =
+            '<div style="font-weight: 500; color: var(--accent);">🚪 ' +
+            esc(w.name || 'Warp') +
+            ' <span style="font-family: monospace; color: var(--text-dim);">(' +
+            esc(w.x) +
+            ', ' +
+            esc(w.y) +
+            ')</span></div>' +
+            '<div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">→ <strong>' +
+            esc(w.toMap || '--') +
+            '</strong> (' +
+            esc(w.toX) +
+            ', ' +
+            esc(w.toY) +
+            ')</div>';
           warpsList.appendChild(el);
         });
       }

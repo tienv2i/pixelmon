@@ -21,6 +21,7 @@ import {
   type DebugPlayerInfo,
 } from '../ui/DebugModal';
 import { DebugConsole } from '../ui/DebugConsole';
+import { buildDebugRegistry, type DebugApiBundle, type DebugCommandRegistry } from '../debug';
 import { DebugTrackerWidget } from '../ui/DebugTrackerWidget';
 import {
   DebugMapWidget,
@@ -66,32 +67,6 @@ const DEBUG_TRACKER_DEPTH = 33;
 const DEBUG_PROP_DEPTH = 34;
 /** Ô đánh dấu bởi `/tile` — cao nhất trong nhóm overlay debug. */
 const DEBUG_MARKER_DEPTH = 35;
-
-/**
- * Tên đọc được của `terrain_tag` (RMXP/Essentials) — khớp bảng trong
- * `scripts/build-server-map.ts` (`TERRAIN_TAG_TO_FLAG`). Chỉ dùng cho debug.
- */
-function describeTerrainTag(tag: number): string {
-  const names: Record<number, string> = {
-    1: 'Ledge (jump down)',
-    2: 'Grass',
-    3: 'Sand',
-    4: 'Rock',
-    5: 'DeepWater',
-    6: 'StillWater',
-    7: 'Water',
-    8: 'Waterfall',
-    9: 'WaterfallCrest',
-    10: 'TallGrass',
-    11: 'UnderwaterGrass',
-    12: 'Ice',
-    13: 'Neutral',
-    14: 'SootGrass',
-    15: 'Bridge',
-    16: 'Puddle',
-  };
-  return names[tag] ?? `unknown(${tag})`;
-}
 
 /**
  * 3 tầng tilemap chuẩn của bản đồ Essentials (khớp `TiledMapLoader`).
@@ -227,6 +202,9 @@ export class WorldScene extends Phaser.Scene {
   private nightOverlay?: Phaser.GameObjects.Rectangle;
   /** Phase ngày/đêm đang hiển thị — tránh set alpha mỗi frame state. */
   private shownPhase = '';
+  /** Weather + gameMinutes mới nhất server broadcast (cho lệnh `/time`/`/weather`). */
+  private lastWeather = 'sunny';
+  private lastGameMinutes = 0;
   /** Tọa độ ô đang được `/tile` đánh dấu (`null` = chưa đánh dấu). */
   private markedTile: { x: number; y: number } | null = null;
   /** Nhãn toạ độ bám theo nhân vật (công cụ tracking toạ độ). */
@@ -2386,6 +2364,8 @@ export class WorldScene extends Phaser.Scene {
     const gameMinutes = typeof state.gameMinutes === 'number' ? state.gameMinutes : 0;
 
     this.infoPanel?.setServerClock(phase, weather, gameMinutes);
+    this.lastWeather = weather;
+    this.lastGameMinutes = gameMinutes;
     if (phase === this.shownPhase) return;
     this.shownPhase = phase;
 
@@ -3803,518 +3783,149 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  private debugRegistry: DebugCommandRegistry | null = null;
+
+  /**
+   * Cổng lệnh debug duy nhất (chat `/...` + DebugConsole) — delegate cho
+   * `src/debug/` registry (chia nhóm theo tính năng: movement/map/npc/
+   * moderation/ui/systems). Thêm lệnh mới = thêm vào `debug/commands/`,
+   * không phình WorldScene; `/help` tự sinh từ registry.
+   */
   private handleDebugCommand(cmd: string): string | void {
-    const parts = cmd.trim().split(/\s+/);
-    const action = parts[0]?.toLowerCase();
-
-    if (action === '/help') {
-      // `/help` hiển thị mọi lệnh (gồm cả các cửa sổ debug có sẵn).
-      return [
-        t('WS_HELP_HEADER'),
-        t('WS_HELP_HELP'),
-        '• /battle <tên> — Thách đấu PvP người chơi khác (chỉ ở map PvP)',
-        '• /pokedex hoặc /dex — Mở Pokédex (Phím D)',
-        '• /map hoặc /townmap — Mở Bản đồ vùng Essen (Phím M)',
-        '• Phím tắt: [D] Pokédex | [M] Town Map | [B] Túi đồ | [P] Đội hình | [H] Trợ giúp',
-        t('WS_HELP_MAP'),
-        t('WS_HELP_POS'),
-        t('WS_HELP_TILE'),
-        t('WS_HELP_SERVER'),
-        t('WS_HELP_TP'),
-        t('WS_HELP_SPEED'),
-        t('WS_HELP_NOCLIP'),
-        t('WS_HELP_OVERLAY'),
-        t('WS_HELP_LAYER'),
-        t('WS_CMD_DEBUG_GRID'),
-        t('WS_HELP_CLEAR'),
-        t('WS_HELP_SPAWN'),
-        t('WS_HELP_FORCEEVOLVE'),
-        t('WS_HELP_REVERSEEVOLVE'),
-        t('WS_HELP_LEVELDOWN'),
-        t('WS_HELP_LEVELUP'),
-        t('WS_HELP_FORCEFRIEND'),
-        t('WS_HELP_TRADE'),
-        t('WS_HELP_SWITCH'),
-        '• /trainer <id> — Kích hoạt trận đấu trainer test',
-        '• /resetnpc [id|all] — Reset trạng thái/cooldown NPC',
-        '• /npclist — Liệt kê tất cả NPC trên map kèm toạ độ và trạng thái',
-        '• /cooldown <seconds> — Điều chỉnh thời gian cooldown NPC',
-      ].join('\n');
-    }
-
-    // `/trainer <id>` — Kích hoạt trận đấu trainer test (gửi message debug_trainer lên server)
-    if (action === '/trainer') {
-      const trainerId = parts[1];
-      if (!trainerId) return 'Sử dụng: /trainer <id> (kích hoạt trận đấu trainer test)';
-      this.currentBattleTrainerId = trainerId;
-      const remote = ColyseusManager.getInstance().world;
-      if (remote) {
-        remote.send('debug_trainer', { trainerId });
-      }
-      return `[debug] Đã gửi yêu cầu đấu trainer test: ${trainerId}`;
-    }
-
-    // `/resetnpc [id|all]` — Xoá npcId khỏi this.defeatedTrainers và reset cooldown
-    if (action === '/resetnpc') {
-      const target = parts[1] || 'all';
-      if (target === 'all') {
-        const count = this.defeatedTrainers.size;
-        this.defeatedTrainers.clear();
-        this.npcCooldowns.clear();
-        this.saveDefeatedTrainers();
-        return `[debug] Đã reset toàn bộ NPC (${count} trainer đã đánh bại, toàn bộ cooldown đã xoá).`;
-      } else {
-        const removed = this.defeatedTrainers.delete(target);
-        this.npcCooldowns.delete(target);
-        this.saveDefeatedTrainers();
-        return `[debug] Đã reset NPC '${target}' (trạng thái: ${removed ? 'đã xoá khỏi danh sách thắng' : 'chưa từng đánh bại'}, cooldown: đã xoá).`;
-      }
-    }
-
-    // `/npclist` — Liệt kê tất cả NPC trên map kèm toạ độ và trạng thái (Đã đấu / Chưa đấu / Cooldown)
-    if (action === '/npclist') {
-      const npcs = this.collision.getNpcSpawns();
-      if (!npcs || npcs.length === 0) {
-        return `[debug] Bản đồ ${this.collision.mapId} không có NPC nào.`;
-      }
-      const now = Date.now();
-      const lines = [`=== DANH SÁCH NPC TRÊN BẢN ĐỒ (${this.collision.mapId}) ===`];
-      for (const npc of npcs) {
-        const id = npc.npcId;
-        const name = npc.name || id;
-        const isTrainer = this.isTrainerNpc(npc);
-        const defeatedStr = isTrainer ? (this.defeatedTrainers.has(id) ? 'Đã đấu' : 'Chưa đấu') : 'NPC thường';
-        const cdUntil = this.npcCooldowns.get(id);
-        const cdRemain = cdUntil && cdUntil > now ? `${Math.ceil((cdUntil - now) / 1000)}s` : 'Sẵn sàng';
-        lines.push(`• [${id}] ${name} (${npc.x}, ${npc.y}) | Loại: ${isTrainer ? 'Trainer' : 'Dân làng'} | Trạng thái: ${defeatedStr} | Cooldown: ${cdRemain}`);
-      }
-      return lines.join('\n');
-    }
-
-    // `/cooldown <seconds>` — Điều chỉnh thời gian cooldown NPC
-    if (action === '/cooldown') {
-      const secStr = parts[1];
-      const sec = parseFloat(secStr ?? '');
-      if (isNaN(sec) || sec < 0) {
-        return `Sử dụng: /cooldown <seconds> (Hiện tại: ${this.npcCooldownDuration / 1000}s)`;
-      }
-      this.npcCooldownDuration = Math.round(sec * 1000);
-      return `[debug] Đã cập nhật thời gian cooldown tương tác NPC: ${sec}s`;
-    }
-
-    // ── Plan 45 §5.1: Công cụ moderator ──
-    if (action === '/forceevolve') {
-      const slot = parseInt(parts[1] ?? '', 10);
-      if (!Number.isInteger(slot) || slot < 0 || slot > 5) return t('WS_HELP_FORCEEVOLVE');
-      ColyseusManager.getInstance().sendModAction('forceevolve', [String(slot), parts[2] ?? '']);
-      return `[debug] /forceevolve ${slot} ${parts[2] ?? ''}`;
-    }
-    if (action === '/reverseevolve') {
-      const slot = parseInt(parts[1] ?? '', 10);
-      if (!Number.isInteger(slot) || slot < 0 || slot > 5) return t('WS_HELP_REVERSEEVOLVE');
-      ColyseusManager.getInstance().sendModAction('reverseevolve', [String(slot), parts[2] ?? '1', parts[3] ?? '']);
-      return `[debug] /reverseevolve ${slot}`;
-    }
-    if (action === '/leveldown') {
-      const slot = parseInt(parts[1] ?? '', 10);
-      const delta = parseInt(parts[2] ?? '1', 10);
-      if (!Number.isInteger(slot) || !Number.isInteger(delta)) return t('WS_HELP_LEVELDOWN');
-      ColyseusManager.getInstance().sendModAction('leveldown', [String(slot), String(delta)]);
-      return `[debug] /leveldown ${slot} ${delta}`;
-    }
-    if (action === '/levelup') {
-      const slot = parseInt(parts[1] ?? '', 10);
-      const delta = parseInt(parts[2] ?? '1', 10);
-      if (!Number.isInteger(slot) || !Number.isInteger(delta)) return t('WS_HELP_LEVELUP');
-      ColyseusManager.getInstance().sendModAction('levelup', [String(slot), String(delta)]);
-      return `[debug] /levelup ${slot} ${delta}`;
-    }
-    if (action === '/forcefriend') {
-      const slot = parseInt(parts[1] ?? '', 10);
-      const value = parseInt(parts[2] ?? '160', 10);
-      if (!Number.isInteger(slot) || !Number.isInteger(value)) return t('WS_HELP_FORCEFRIEND');
-      ColyseusManager.getInstance().sendModAction('forcefriend', [String(slot), String(value)]);
-      return `[debug] /forcefriend ${slot} ${value}`;
-    }
-    if (action === '/trade') {
-      const slot = parseInt(parts[1] ?? '', 10);
-      if (!Number.isInteger(slot) || slot < 0 || slot > 5) return t('WS_HELP_TRADE');
-      // Lấy pokemonId từ party slot.
-      const party = this.playerPokemonParty;
-      const pkm = party[slot];
-      if (!pkm) return `[debug] /trade — slot ${slot} trống.`;
-      ColyseusManager.getInstance().sendTrade(pkm.id);
-      return `[debug] /trade ${pkm.nickname || pkm.species_id}`;
-    }
-    // `/switch <slot>` — mở mini party box để chọn Pokémon hoán đổi vị trí.
-    if (action === '/switch') {
-      const slot = parseInt(parts[1] ?? '', 10);
-      if (!Number.isInteger(slot) || slot < 0 || slot > 5) return t('WS_HELP_SWITCH');
-      const src = this.playerPokemonParty[slot];
-      if (!src) return `[debug] /switch — slot ${slot} trống.`;
-      this.openPartySelect({
-        title: t('PARTY_SELECT_SWITCH'),
-        hint: t('PARTY_SELECT_HINT'),
-        onSelect: async (target) => {
-          if (target.id === src.id) return;
-          const ok = await ColyseusManager.getInstance().swapPartySlots(src.id, target.id);
-          this.chatLog?.addSystemLine(
-            ok ? t('WS_SWITCH_DONE') : t('WS_SWITCH_FAIL'),
-            ok ? '#7bed9f' : '#ff7675',
-          );
-          if (ok) void this.loadPlayerPokemon();
+    if (!this.debugRegistry) {
+      const scene = this;
+      const api: DebugApiBundle = {
+        // ── movement ──
+        playerPos: () => ({ x: scene.player.x, y: scene.player.y, dir: scene.player.getDirection() }),
+        teleport: (x, y) => scene.teleportPlayer(x, y),
+        switchMap: (mapId) => scene.switchMap(mapId),
+        noclip: () => scene.noclip,
+        setNoclip: (v) => scene.setNoclip(v),
+        speed: () => scene.speedMultiplier,
+        setSpeed: (mult) => {
+          scene.speedMultiplier = mult;
         },
-      });
-      return `[debug] /switch ${src.nickname || src.species_id} ↔ ?`;
-    }
-
-    // `/spawn` — gọi cửa sổ battle với Pokémon wild (hỗ trợ cả ngắn gọn lẫn chi tiết).
-    if (action === '/spawn') {
-      const args = parts.slice(1).join(' ').trim();
-      const lower = args.toLowerCase();
-      if (lower === 'help' || lower === '?' || lower === '-h' || lower === '--help') {
-        return [
-          '=== LỆNH /SPAWN (TRIỆU HỒI POKÉMON HOANG) ===',
-          '• Ngắn gọn: /spawn <tên|dex> [level] [shiny]',
-          '  VD: /spawn pikachu | /spawn 25 50 | /spawn mew 100 s',
-          '• Chi tiết (Key=Value):',
-          '  level=<1-100> | lv=<n>   (Cấp độ)',
-          '  shiny=<true|false> | s   (Sắc khác / Shiny)',
-          '  nature=<tên>             (adamant, timid, modest, jolly...)',
-          '  gender=<m|f|none>        (Giới tính)',
-          '  held=<item_id>           (Vật phẩm mang theo: light-ball, leftovers...)',
-          '  iv=<0-31|max|min>        (Chỉ số IVs)',
-          '  moves=<m1,m2...>         (Chiêu thức: vd moves=psychic,surf)',
-          '  hp=<1..max>              (Máu ban đầu: vd hp=1 test bắt)',
-          '• Ví dụ mẫu:',
-          '  /spawn pikachu 50 shiny nature=timid held=light-ball',
-          '  /spawn 150 lv=70 iv=31 moves=psychic,aurasphere hp=1',
-        ].join('\n');
-      }
-
-      ColyseusManager.getInstance().sendDebugSpawn(args || undefined);
-      return args
-        ? `[debug] Đang triệu hồi: /spawn ${args}...`
-        : `[debug] Đang triệu hồi Pokémon ngẫu nhiên theo bản đồ...`;
-    }
-
-    if (action === '/pokedex' || action === '/dex') {
-      this.openPokedex();
-      return '[UI] Đã mở Pokédex.';
-    }
-
-    if (action === '/townmap' || action === '/map') {
-      if (parts[1] === 'info' || parts[1] === 'debug') {
-        const meta = MAPS[this.currentMapId];
-        const tmj = TILED_MAPS[this.currentMapId];
-        const objGroup = tmj?.layers?.find((l: any) => l.type === 'objectgroup');
-        const warpsCount = objGroup?.objects?.length ?? 0;
-        return [
-          `Bản đồ: ${meta?.name ?? this.currentMapId} (${this.currentMapId})`,
-          `Kích thước: ${Math.round(this.mapWidth / TILE_SIZE)}×${Math.round(this.mapHeight / TILE_SIZE)} tiles (${this.mapWidth}×${this.mapHeight}px)`,
-          `Số lớp: ${this.tiledLayers.length || 1} | Điểm warp: ${warpsCount}`,
-          `Tileset: ${this.currentMapId.includes('house') || this.currentMapId.includes('lab') ? 'Interior general.png' : 'Outside.png'}`,
-        ].join('\n');
-      }
-      this.openTownMap();
-      return '[UI] Đã mở Bản đồ vùng Essen (Town Map).';
-    }
-
-    if (action === '/pos') {
-      const tileX = Math.floor(this.player.x / TILE_SIZE);
-      const tileY = Math.floor(this.player.y / TILE_SIZE);
-      const cam = this.cameras.main;
-      return [
-        `Pixel: (${this.player.x.toFixed(1)}, ${this.player.y.toFixed(1)}) | Tile: [${tileX}, ${tileY}]`,
-        `Hướng: ${this.player.getDirection().toUpperCase()} | Noclip: ${this.noclip ? 'BẬT' : 'TẮT'}`,
-        `Camera: (${Math.round(cam.scrollX)}, ${Math.round(cam.scrollY)}) | Zoom: ${cam.zoom.toFixed(2)}x`,
-      ].join('\n');
-    }
-
-    if (action === '/server') {
-      const client = ColyseusManager.getInstance();
-      return [
-        `Origin: ${SERVER_ORIGIN}`,
-        `Room: ${this.currentMapId}`,
-        `Session ID: ${client.id ?? 'Connected'}`,
-        `Debug Access: ${client.hasDebugAccess() ? t('WS_DEBUG_ACCESS_YES') : t('WS_DEBUG_ACCESS_NO')}`,
-      ].join('\n');
-    }
-
-    // `/tile [x] [y]` — soi 1 ô: gid 3 lớp, tile property (terrain_tag/passage),
-    //   và collision flag từ server JSON. Bỏ trống → ô đang đứng (center → tile).
-    //   Dùng để trả lời nhanh: "ô này có phải terrain (cỏ/nước/ledge) không?"
-    if (action === '/tile') {
-      const mapW = Math.round(this.mapWidth / TILE_SIZE);
-      const mapH = Math.round(this.mapHeight / TILE_SIZE);
-
-      // `/tile off` — xoá đánh dấu ô đang hiển thị trên bản đồ.
-      if (parts[1]?.toLowerCase() === 'off') {
-        this.clearTileMarker();
-        return `${t('WS_TILE_CELL')}: ${t('WS_TILE_MARKER_CLEARED')}`;
-      }
-
-      let tx: number;
-      let ty: number;
-      if (parts.length >= 3) {
-        tx = parseInt(parts[1], 10);
-        ty = parseInt(parts[2], 10);
-        if (!Number.isInteger(tx) || !Number.isInteger(ty)) return t('WS_CMD_TILE');
-      } else {
-        tx = Math.floor(this.player.x / TILE_SIZE);
-        ty = Math.floor(this.player.y / TILE_SIZE);
-      }
-      if (tx < 0 || ty < 0 || tx >= mapW || ty >= mapH) {
-        return `${t('WS_TILE_OOB')} (${tx}, ${ty}) — ${mapW}×${mapH}`;
-      }
-
-      // Đánh dấu ô trên bản đồ (viền + nhãn toạ độ) trước khi in thông tin.
-      this.markTile(tx, ty);
-
-      const tmj = TILED_MAPS[this.currentMapId];
-      const idx = ty * mapW + tx;
-      const rows: string[] = [`${t('WS_TILE_CELL')}: (${tx}, ${ty}) [map ${this.currentMapId}]`];
-
-      // 1) gid trên từng lớp + property của tile trong Tiled (nguồn terrain thật).
-      const props = new Map<string, unknown>();
-      const gidLines: string[] = [];
-      let firstGid = 1;
-      if (tmj?.tilesets?.[0]) {
-        firstGid = tmj.tilesets[0].firstgid ?? 1;
-        for (const layer of tmj.layers) {
-          if (layer.type !== 'tilelayer' || !layer.data) continue;
-          const gid = layer.data[idx] ?? 0;
-          if (gid === 0) {
-            gidLines.push(`    ${layer.name}: ${t('WS_TILE_EMPTY')}`);
-            continue;
+        camera: () => {
+          const cam = scene.cameras.main;
+          return { x: cam.scrollX, y: cam.scrollY, zoom: cam.zoom };
+        },
+        // ── map ──
+        currentMapId: () => scene.currentMapId,
+        mapSizePx: () => ({ w: scene.mapWidth, h: scene.mapHeight }),
+        layersCount: () => scene.tiledLayers.length,
+        collisionFlag: (tx, ty) => scene.collision.getFlag(tx, ty),
+        terrainAt: (tx, ty) => scene.getTerrainAt(tx, ty),
+        markTile: (tx, ty) => scene.markTile(tx, ty),
+        clearTileMarker: () => scene.clearTileMarker(),
+        overlayVisible: (key) =>
+          key === 'grid'
+            ? (scene.gridOverlay?.visible ?? false)
+            : key === 'collision'
+              ? (scene.collisionOverlay?.visible ?? false)
+              : (scene.warpOverlay?.visible ?? false),
+        setOverlay: (key, on) => {
+          if (key === 'grid') scene.setGridOverlay(on);
+          else if (key === 'collision') scene.setCollisionOverlay(on);
+          else scene.setWarpOverlay(on);
+        },
+        layerOn: (key) => scene.layerVisibility[key],
+        setLayer: (key, on) => scene.setMapLayerVisible(key, on),
+        syncToggle: (key, on) => scene.debugModal?.setToggleState(key, on),
+        openTownMap: () => scene.openTownMap(),
+        propQuery: () => scene.propOverlayQuery,
+        setPropQuery: (q) => {
+          scene.propOverlayQuery = q;
+        },
+        setPropOverlay: (on) => scene.setPropOverlay(on),
+        propHits: () => scene.propOverlayHits,
+        playerTile: () => ({
+          x: Math.floor(scene.player.x / TILE_SIZE),
+          y: Math.floor(scene.player.y / TILE_SIZE),
+        }),
+        // ── npc ──
+        requestTrainerBattle: (trainerId) => {
+          scene.currentBattleTrainerId = trainerId;
+          const remote = ColyseusManager.getInstance().world;
+          if (remote) remote.send('debug_trainer', { trainerId });
+        },
+        resetNpc: (target) => {
+          if (target === 'all') {
+            const count = scene.defeatedTrainers.size;
+            scene.defeatedTrainers.clear();
+            scene.npcCooldowns.clear();
+            scene.saveDefeatedTrainers();
+            return { cleared: count, removed: true };
           }
-          gidLines.push(`    ${layer.name}: gid=${gid} tile_id=${gid - firstGid}`);
-          if (layer.name.toLowerCase() !== 'ground') continue; // terrain chỉ đọc ở Ground
-          const tile = tmj.tilesets[0]?.tiles?.find((x) => x.id === gid - firstGid);
-          for (const p of tile?.properties ?? []) props.set(p.name, p.value);
-        }
-      }
-      rows.push(`${t('WS_TILE_LAYERS')}:`, ...(gidLines.length ? gidLines : [`    ${t('WS_TILE_EMPTY')}`]));
-
-      const terrain = props.get('terrain_tag');
-      const passage = props.get('passage');
-      rows.push(
-        `${t('WS_TILE_TERRAIN')}: ${
-          terrain === undefined
-            ? `${t('WS_TILE_TERRAIN_NONE')} (không có terrain_tag)`
-            : `terrain_tag=${String(terrain)} (${describeTerrainTag(Number(terrain))})`
-        }`,
-        `${t('WS_TILE_PASSAGE')}: ${passage === undefined ? '—' : String(passage)}`,
-      );
-
-      // 2) Collision flag từ server JSON (client bundle — cùng logic với server).
-      const flag = this.collision.getFlag(tx, ty);
-      const bits: string[] = [];
-      if (flag & 0x01) bits.push(t('WS_TILE_WALKABLE'));
-      if (flag & 0x04) bits.push(t('WS_TILE_BLOCKED'));
-      if (flag & 0x02) bits.push(t('WS_TILE_WATER'));
-      if (flag & 0x08) bits.push(`** ${t('WS_TILE_GRASS')} **`);
-      if (flag & 0x60) bits.push(`${t('WS_TILE_LEDGE')} 0x${(flag & 0x60).toString(16)}`);
-      if (flag & 0x80) bits.push(t('WS_TILE_WARP'));
-      // Bit 8-11: passage theo hướng (RMXP) — hướng bị chặn.
-      const passBits: string[] = [];
-      if (flag & 0x0100) passBits.push('down');
-      if (flag & 0x0200) passBits.push('left');
-      if (flag & 0x0400) passBits.push('right');
-      if (flag & 0x0800) passBits.push('up');
-      if (passBits.length) bits.push(`passage chặn: ${passBits.join(', ')}`);
-      rows.push(`${t('WS_TILE_FLAG')}: 0x${flag.toString(16).padStart(4, '0')} → ${bits.join(' | ') || '—'}`);
-      rows.push(`${t('WS_TILE_MARKER')}: (${tx}, ${ty})`);
-      return rows.join('\n');
+          const removed = scene.defeatedTrainers.delete(target);
+          scene.npcCooldowns.delete(target);
+          scene.saveDefeatedTrainers();
+          return { cleared: 0, removed };
+        },
+        npcList: () => {
+          const npcs = scene.collision.getNpcSpawns();
+          const now = Date.now();
+          return {
+            mapId: scene.collision.mapId,
+            npcs: (npcs ?? []).map((npc) => {
+              const id = npc.npcId;
+              const cdUntil = scene.npcCooldowns.get(id);
+              return {
+                npcId: id,
+                name: npc.name || id,
+                x: npc.x,
+                y: npc.y,
+                isTrainer: scene.isTrainerNpc(npc),
+                defeated: scene.defeatedTrainers.has(id),
+                cdRemain:
+                  cdUntil && cdUntil > now ? `${Math.ceil((cdUntil - now) / 1000)}s` : 'Sẵn sàng',
+              };
+            }),
+          };
+        },
+        cooldownDuration: () => scene.npcCooldownDuration,
+        setCooldownDuration: (ms) => {
+          scene.npcCooldownDuration = ms;
+        },
+        // ── moderation ──
+        partySlot: (i) => scene.playerPokemonParty[i],
+        openPartySelect: (opts) =>
+          scene.openPartySelect({
+            title: opts.title,
+            hint: opts.hint,
+            onSelect: (p) => {
+              void opts.onSelect(p);
+            },
+          }),
+        reloadParty: () => {
+          void scene.loadPlayerPokemon();
+        },
+        systemLine: (msg, color) => scene.chatLog?.addSystemLine(msg, color),
+        // ── ui ──
+        openPokedex: () => scene.openPokedex(),
+        clearConsoleAndChat: () => {
+          scene.debugConsole?.clearLogs();
+          scene.chatLog?.clear();
+        },
+        serverInfo: () => {
+          const c = ColyseusManager.getInstance();
+          return {
+            origin: SERVER_ORIGIN,
+            room: scene.currentMapId,
+            session: c.id || 'Connected',
+            debugAccess: c.hasDebugAccess(),
+          };
+        },
+        // ── systems (ngày/đêm + thời tiết) ──
+        clock: () => ({
+          phase: scene.shownPhase || 'day',
+          weather: scene.lastWeather,
+          gameMinutes: scene.lastGameMinutes,
+          mapId: scene.currentMapId,
+        }),
+      };
+      this.debugRegistry = buildDebugRegistry(api);
     }
-
-    if (action === '/noclip') {
-      const arg = parts[1]?.toLowerCase();
-      const next = arg === 'on' ? true : arg === 'off' ? false : !this.noclip;
-      this.setNoclip(next);
-      return `${t('WS_NOCLIP_MODE')}${next ? t('WS_NOCLIP_ON') : t('WS_NOCLIP_OFF')}`;
-    }
-
-    if (action === '/clear') {
-      this.debugConsole?.clearLogs();
-      // Xoá luôn nội dung khung chat (không hiện dòng confirm).
-      this.chatLog?.clear();
-      return;
-    }
-
-    if (action === '/tp') {
-      if (parts.length === 2) {
-        this.switchMap(parts[1]);
-        return `${t('WS_TP_MOVING')}${parts[1]}`;
-      } else if (parts.length >= 3) {
-        const x = parseFloat(parts[1]);
-        const y = parseFloat(parts[2]);
-        this.teleportPlayer(x, y);
-        return `${t('WS_TELEPORT_TO')}(${x}, ${y})`;
-      }
-      return t('WS_CMD_TP');
-    }
-
-    if (action === '/speed') {
-      const mult = parseFloat(parts[1]);
-      if (!isNaN(mult) && mult > 0) {
-        this.speedMultiplier = mult;
-        return `${t('WS_SPEED')}${mult}x`;
-      }
-      return t('WS_CMD_SPEED');
-    }
-
-    // ── Overlay & lớp bản đồ ──
-    if (action === '/overlay') {
-      const key = parts[1]?.toLowerCase();
-      if (!key || !['grid', 'collision', 'warp'].includes(key)) {
-        return t('WS_CMD_OVERLAY');
-      }
-      const curr =
-        key === 'grid'
-          ? (this.gridOverlay?.visible ?? false)
-          : key === 'collision'
-            ? (this.collisionOverlay?.visible ?? false)
-            : (this.warpOverlay?.visible ?? false);
-      if (parts.length < 3) {
-        return `${t('WS_OVERLAY_STATE')}${key}": ${curr ? t('WS_OVERLAY_ON') : t('WS_OVERLAY_OFF')}`;
-      }
-      const on = parts[2].toLowerCase() !== 'off';
-      if (key === 'grid') {
-        this.setGridOverlay(on);
-        this.debugModal?.setToggleState('grid', on);
-      } else if (key === 'collision') {
-        this.setCollisionOverlay(on);
-        this.debugModal?.setToggleState('collision', on);
-      } else {
-        this.setWarpOverlay(on);
-        this.debugModal?.setToggleState('warp', on);
-      }
-      return `${t('WS_OVERLAY_STATE')}${key}": ${on ? t('WS_OVERLAY_ENABLED') : t('WS_OVERLAY_DISABLED')}`;
-    }
-
-    // `/layer <ground|decoration|overhead> [on|off]` — bật/tắt 1 lớp tilemap.
-    if (action === '/layer') {
-      const key = parts[1]?.toLowerCase() as MapLayerKey | undefined;
-      if (!key || !MAP_LAYER_KEYS.includes(key)) {
-        return t('WS_CMD_LAYER');
-      }
-      if (parts.length < 3) {
-        return `${t('WS_LAYER_STATE')}${key}": ${this.layerVisibility[key] ? t('WS_LAYER_ON') : t('WS_LAYER_OFF')}`;
-      }
-      const on = parts[2].toLowerCase() !== 'off';
-      this.setMapLayerVisible(key, on);
-      this.debugModal?.setToggleState(`layer_${key}`, on);
-      return `${t('WS_LAYER_STATE')}${key}": ${on ? t('WS_LAYER_VISIBLE') : t('WS_LAYER_HIDDEN')}`;
-    }
-
-    // `/debug grid property <name[=value]>` — tô đậm ô theo tile property trong Tiled.
-    //   /debug grid property terrain_tag=2   → tô mọi ô có terrain_tag = 2 (cỏ thật)
-    //   /debug grid property ledge_dir       → tô mọi ô có ledge_dir (bất kể hướng)
-    //   /debug grid property                 → tắt overlay
-    // Dùng để đối chiếu vùng cỏ THẬT (spawn_zone/terrain_tag trong Tiled).
-    // `spawnZones` trong constants/maps.ts chỉ là MỐC KIỂM TRA (không inject nữa).
-    if (action === '/debug') {
-      const sub = parts[1]?.toLowerCase();
-
-      // `/debug terrain <num|all|none>` — tô mọi ô có `terrain_tag = num`
-      //   (vd `/debug terrain 2` = cỏ thật). `all` = mọi ô có terrain_tag
-      //   (bất kể giá trị). `none` hoặc bỏ trống → tắt overlay.
-      if (sub === 'terrain') {
-        const arg = parts[2]?.toLowerCase();
-        if (arg === undefined || arg === 'none' || arg === '') {
-          this.propOverlayQuery = '';
-          this.setPropOverlay(false);
-          return `${t('WS_TERRAIN_OVERLAY_STATE')}: ${t('WS_PROP_OVERLAY_OFF')}`;
-        }
-        if (arg === 'all') {
-          this.propOverlayQuery = 'terrain_tag';
-          this.setPropOverlay(true);
-          return [
-            `${t('WS_TERRAIN_OVERLAY_STATE')}: ${t('WS_PROP_OVERLAY_ON')}`,
-            `${t('WS_PROP_OVERLAY_QUERY')}: terrain_tag (mọi giá trị)`,
-            `${t('WS_PROP_OVERLAY_HITS')}: ${this.propOverlayHits}`,
-          ].join('\n');
-        }
-        const num = parseInt(arg, 10);
-        if (!Number.isInteger(num) || num < 0) return t('WS_CMD_TERRAIN');
-        this.propOverlayQuery = `terrain_tag=${num}`;
-        this.setPropOverlay(true);
-        return [
-          `${t('WS_TERRAIN_OVERLAY_STATE')}: ${t('WS_PROP_OVERLAY_ON')}`,
-          `${t('WS_PROP_OVERLAY_QUERY')}: terrain_tag=${num} (${describeTerrainTag(num)})`,
-          `${t('WS_PROP_OVERLAY_HITS')}: ${this.propOverlayHits}`,
-        ].join('\n');
-      }
-
-      // `/debug is_terrain <x> <y>` — kiểm tra 1 ô có phải terrain không.
-      //   Bỏ trống → ô nhân vật đang đứng. Trả về terrain_tag + tên đọc được.
-      if (sub === 'is_terrain') {
-        const mapW = Math.round(this.mapWidth / TILE_SIZE);
-        const mapH = Math.round(this.mapHeight / TILE_SIZE);
-        let tx: number;
-        let ty: number;
-        if (parts.length >= 4) {
-          tx = parseInt(parts[2], 10);
-          ty = parseInt(parts[3], 10);
-          if (!Number.isInteger(tx) || !Number.isInteger(ty)) return t('WS_CMD_IS_TERRAIN');
-        } else {
-          tx = Math.floor(this.player.x / TILE_SIZE);
-          ty = Math.floor(this.player.y / TILE_SIZE);
-        }
-        if (tx < 0 || ty < 0 || tx >= mapW || ty >= mapH) {
-          return `${t('WS_TILE_OOB')} (${tx}, ${ty}) — ${mapW}×${mapH}`;
-        }
-        const tag = this.getTerrainAt(tx, ty);
-        const rows = [`${t('WS_TILE_CELL')}: (${tx}, ${ty}) [map ${this.currentMapId}]`];
-        if (tag === undefined) {
-          rows.push(`${t('WS_TILE_TERRAIN')}: ${t('WS_TILE_TERRAIN_NONE')}`);
-        } else {
-          rows.push(
-            `${t('WS_TILE_TERRAIN')}: terrain_tag=${tag} (${describeTerrainTag(tag)})`,
-          );
-        }
-        return rows.join('\n');
-      }
-
-      // `/debug passage <up|down|left|right|all|none>` — tô ô có `passage` chặn hướng.
-      //   Dùng để kiểm hàng loạt sau khi vẽ `passage` trong Tiled.
-      if (sub === 'passage') {
-        const arg = parts[2]?.toLowerCase();
-        if (arg === undefined || arg === 'none' || arg === '') {
-          this.propOverlayQuery = '';
-          this.setPropOverlay(false);
-          return `${t('WS_PASSAGE_OVERLAY')}: ${t('WS_PROP_OVERLAY_OFF')}`;
-        }
-        const valid = ['up', 'down', 'left', 'right', 'all'];
-        if (!valid.includes(arg)) return t('WS_CMD_PASSAGE');
-        // Map hướng → bit passage của RMXP (bit 0-3).
-        const bit: Record<string, number> = { down: 0x01, left: 0x02, right: 0x04, up: 0x08 };
-        this.propOverlayQuery = arg === 'all' ? 'passage' : `passage=${bit[arg]}`;
-        this.setPropOverlay(true);
-        return [
-          `${t('WS_PASSAGE_OVERLAY')}: ${t('WS_PROP_OVERLAY_ON')}`,
-          `${t('WS_PROP_OVERLAY_QUERY')}: passage=${arg}`,
-          `${t('WS_PROP_OVERLAY_HITS')}: ${this.propOverlayHits}`,
-        ].join('\n');
-      }
-
-      return t('WS_CMD_DEBUG_GRID');
-    }
-
-    // `/debug off` — tắt toàn bộ overlay debug (grid/collision/warp/terrain/marker).
-    if (action === '/debug' && !parts[1]) {
-      this.setGridOverlay(false);
-      this.setCollisionOverlay(false);
-      this.setWarpOverlay(false);
-      this.setPropOverlay(false);
-      this.clearTileMarker();
-      this.debugModal?.setToggleState('grid', false);
-      this.debugModal?.setToggleState('collision', false);
-      this.debugModal?.setToggleState('warp', false);
-      return t('WS_DEBUG_OFF');
-    }
-
-    return `${t('WS_CMD_INVALID')}${cmd}${t('WS_CMD_HELP')}`;
+    return this.debugRegistry.execute(cmd);
   }
 }
+
